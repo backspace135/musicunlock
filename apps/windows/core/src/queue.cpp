@@ -74,6 +74,19 @@ std::string AudioJob::subtitle() const {
     return platform_for(ascii_lower(ext)) + " · " + format_file_size(size);
 }
 
+std::string AudioJob::spoken_summary() const {
+    std::string text = display_title() + "，" + subtitle() + "，" + source_format() + "，" + std::string(state_label(state));
+    if (state == JobState::failed && !detail.empty()) text += "：" + detail;
+    if (state == JobState::done && !output_extension.empty()) {
+        std::string ext = output_extension;
+        for (char& c : ext) {
+            if (c >= 'a' && c <= 'z') c = static_cast<char>(c - 32);
+        }
+        text += "，输出 " + ext;
+    }
+    return text;
+}
+
 std::string AudioQueue::add(const ImportScan& scan) {
     std::set<std::filesystem::path> existing;
     for (const auto& job : jobs_) existing.insert(job.source);

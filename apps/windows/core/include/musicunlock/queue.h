@@ -39,6 +39,8 @@ struct AudioJob {
     std::string display_title() const;  // tag title, else the source file name without extension
     std::string source_format() const;  // "NCM"
     std::string subtitle() const;       // "网易云 · 28.4 MB"
+    /// The whole row for screen readers: "远行的旋律，网易云 · 28.4 MB，NCM，未完成：<reason>".
+    std::string spoken_summary() const;
 };
 
 class AudioQueue {
