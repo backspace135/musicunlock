@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#6A97FF"/>
+      <stop offset="0.55" stop-color="#3D63E6"/>
+      <stop offset="1" stop-color="#2639B0"/>
+    </linearGradient>
+    <radialGradient id="bgGlow" cx="0.3" cy="0.12" r="0.75">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="disc" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#1F2A55"/>
+      <stop offset="1" stop-color="#0C1230"/>
+    </radialGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0.2" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="0.42" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0"/>
+      <stop offset="0.75" stop-color="#9DB8FF" stop-opacity="0.12"/>
+      <stop offset="0.85" stop-color="#9DB8FF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="label" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFB36B"/>
+      <stop offset="1" stop-color="#FF5C7A"/>
+    </linearGradient>
+    <linearGradient id="box" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#DCE5FF"/>
+    </linearGradient>
+    <linearGradient id="cavity" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0E1A5C" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#0E1A5C" stop-opacity="0.15"/>
+    </linearGradient>
+    <linearGradient id="keyhole" gradientUnits="userSpaceOnUse" x1="0" y1="688" x2="0" y2="780">
+      <stop offset="0" stop-color="#2F4BD0"/>
+      <stop offset="1" stop-color="#4C6FF0"/>
+    </linearGradient>
+    <filter id="iconShadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="-6" stdDeviation="10" flood-color="#0A1450" flood-opacity="0.35"/>
+    </filter>
+    <filter id="discShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#0A1450" flood-opacity="0.45"/>
+    </filter>
+    <clipPath id="squircle"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
+  </defs>
+
+  <g filter="url(#iconShadow)">
+    <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#bg)"/>
+  </g>
+  <g clip-path="url(#squircle)">
+    <rect x="100" y="100" width="824" height="824" fill="url(#bgGlow)"/>
+
+    <!-- open box cavity behind the disc -->
+    <rect x="244" y="582" width="536" height="64" rx="26" fill="url(#cavity)"/>
+
+    <!-- vinyl rising out of the box -->
+    <g filter="url(#discShadow)">
+      <circle cx="512" cy="452" r="246" fill="url(#disc)"/>
+    </g>
+    <g fill="none" stroke="#FFFFFF" stroke-opacity="0.09" stroke-width="3">
+      <circle cx="512" cy="452" r="222"/>
+      <circle cx="512" cy="452" r="198"/>
+      <circle cx="512" cy="452" r="174"/>
+      <circle cx="512" cy="452" r="150"/>
+      <circle cx="512" cy="452" r="126"/>
+    </g>
+    <circle cx="512" cy="452" r="246" fill="url(#sheen)"/>
+    <circle cx="512" cy="452" r="246" fill="none" stroke="#FFFFFF" stroke-opacity="0.14" stroke-width="2"/>
+    <circle cx="512" cy="452" r="92" fill="url(#label)"/>
+    <circle cx="512" cy="452" r="92" fill="none" stroke="#FFFFFF" stroke-opacity="0.35" stroke-width="3"/>
+    <!-- note on the label -->
+    <path transform="translate(9 16)" d="M500 400 v62 a20 20 0 1 1 -12 -18 v-54 l52 -12 v20 z" fill="#FFFFFF" fill-opacity="0.96"/>
+
+    <!-- box front (匣) -->
+    <g filter="url(#soft)">
+      <rect x="222" y="614" width="580" height="210" rx="52" fill="url(#box)"/>
+    </g>
+    <!-- lid edge -->
+    <rect x="222" y="614" width="580" height="210" rx="52" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+    <path d="M274 652 H750" stroke="#3550D6" stroke-opacity="0.10" stroke-width="4" stroke-linecap="round"/>
+    <!-- keyhole -->
+    <g fill="url(#keyhole)">
+      <circle cx="512" cy="712" r="24"/>
+      <path d="M499 722 L525 722 L533 772 Q512 780 491 772 Z"/>
+    </g>
+  </g>
+</svg>

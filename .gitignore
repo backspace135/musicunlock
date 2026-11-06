@@ -1,0 +1,43 @@
+# macOS and local tooling state
+.DS_Store
+.omc/
+.claude/
+.opencode/
+.idea/
+.vscode/
+
+# Build output and dependency caches (all platforms)
+build/
+.build/
+.swiftpm/
+dist/
+node_modules/
+coverage/
+__pycache__/
+*.pyc
+*.log
+
+# Windows / Visual Studio
+.vs/
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+ARM64/
+*.user
+*.suo
+*.VC.db
+*.VC.VC.opendb
+*.aps
+*.ipch
+
+# Local credentials and signing material
+.env
+.env.*
+!.env.example
+*.p12
+*.pfx
+*.key
+*.pem
