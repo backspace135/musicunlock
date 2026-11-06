@@ -4,9 +4,10 @@
      is enough. Packages come from scripts/restore.py; build through scripts/build_app.py. -->
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <MuPackages>$(MSBuildThisFileDirectory)..\build\packages\</MuPackages>
+    <!-- Written by scripts/restore.py; imports each package from the (possibly shared) package store. -->
+    <MuImports>$(MSBuildThisFileDirectory)..\build\nuget-imports</MuImports>
   </PropertyGroup>
-  <Import Project="$(MuPackages)imports.props" Condition="Exists('$(MuPackages)imports.props')" />
+  <Import Project="$(MuImports).props" Condition="Exists('$(MuImports).props')" />
   <PropertyGroup Label="Globals">
     <ProjectGuid>{6F1C2B7E-3D4A-4E58-9B21-0C7A5D9E8F31}</ProjectGuid>
     <ProjectName>MusicUnlock</ProjectName>
@@ -160,7 +161,7 @@
     </Image>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <Import Project="$(MuPackages)imports.targets" Condition="Exists('$(MuPackages)imports.targets')" />
+  <Import Project="$(MuImports).targets" Condition="Exists('$(MuImports).targets')" />
   <!-- Desktop C++ projects get no XAML build steps from VC (those come with the "Windows Store"
        application type), so run the WinUI markup compiler around MIDL ourselves:
        pass 1 (XAML -> .g.h and IDL inputs) before MIDL, pass 2 (type info) before C++ compilation. -->
@@ -176,6 +177,6 @@
     </ItemGroup>
   </Target>
   <Target Name="MuEnsurePackages" BeforeTargets="PrepareForBuild">
-    <Error Condition="!Exists('$(MuPackages)imports.targets')" Text="NuGet 包尚未恢复，请先运行 python scripts/restore.py" />
+    <Error Condition="!Exists('$(MuImports).targets')" Text="NuGet 包尚未恢复，请先运行 python scripts/restore.py" />
   </Target>
 </Project>

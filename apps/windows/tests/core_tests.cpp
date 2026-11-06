@@ -200,13 +200,15 @@ TEST(long_output_paths_are_writable) {
     // Deeper than MAX_PATH (260) once the 180-unit name is added.
     fs::path folder = fresh_scratch("long");
     for (int i = 0; i < 3; ++i) folder /= std::string(40, static_cast<char>('a' + i));
-    fs::create_directories(folder);
+    // Test setup goes through extended-length paths too: in a deep checkout (a git worktree) these
+    // folders and the renamed source are already past MAX_PATH before the core is involved.
+    fs::create_directories(removable(folder));
     Bytes encrypted = wave_fixture();
     for (auto& b : encrypted) b ^= 0xa3;
     const fs::path source = scratch_root / "long" / "short.uc";
     write_bytes(source, encrypted);
     const fs::path renamed = scratch_root / "long" / mu::utf8_to_path(std::string(150, 'y') + ".uc");
-    fs::rename(source, renamed);
+    fs::rename(removable(source), removable(renamed));
     const auto output = mu::convert_file(renamed, folder, mu::NamingPolicy::original);
     CHECK(mu::path_to_utf8(output.path).size() > 260);
     CHECK_EQ(mu::detail::read_file(output.path), wave_fixture(), "long path output");

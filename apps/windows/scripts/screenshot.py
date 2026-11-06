@@ -1,30 +1,37 @@
 #!/usr/bin/env python3
 """Render the WinUI app's previews on a private desktop (Windows only).
 
-A one-shot scheduled task named MusicUnlockShot starts tools/desktop_shot.exe in the signed-in session
+A one-shot scheduled task (MusicUnlockShot-<checkout id>) starts tools/desktop_shot.exe in the signed-in session
 (an SSH session has no desktop compositor). The helper creates a separate desktop, runs the app there in
 render mode and closes the desktop; the user's own desktop is never shown or captured. The task is deleted
 right after the run. PNGs go to build/previews. --convert also imports and converts sample files and checks the output.
 """
 from pathlib import Path
 import argparse
+import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
 import time
+from xml.sax.saxutils import escape
 
 from build import BUILD, ROOT, msvc_environment
 from smoke_cli import wave
 
-TASK = "MusicUnlockShot"
+# Task and desktop names are unique per checkout, so parallel worktrees can render at the same time.
+CHECKOUT_ID = hashlib.sha256(str(ROOT).lower().encode()).hexdigest()[:8]
+TASK = f"MusicUnlockShot-{CHECKOUT_ID}"
+DESKTOP = f"MusicUnlockShot-{CHECKOUT_ID}"
 
 
 def build_helper() -> Path:
     source = ROOT / "tools" / "desktop_shot.cpp"
     helper = BUILD / "tools" / "desktop_shot.exe"
-    if helper.exists() and helper.stat().st_mtime >= source.stat().st_mtime:
+    # Rebuild when the source or the build flags below change.
+    newest = max(source.stat().st_mtime, Path(__file__).stat().st_mtime)
+    if helper.exists() and helper.stat().st_mtime >= newest:
         return helper
     helper.parent.mkdir(parents=True, exist_ok=True)
     tmp = BUILD / "tmp"
@@ -32,8 +39,41 @@ def build_helper() -> Path:
     env.update(TMP=str(tmp), TEMP=str(tmp))
     cl = shutil.which("cl", path=env.get("PATH") or env.get("Path"))
     subprocess.run([cl, "/nologo", "/utf-8", "/W4", "/EHsc", "/O2", "/MT", "/std:c++20", str(source),
-                    f"/Fe{helper}", f"/Fo{helper.parent}\\", "/link", "user32.lib"], env=env, check=True)
+                    f"/Fe{helper}", f"/Fo{helper.parent}\\", "/link", "user32.lib",
+                    # No console: the task starts it in the user's session, where a console window would show.
+                    "/SUBSYSTEM:WINDOWS", "/ENTRY:wmainCRTStartup"], env=env, check=True)
     return helper
+
+
+def task_xml(program: Path, arguments: list[str], user: str) -> str:
+    """On-demand task in the signed-in session. XML instead of schtasks /TR, which caps the whole command
+    line at 261 characters (too short for worktree paths), and so it also runs on battery."""
+    command_line = " ".join(f'"{argument}"' for argument in arguments)
+    return f"""<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo><Description>MusicUnlock preview render; deleted after the run.</Description></RegistrationInfo>
+  <Principals>
+    <Principal id="Author">
+      <UserId>{escape(user)}</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <ExecutionTimeLimit>PT5M</ExecutionTimeLimit>
+    <Enabled>true</Enabled>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>{escape(str(program))}</Command>
+      <Arguments>{escape(command_line)}</Arguments>
+    </Exec>
+  </Actions>
+</Task>
+"""
 
 
 def prepare_conversion() -> tuple[Path, bytes]:
@@ -60,13 +100,14 @@ def main() -> None:
     output = BUILD / "previews"
     shutil.rmtree(output, ignore_errors=True)
     output.mkdir(parents=True)
-    command = f'"{helper}" "{app}" "{output}"'
+    arguments = [DESKTOP, str(app), str(output)]
     if args.convert:
         folder, audio = prepare_conversion()
-        command += f' "{folder}"'
-    user = os.environ["USERNAME"]
-    subprocess.run(["schtasks", "/Create", "/TN", TASK, "/TR", command, "/SC", "ONCE", "/ST", "23:59",
-                    "/RU", user, "/IT", "/F"], check=True, capture_output=True)
+        arguments.append(str(folder))
+    definition = BUILD / "tmp" / f"{TASK}.xml"
+    definition.write_text(task_xml(helper, arguments, os.environ["USERNAME"]), encoding="utf-16")
+    subprocess.run(["schtasks", "/Create", "/TN", TASK, "/XML", str(definition), "/F"], check=True, capture_output=True)
+    definition.unlink()
     try:
         subprocess.run(["schtasks", "/Run", "/TN", TASK], check=True, capture_output=True)
         done = output / "shot.done"
