@@ -23,5 +23,7 @@ std::filesystem::path downloads_folder();
 void reveal(const std::filesystem::path& path);
 /// Opens `folder` in Explorer.
 void open_folder(const std::filesystem::path& folder);
+/// Opens a file shipped next to the executable with its default app.
+void open_bundled(const wchar_t* name);
 
 }  // namespace shell

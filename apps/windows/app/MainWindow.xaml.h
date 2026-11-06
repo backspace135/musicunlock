@@ -20,6 +20,10 @@ struct MainWindow : MainWindowT<MainWindow> {
 private:
     UnlockView& Audio() { return *get_self<UnlockView>(AudioView()); }
     void ShowWorkspace(bool audio);
+    /// Asks before closing while a batch runs; finished files stay either way.
+    fire_and_forget ConfirmClose();
+
+    bool closing_confirmed_ = false;
 
     /// Development renders (MUSICUNLOCK_RENDER_DIR): PNGs of the window content in light and dark, then exit.
     fire_and_forget RenderPreviews(std::wstring directory);

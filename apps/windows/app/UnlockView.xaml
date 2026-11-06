@@ -270,7 +270,7 @@
                             </Grid>
                             <TextBlock Text="新版外置密钥格式可能无法转换，结果会显示在对应文件下方。" Style="{StaticResource MuSmallCaptionStyle}" />
                         </StackPanel>
-                        <HyperlinkButton x:Name="AboutLink" Content="关于音匣与开源许可" FontSize="11" Padding="0" />
+                        <HyperlinkButton x:Name="AboutLink" Content="关于音匣与开源许可" FontSize="11" Padding="0" Click="OnAbout" />
                     </StackPanel>
                 </ScrollViewer>
             </Border>

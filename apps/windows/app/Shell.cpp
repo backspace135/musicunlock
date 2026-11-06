@@ -108,4 +108,11 @@ void open_folder(const std::filesystem::path& folder) {
     ShellExecuteW(nullptr, L"open", folder.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 }
 
+void open_bundled(const wchar_t* name) {
+    wchar_t exe[MAX_PATH];
+    const DWORD length = GetModuleFileNameW(nullptr, exe, MAX_PATH);
+    const auto file = std::filesystem::path(std::wstring(exe, length)).replace_filename(name);
+    ShellExecuteW(nullptr, L"open", file.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+}
+
 }  // namespace shell

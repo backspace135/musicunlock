@@ -57,6 +57,11 @@ void MainWindow::InitializeComponent() {
     stop.Key(static_cast<Windows::System::VirtualKey>(VK_OEM_PERIOD));
     stop.Invoked({this, &MainWindow::OnAcceleratorInvoked});
     Root().KeyboardAccelerators().Append(stop);
+    AppWindow().Closing([this](auto&&, Windowing::AppWindowClosingEventArgs const& args) {
+        if (closing_confirmed_ || !Audio().Busy()) return;
+        args.Cancel(true);
+        ConfirmClose();
+    });
     Audio().Import(shell::command_line_paths());
     if (auto directory = environment(L"MUSICUNLOCK_RENDER_DIR"); !directory.empty()) {
         PreviewBackdrop().Visibility(Visibility::Visible);
@@ -70,6 +75,20 @@ void MainWindow::OnWorkspaceChanged(Controls::SelectorBar const&, Controls::Sele
     AudioView().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     AudioActions().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     LyricsPlaceholder().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
+}
+
+fire_and_forget MainWindow::ConfirmClose() {
+    auto strong = get_strong();
+    Controls::ContentDialog dialog;
+    dialog.XamlRoot(Content().XamlRoot());
+    dialog.Title(box_value(L"任务仍在进行"));
+    dialog.Content(box_value(L"现在退出将中断当前任务。已经完成的文件会保留。"));
+    dialog.PrimaryButtonText(L"退出");
+    dialog.CloseButtonText(L"继续任务");
+    dialog.DefaultButton(Controls::ContentDialogButton::Close);
+    if (co_await dialog.ShowAsync() != Controls::ContentDialogResult::Primary) co_return;
+    closing_confirmed_ = true;
+    Close();
 }
 
 void MainWindow::ShowWorkspace(bool audio) { WorkspaceBar().SelectedItem(audio ? AudioItem() : LyricsItem()); }

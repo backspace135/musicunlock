@@ -291,6 +291,26 @@ void UnlockView::OnRetry(IInspectable const&, RoutedEventArgs const&) {
 
 void UnlockView::OnOpenOutput(IInspectable const&, RoutedEventArgs const&) { shell::open_folder(output_directory_); }
 
+fire_and_forget UnlockView::OnAbout(IInspectable const&, RoutedEventArgs const&) {
+    auto strong = get_strong();
+    ContentDialog dialog;
+    dialog.XamlRoot(XamlRoot());
+    dialog.Title(box_value(L"音匣 MusicUnlock"));
+    TextBlock text;
+    text.TextWrapping(TextWrapping::Wrap);
+    text.IsTextSelectionEnabled(true);
+    text.Text(L"原生 Windows 音频解封装与歌词工具\nWinUI 3 · C++/WinRT\n音频本地处理，歌词直连音乐平台\n\n"
+              L"音匣采用 MIT 许可证\n© 2026 backspace135 and MusicUnlock contributors\n\n"
+              L"解密算法移植自 Unlock Music\n© 2019–2021 MengYX（MIT）\n\n"
+              L"歌词功能参照 MusicLyricApp 的工作流独立实现。\n"
+              L"TEA 算法包含 Go Authors 的 BSD-3-Clause 实现衍生代码。完整许可随应用分发。");
+    dialog.Content(text);
+    dialog.PrimaryButtonText(L"查看开源许可");
+    dialog.CloseButtonText(L"好");
+    dialog.DefaultButton(ContentDialogButton::Close);
+    if (co_await dialog.ShowAsync() == ContentDialogResult::Primary) shell::open_bundled(L"THIRD_PARTY_NOTICES.txt");
+}
+
 void UnlockView::OnDragOver(DragEventArgs const& args) {
     if (!args.DataView().Contains(Windows::ApplicationModel::DataTransfer::StandardDataFormats::StorageItems())) return;
     args.AcceptedOperation(Windows::ApplicationModel::DataTransfer::DataPackageOperation::Copy);

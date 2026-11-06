@@ -42,6 +42,7 @@ struct UnlockView : UnlockViewT<UnlockView> {
     void OnStop(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { Stop(); }
     void OnRetry(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnOpenOutput(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
+    fire_and_forget OnAbout(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
 
     // Control overrides: the whole workspace is the drop target.
     void OnDragOver(Microsoft::UI::Xaml::DragEventArgs const& args);

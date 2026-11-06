@@ -150,6 +150,10 @@
     <CopyFileToFolders Include="..\..\..\resources\kgm.mask">
       <DestinationFolders>$(OutDir)</DestinationFolders>
     </CopyFileToFolders>
+    <!-- Licenses ship with the app; "关于音匣与开源许可" opens the notices. -->
+    <CopyFileToFolders Include="..\..\..\LICENSE;..\..\..\THIRD_PARTY_NOTICES.txt">
+      <DestinationFolders>$(OutDir)</DestinationFolders>
+    </CopyFileToFolders>
     <Image Include="Assets\AppIcon.png">
       <DeploymentContent>true</DeploymentContent>
     </Image>
