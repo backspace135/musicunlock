@@ -400,6 +400,16 @@ void LyricsView::OnChooseOutput(IInspectable const&, RoutedEventArgs const&) {
     }
 }
 
+void LyricsView::FocusSearch() {
+    // The workspace may have just been switched to; focus once it is laid out.
+    DispatcherQueue().TryEnqueue([weak = get_weak()] {
+        if (auto self = weak.get()) {
+            self->QueryBox().Focus(FocusState::Keyboard);
+            self->QueryBox().SelectAll();
+        }
+    });
+}
+
 fire_and_forget LyricsView::OpenLocal() {
     if (workspace_.exporting()) co_return;
     const auto file = shell::pick_lyric_file(OwnerWindow());

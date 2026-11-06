@@ -11,6 +11,8 @@
             <KeyboardAccelerator Modifiers="Control" Key="Enter" Invoked="OnAcceleratorInvoked" />
             <KeyboardAccelerator Modifiers="Control" Key="Number1" Invoked="OnAcceleratorInvoked" />
             <KeyboardAccelerator Modifiers="Control" Key="Number2" Invoked="OnAcceleratorInvoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="F" Invoked="OnAcceleratorInvoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="S" Invoked="OnAcceleratorInvoked" />
         </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />

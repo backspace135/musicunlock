@@ -14,6 +14,8 @@ struct LyricsView : LyricsViewT<LyricsView> {
     LyricsView() = default;
     void InitializeComponent();
 
+    /// Puts the cursor in the search field (Ctrl+F).
+    void FocusSearch();
     /// Opens a local LRC or TXT as an editable song (Ctrl+O in this workspace).
     fire_and_forget OpenLocal();
     /// Exports the selected song (Ctrl+S).

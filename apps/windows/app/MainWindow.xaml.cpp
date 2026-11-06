@@ -82,7 +82,7 @@ void MainWindow::InitializeComponent() {
     stop.Invoked({this, &MainWindow::OnAcceleratorInvoked});
     Root().KeyboardAccelerators().Append(stop);
     AppWindow().Closing([this](auto&&, Windowing::AppWindowClosingEventArgs const& args) {
-        if (closing_confirmed_ || !Audio().Busy()) return;
+        if (closing_confirmed_ || !(Audio().Busy() || Lyrics().Busy())) return;
         args.Cancel(true);
         ConfirmClose();
     });
@@ -172,8 +172,16 @@ void MainWindow::OnAcceleratorInvoked(Xaml::Input::KeyboardAccelerator const& ac
             break;
         case Windows::System::VirtualKey::Number1: ShowWorkspace(true); break;
         case Windows::System::VirtualKey::Number2: ShowWorkspace(false); break;
-        default:  // Ctrl+.
-            Audio().Stop();
+        case Windows::System::VirtualKey::F:
+            ShowWorkspace(false);
+            Lyrics().FocusSearch();
+            break;
+        case Windows::System::VirtualKey::S:
+            if (LyricsWorkspace().Visibility() == Visibility::Visible) Lyrics().ExportCurrent();
+            break;
+        default:  // Ctrl+. stops the visible workspace's batch
+            if (LyricsWorkspace().Visibility() == Visibility::Visible) Lyrics().StopExport();
+            else Audio().Stop();
             break;
     }
 }

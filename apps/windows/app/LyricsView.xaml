@@ -59,7 +59,8 @@
                     <ComboBox x:Name="KindBox" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="搜索类型"
                               SelectionChanged="OnKindChanged" />
                     <TextBox x:Name="QueryBox" Grid.Column="2" PlaceholderText="歌曲、歌手，或粘贴歌曲 / 歌单 / 专辑链接"
-                             AutomationProperties.Name="歌词搜索关键词或音乐链接" TextChanged="OnQueryChanged" KeyDown="OnQueryKeyDown" />
+                             AutomationProperties.Name="歌词搜索关键词或音乐链接" ToolTipService.ToolTip="搜索歌词（Ctrl+F）"
+                         TextChanged="OnQueryChanged" KeyDown="OnQueryKeyDown" />
                     <Grid Grid.Column="3">
                         <Button x:Name="SearchButton" Style="{StaticResource AccentButtonStyle}" Padding="16,6" MinWidth="88" Click="OnSearch">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -351,9 +352,9 @@
                         </Button>
                         <Button x:Name="ExportCheckedButton" Padding="16,8" Visibility="Collapsed" Click="OnExportChecked" />
                         <Button x:Name="StopExportButton" Content="停止导出" Padding="16,8" MinWidth="120" Visibility="Collapsed"
-                                Click="OnStopExport" />
+                                Click="OnStopExport" ToolTipService.ToolTip="停止导出（Ctrl+.）" />
                         <Button x:Name="ExportCurrentButton" Style="{StaticResource AccentButtonStyle}" Padding="16,8" MinWidth="120"
-                                Click="OnExportCurrent">
+                                Click="OnExportCurrent" ToolTipService.ToolTip="导出当前歌词（Ctrl+S）">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE896;" FontSize="14" />
                                 <TextBlock Text="导出当前歌词" />
