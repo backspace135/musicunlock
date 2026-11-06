@@ -7,7 +7,11 @@
 
 #include <algorithm>
 
+#include <winrt/Windows.ApplicationModel.DataTransfer.h>
+
 #include "Accounts.h"
+#include "Settings.h"
+#include "Shell.h"
 #include "musicunlock/text.h"
 
 namespace winrt::MusicUnlock::implementation {
@@ -18,6 +22,8 @@ using namespace Microsoft::UI::Xaml::Controls;
 namespace {
 
 constexpr mu::SearchKind search_kinds[] = {mu::SearchKind::song, mu::SearchKind::album, mu::SearchKind::playlist};
+constexpr mu::LyricFormat lyric_formats[] = {mu::LyricFormat::lrc, mu::LyricFormat::srt, mu::LyricFormat::txt,
+                                             mu::LyricFormat::vtt};
 
 Visibility shown(bool visible) { return visible ? Visibility::Visible : Visibility::Collapsed; }
 
@@ -37,11 +43,11 @@ std::string normalized(std::string text) {
     return text;
 }
 
-/// Platform errors are actionable LyricError text; anything else gets a generic reason.
+/// Platform and file errors carry actionable UTF-8 text; anything else gets a generic reason.
 std::string failure_text(const std::exception& error, const char* fallback) {
     const std::string_view what = error.what();
-    if (dynamic_cast<const mu::LyricError*>(&error) && mu::is_valid_utf8(what) && !what.empty()) return std::string(what);
-    return fallback;
+    const bool ours = dynamic_cast<const mu::LyricError*>(&error) || dynamic_cast<const mu::DecodeError*>(&error);
+    return ours && mu::is_valid_utf8(what) && !what.empty() ? std::string(what) : fallback;
 }
 
 }  // namespace
@@ -56,9 +62,29 @@ void LyricsView::InitializeComponent() {
         item.Text(to_hstring(mu::lyric_tab_label(tab)));
         EditorTabs().Items().Append(item);
     }
+    for (auto format : lyric_formats) FormatBox().Items().Append(box_value(to_hstring(mu::format_label(format))));
     ShowTab(mu::LyricTab::original);
     ResultList().ItemsSource(rows_);
+    const auto saved = settings::load_lyrics();
+    workspace_.set_options(saved.options);
+    workspace_.set_output_directory(saved.output_directory.value_or(shell::downloads_folder() / L"音匣输出" / L"歌词"));
     Refresh();
+}
+
+HWND LyricsView::OwnerWindow() const {
+    return Microsoft::UI::GetWindowFromWindowId(XamlRoot().ContentIslandEnvironment().AppWindowId());
+}
+
+void LyricsView::SaveSettings() const {
+    if (persist_) settings::save_lyrics({workspace_.options(), workspace_.output_directory()});
+}
+
+void LyricsView::SetOptions(mu::LyricOptions options) {
+    if (options == workspace_.options()) return;
+    workspace_.set_options(std::move(options));
+    SaveSettings();
+    RefreshEditor();
+    RefreshFooter();
 }
 
 void LyricsView::Refresh() {
@@ -94,6 +120,37 @@ void LyricsView::Refresh() {
     LoadMoreButton().IsEnabled(!searching && !exporting);
     SyncRows();
     RefreshEditor();
+    RefreshFooter();
+}
+
+void LyricsView::RefreshFooter() {
+    const bool exporting = workspace_.exporting();
+    const auto& failures = workspace_.failures();
+    FailuresPanel().Visibility(shown(!failures.empty()));
+    FailuresTitle().Text(to_hstring(workspace_.failures_title()));
+    std::string lines;
+    for (const auto& failure : failures) lines += (lines.empty() ? "" : "\n") + failure;
+    FailuresText().Text(to_hstring(lines));
+
+    ExportProgressPanel().Visibility(shown(exporting));
+    ExportProgressText().Text(to_hstring(workspace_.progress_text()));
+    ExportProgress().Maximum(static_cast<double>(std::max<std::size_t>(1, workspace_.export_total())));
+    ExportProgress().Value(static_cast<double>(workspace_.progress()));
+    FormatPanel().Visibility(shown(!exporting));
+    syncing_ = true;
+    FormatBox().SelectedIndex(index_of(lyric_formats, workspace_.options().format));
+    syncing_ = false;
+
+    MoreButton().Visibility(shown(!exporting));
+    CopyItem().IsEnabled(!workspace_.preview().empty());
+    ExportCheckedButton().Visibility(shown(!exporting && workspace_.checked_count() > 0));
+    ExportCheckedButton().Content(box_value(to_hstring(workspace_.export_checked_label())));
+    ExportCheckedButton().IsEnabled(!workspace_.searching());
+    StopExportButton().Visibility(shown(exporting));
+    StopExportButton().IsEnabled(!workspace_.stop_requested());
+    StopExportButton().Content(box_value(workspace_.stop_requested() ? L"正在停止…" : L"停止导出"));
+    ExportCurrentButton().Visibility(shown(!exporting));
+    ExportCurrentButton().IsEnabled(workspace_.can_export_current());
 }
 
 /// Patches the bound list in place so rows keep their containers (and focus) across updates.
@@ -237,6 +294,79 @@ void LyricsView::OnEditorChanged(IInspectable const&, TextChangedEventArgs const
     if (text == normalized(workspace_.text(tab_))) return;
     workspace_.edit(tab_, std::move(text));
     RefreshEditor();
+    RefreshFooter();
+}
+
+void LyricsView::OnFormatChanged(IInspectable const&, SelectionChangedEventArgs const&) {
+    const int index = FormatBox().SelectedIndex();
+    if (syncing_ || index < 0) return;
+    auto options = workspace_.options();
+    options.format = lyric_formats[index];
+    SetOptions(std::move(options));
+}
+
+void LyricsView::OnCopy(IInspectable const&, RoutedEventArgs const&) {
+    const std::string text = workspace_.copy_preview();
+    if (text.empty()) return;
+    Windows::ApplicationModel::DataTransfer::DataPackage package;
+    package.SetText(to_hstring(text));
+    Windows::ApplicationModel::DataTransfer::Clipboard::SetContent(package);
+    Refresh();
+}
+
+void LyricsView::OnOpenOutput(IInspectable const&, RoutedEventArgs const&) {
+    std::error_code error;
+    std::filesystem::create_directories(workspace_.output_directory(), error);
+    shell::open_folder(workspace_.output_directory());
+}
+
+void LyricsView::OnChooseOutput(IInspectable const&, RoutedEventArgs const&) {
+    if (workspace_.exporting()) return;
+    if (auto folder = shell::pick_folder(OwnerWindow(), workspace_.output_directory(), L"选择歌词输出文件夹")) {
+        workspace_.set_output_directory(*folder);
+        SaveSettings();
+        Refresh();
+    }
+}
+
+void LyricsView::StopExport() {
+    workspace_.request_stop();
+    export_cancel_.cancel();
+    RefreshFooter();
+}
+
+fire_and_forget LyricsView::Export(std::optional<mu::ExportBatch> batch) {
+    if (batch) lyrics_cancel_.cancel();  // the batch freezes the visible edit
+    Refresh();
+    if (!batch) co_return;
+    auto strong = get_strong();
+    const auto api = api_;
+    export_cancel_ = {};
+    const auto cancel = export_cancel_;
+    std::map<mu::MusicProvider, std::string> cookies;
+    for (auto provider : mu::all_providers) cookies[provider] = accounts::cookie_header(provider);
+    apartment_context ui;
+    for (const auto& job : batch->jobs) {
+        if (cancel.cancelled()) break;
+        co_await resume_background();
+        std::optional<mu::ExportOutcome> outcome;
+        std::string failure;
+        bool cancelled = false;
+        try {
+            outcome = mu::export_song(*api, job, batch->options, batch->directory, cookies[job.song.provider], cancel);
+        } catch (const mu::Cancelled&) {
+            cancelled = true;
+        } catch (const std::exception& error) {
+            failure = failure_text(error, "导出失败，请检查输出文件夹后重试。");
+        }
+        co_await ui;
+        if (cancelled) break;
+        if (outcome) workspace_.export_succeeded(job, *outcome);
+        else workspace_.export_failed(job, std::move(failure));
+        RefreshFooter();
+    }
+    workspace_.end_export();
+    Refresh();
 }
 
 fire_and_forget LyricsView::Search(std::optional<mu::SearchRequest> request) {
