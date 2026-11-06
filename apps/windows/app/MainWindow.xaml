@@ -20,6 +20,9 @@
         <Border x:Name="PreviewBackdrop" Grid.RowSpan="2" Background="{ThemeResource MuWorkspaceBrush}" Visibility="Collapsed" />
         <!-- Mirrors the macOS toolbar: workspace switcher in the middle, file actions on the right. -->
         <TitleBar x:Name="AppTitleBar" Title="音匣">
+            <TitleBar.IconSource>
+                <ImageIconSource ImageSource="ms-appx:///Assets/AppIcon.png" />
+            </TitleBar.IconSource>
             <TitleBar.Content>
                 <SelectorBar x:Name="WorkspaceBar" HorizontalAlignment="Center" SelectionChanged="OnWorkspaceChanged"
                              AutomationProperties.Name="工作区">

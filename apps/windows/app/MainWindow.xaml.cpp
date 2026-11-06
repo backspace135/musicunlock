@@ -46,6 +46,7 @@ void MainWindow::InitializeComponent() {
     const double scale = GetDpiForWindow(hwnd) / 96.0;
     auto pixels = [scale](int value) { return static_cast<int32_t>(value * scale + 0.5); };
     auto window = AppWindow();
+    window.SetIcon(GetIconIdFromIcon(LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1))));
     window.Resize({pixels(1060), pixels(720)});
     if (auto presenter = window.Presenter().try_as<Windowing::OverlappedPresenter>()) {
         presenter.PreferredMinimumWidth(pixels(880));

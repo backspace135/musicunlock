@@ -1,0 +1,31 @@
+#pragma code_page(65001)
+#include <winres.h>
+
+// Icon 1 is the executable's icon in Explorer and the taskbar; the window reuses it.
+1 ICON "Assets\\AppIcon.ico"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 0,1,0,0
+ PRODUCTVERSION 0,1,0,0
+ FILEFLAGSMASK 0x3fL
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080404b0"
+        BEGIN
+            VALUE "FileDescription", "音匣"
+            VALUE "FileVersion", "0.1.0"
+            VALUE "InternalName", "MusicUnlock"
+            VALUE "LegalCopyright", "© 2026 backspace135 and MusicUnlock contributors. MIT License."
+            VALUE "OriginalFilename", "MusicUnlock.exe"
+            VALUE "ProductName", "音匣 MusicUnlock"
+            VALUE "ProductVersion", "0.1.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x804, 1200
+    END
+END
