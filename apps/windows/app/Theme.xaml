@@ -65,8 +65,7 @@
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
-    <!-- 4/8 px spacing; main area 24 px margins; settings column 268 px (DESIGN.md). -->
-    <x:Double x:Key="MuInspectorWidth">268</x:Double>
+    <!-- 4/8 px spacing; main area 24 px margins (DESIGN.md). -->
     <CornerRadius x:Key="MuPanelRadius">20</CornerRadius>
     <CornerRadius x:Key="MuFooterRadius">22</CornerRadius>
     <Thickness x:Key="MuPagePadding">24,20,24,0</Thickness>

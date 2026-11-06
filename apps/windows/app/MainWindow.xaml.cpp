@@ -32,21 +32,33 @@ std::wstring environment(const wchar_t* name) {
 
 }  // namespace
 
-MainWindow::MainWindow() {
-    InitializeComponent();
+void MainWindow::InitializeComponent() {
+    MainWindowT::InitializeComponent();
     ExtendsContentIntoTitleBar(true);
     SetTitleBar(AppTitleBar());
     SystemBackdrop(Media::MicaBackdrop());
+    // AppWindow sizes are physical pixels; DESIGN.md sizes are effective pixels.
+    HWND hwnd = nullptr;
+    this->try_as<::IWindowNative>()->get_WindowHandle(&hwnd);
+    const double scale = GetDpiForWindow(hwnd) / 96.0;
+    auto pixels = [scale](int value) { return static_cast<int32_t>(value * scale + 0.5); };
     auto window = AppWindow();
-    window.Resize({1060, 720});
+    window.Resize({pixels(1060), pixels(720)});
     if (auto presenter = window.Presenter().try_as<Windowing::OverlappedPresenter>()) {
-        presenter.PreferredMinimumWidth(880);
-        presenter.PreferredMinimumHeight(600);
+        presenter.PreferredMinimumWidth(pixels(880));
+        presenter.PreferredMinimumHeight(pixels(600));
     }
     if (auto directory = environment(L"MUSICUNLOCK_RENDER_DIR"); !directory.empty()) {
         PreviewBackdrop().Visibility(Visibility::Visible);
+        get_self<UnlockView>(AudioView())->UsePreviewData();
         Root().Loaded([this, directory](auto&&, auto&&) { RenderPreviews(directory); });
     }
+}
+
+void MainWindow::OnWorkspaceChanged(Controls::SelectorBar const&, Controls::SelectorBarSelectionChangedEventArgs const&) {
+    const bool audio = WorkspaceBar().SelectedItem() == AudioItem();
+    AudioView().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
+    LyricsPlaceholder().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
 }
 
 fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
@@ -55,8 +67,19 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
     auto strong = get_strong();
     auto dispatcher = DispatcherQueue();
     std::filesystem::create_directories(directory);
-    for (auto [theme, name] : {std::pair{ElementTheme::Light, L"light"}, std::pair{ElementTheme::Dark, L"dark"}}) {
-        Root().RequestedTheme(theme);
+    struct Shot {
+        const wchar_t* name;
+        ElementTheme theme;
+    };
+    // Same set as the macOS PreviewRenderer: empty and populated queue, light and dark.
+    bool samples = false;
+    for (const Shot shot : {Shot{L"empty-light", ElementTheme::Light}, Shot{L"empty-dark", ElementTheme::Dark},
+                            Shot{L"queue-light", ElementTheme::Light}, Shot{L"queue-dark", ElementTheme::Dark}}) {
+        if (!samples && std::wstring_view(shot.name).starts_with(L"queue")) {
+            get_self<UnlockView>(AudioView())->ShowSampleJobs();
+            samples = true;
+        }
+        Root().RequestedTheme(shot.theme);
         co_await resume_after(600ms);
         co_await wil::resume_foreground(dispatcher);
         Media::Imaging::RenderTargetBitmap bitmap;
@@ -73,7 +96,7 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
         stream.Seek(0);
         co_await stream.ReadAsync(png, size, InputStreamOptions::None);
         co_await wil::resume_foreground(dispatcher);
-        std::ofstream(std::filesystem::path(directory) / (std::wstring(L"window-") + name + L".png"), std::ios::binary)
+        std::ofstream(std::filesystem::path(directory) / (std::wstring(shot.name) + L".png"), std::ios::binary)
             .write(reinterpret_cast<const char*>(png.data()), png.Length());
     }
     Application::Current().Exit();

@@ -68,7 +68,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>bcrypt.lib;winhttp.lib;crypt32.lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bcrypt.lib;winhttp.lib;crypt32.lib;shlwapi.lib;shcore.lib;shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
@@ -88,6 +88,7 @@
     <ApplicationDefinition Include="App.xaml" />
     <Page Include="MainWindow.xaml" />
     <Page Include="Theme.xaml" />
+    <Page Include="UnlockView.xaml" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -97,6 +98,13 @@
     <ClInclude Include="MainWindow.xaml.h">
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClInclude>
+    <ClInclude Include="UnlockView.xaml.h">
+      <DependentUpon>UnlockView.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="JobItem.h">
+      <DependentUpon>JobItem.idl</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="Shell.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -108,6 +116,13 @@
     <ClCompile Include="MainWindow.xaml.cpp">
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClCompile>
+    <ClCompile Include="UnlockView.xaml.cpp">
+      <DependentUpon>UnlockView.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="JobItem.cpp">
+      <DependentUpon>JobItem.idl</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="Shell.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
   <!-- The portable core, compiled with the app's settings (static CRT, no precompiled header). -->
@@ -121,9 +136,17 @@
       <SubType>Code</SubType>
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </Midl>
+    <Midl Include="UnlockView.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>UnlockView.xaml</DependentUpon>
+    </Midl>
+    <Midl Include="JobItem.idl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <Image Include="Assets\AppIcon.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Import Project="$(MuPackages)imports.targets" Condition="Exists('$(MuPackages)imports.targets')" />
