@@ -400,6 +400,26 @@ void LyricsView::OnChooseOutput(IInspectable const&, RoutedEventArgs const&) {
     }
 }
 
+fire_and_forget LyricsView::OpenLocal() {
+    if (workspace_.exporting()) co_return;
+    const auto file = shell::pick_lyric_file(OwnerWindow());
+    if (!file) co_return;
+    auto strong = get_strong();
+    apartment_context ui;
+    co_await resume_background();
+    std::optional<std::string> text;
+    std::string failure;
+    try {
+        text = mu::read_lyric_file(*file);
+    } catch (const std::exception& error) {
+        failure = failure_text(error, "无法读取这个歌词文件，请确认文件仍然存在。");
+    }
+    co_await ui;
+    if (!text) workspace_.show_notice(std::move(failure));
+    else if (workspace_.import_local(mu::path_to_utf8(file->stem()), std::move(*text))) lyrics_cancel_.cancel();
+    Refresh();
+}
+
 void LyricsView::StopExport() {
     workspace_.request_stop();
     export_cancel_.cancel();

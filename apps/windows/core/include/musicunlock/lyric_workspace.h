@@ -166,6 +166,8 @@ public:
     const std::vector<std::filesystem::path>& exported() const { return exported_; }
 
     const std::string& notice() const { return notice_; }
+    /// Errors from outside the model, such as an unreadable local file.
+    void show_notice(std::string text) { notice_ = std::move(text); }
     void dismiss_notice() { notice_.clear(); }
 
     // Wording

@@ -120,6 +120,8 @@
                             <TextBlock Text="先找到你想要的歌" FontSize="14" FontWeight="Medium" HorizontalAlignment="Center" />
                             <TextBlock Text="输入名称搜索，或粘贴完整链接。&#x0a;歌单与专辑可以批量提取歌词。" FontSize="12" LineHeight="20"
                                        Foreground="{ThemeResource MuSecondaryBrush}" TextAlignment="Center" HorizontalAlignment="Center" />
+                            <HyperlinkButton x:Name="OpenLocalLink" Content="打开本地歌词" FontSize="12" HorizontalAlignment="Center"
+                                             Click="OnOpenLocal" />
                         </StackPanel>
 
                         <ListView x:Name="ResultList" Grid.Row="2" SelectionMode="None" IsItemClickEnabled="True" Padding="0,4"

@@ -18,6 +18,7 @@ struct MainWindow : MainWindowT<MainWindow> {
                             Microsoft::UI::Xaml::Controls::SelectorBarSelectionChangedEventArgs const&);
     void OnAddFiles(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnAddFolder(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
+    void OnOpenLyrics(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnAccounts(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { ShowAccounts(mu::MusicProvider::netease); }
     void OnAcceleratorInvoked(Microsoft::UI::Xaml::Input::KeyboardAccelerator const& accelerator,
                               Microsoft::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args);

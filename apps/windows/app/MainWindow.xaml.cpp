@@ -150,6 +150,7 @@ void MainWindow::ShowWorkspace(bool audio) { WorkspaceBar().SelectedItem(audio ?
 
 void MainWindow::OnAddFiles(IInspectable const&, RoutedEventArgs const&) { Audio().ChooseFiles(false); }
 void MainWindow::OnAddFolder(IInspectable const&, RoutedEventArgs const&) { Audio().ChooseFiles(true); }
+void MainWindow::OnOpenLyrics(IInspectable const&, RoutedEventArgs const&) { Lyrics().OpenLocal(); }
 
 void MainWindow::OnAcceleratorInvoked(Xaml::Input::KeyboardAccelerator const& accelerator,
                                       Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args) {
@@ -158,6 +159,11 @@ void MainWindow::OnAcceleratorInvoked(Xaml::Input::KeyboardAccelerator const& ac
                        Windows::System::VirtualKeyModifiers::None;
     switch (accelerator.Key()) {
         case Windows::System::VirtualKey::O:
+            // Like the macOS menu: Ctrl+O opens lyrics in the lyrics workspace and adds files otherwise.
+            if (!shift && LyricsWorkspace().Visibility() == Visibility::Visible) {
+                Lyrics().OpenLocal();
+                break;
+            }
             ShowWorkspace(true);
             Audio().ChooseFiles(shift);
             break;

@@ -14,6 +14,8 @@ struct LyricsView : LyricsViewT<LyricsView> {
     LyricsView() = default;
     void InitializeComponent();
 
+    /// Opens a local LRC or TXT as an editable song (Ctrl+O in this workspace).
+    fire_and_forget OpenLocal();
     /// Exports the selected song (Ctrl+S).
     void ExportCurrent() { Export(workspace_.export_current()); }
     /// Stops the batch after the current song; finished files stay (Ctrl+.).
@@ -29,6 +31,7 @@ struct LyricsView : LyricsViewT<LyricsView> {
     void OnLoadMore(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { Search(workspace_.search(true)); }
     void OnNoticeClosed(Microsoft::UI::Xaml::Controls::InfoBar const&, Microsoft::UI::Xaml::Controls::InfoBarClosedEventArgs const&);
     void OnSelectAll(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
+    void OnOpenLocal(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { OpenLocal(); }
     void OnResultClicked(IInspectable const&, Microsoft::UI::Xaml::Controls::ItemClickEventArgs const& args);
     void OnPreviewSong(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnToggleSong(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
