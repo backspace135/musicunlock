@@ -113,6 +113,9 @@
     <ClInclude Include="JobItem.h">
       <DependentUpon>JobItem.idl</DependentUpon>
     </ClInclude>
+    <ClInclude Include="LyricRow.h">
+      <DependentUpon>LyricRow.idl</DependentUpon>
+    </ClInclude>
     <ClInclude Include="Accounts.h" />
     <ClInclude Include="Settings.h" />
     <ClInclude Include="Shell.h" />
@@ -135,6 +138,9 @@
     </ClCompile>
     <ClCompile Include="JobItem.cpp">
       <DependentUpon>JobItem.idl</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="LyricRow.cpp">
+      <DependentUpon>LyricRow.idl</DependentUpon>
     </ClCompile>
     <ClCompile Include="Accounts.cpp" />
     <ClCompile Include="Settings.cpp" />
@@ -164,6 +170,7 @@
       <DependentUpon>UnlockView.xaml</DependentUpon>
     </Midl>
     <Midl Include="JobItem.idl" />
+    <Midl Include="LyricRow.idl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

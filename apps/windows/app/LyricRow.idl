@@ -1,0 +1,21 @@
+namespace MusicUnlock
+{
+    // One row of the lyric results for x:Bind: an album or playlist to open, or a song to preview and
+    // check for the batch. A read-only snapshot of the core's lists; created from C++ only.
+    runtimeclass LyricRow : Microsoft.UI.Xaml.Data.INotifyPropertyChanged
+    {
+        String Id { get; };
+        Boolean IsSong { get; };
+        Boolean IsCollection { get; };
+        String Title { get; };
+        String Subtitle { get; };
+        String Album { get; };
+        String Duration { get; };
+        String Glyph { get; };
+        Boolean IsChecked { get; };
+        Boolean IsSelected { get; };
+        Boolean IsEnabled { get; };
+        String CheckLabel { get; };
+        String CheckAction { get; };
+    }
+}
