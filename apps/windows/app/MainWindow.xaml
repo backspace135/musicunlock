@@ -8,6 +8,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
+        <!-- Stands in for Mica in preview renders, which only capture the XAML tree. -->
+        <Border x:Name="PreviewBackdrop" Grid.RowSpan="2" Background="{ThemeResource MuWorkspaceBrush}" Visibility="Collapsed" />
         <!-- Mirrors the macOS toolbar: workspace switcher in the middle, file actions on the right. -->
         <TitleBar x:Name="AppTitleBar" Title="音匣">
             <TitleBar.Content>
