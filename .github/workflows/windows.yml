@@ -27,8 +27,13 @@ concurrency:
 jobs:
   core-and-cli:
     runs-on: windows-2022
+    env:
+      # Compile through sccache with the Actions cache; CMake reads the launcher from the environment.
+      SCCACHE_GHA_ENABLED: "true"
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
     steps:
       - uses: actions/checkout@v7
+      - uses: mozilla-actions/sccache-action@v0.0.11
       - name: Build, run core tests and CLI smoke test (MSVC x64)
         run: python apps/windows/scripts/build.py
       - name: Live platform checks (manual runs only)
