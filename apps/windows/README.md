@@ -82,6 +82,8 @@ python scripts/screenshot.py --dist [--convert]   # 用分发目录里的 App �
   高对比度是系统设置，App 不能自己打开，所以预览换用 `Theme.xaml` 的 HighContrast 画刷模拟（WinUI 自带控件仍是浅色样式）；
   对话框和菜单在窗口之外的弹出层里，预览把它们叠加到窗口画面上。渲染不加载任何登录页，只启动一次 WebView2，检查运行时能从
   App 目录加载、数据目录在 `build/previews/appdata/WebView2/` 下。
+- App 崩溃时（访问冲突等 XAML 收不到的异常）把异常代码、出错模块和调用栈（`模块+偏移`，可对照 PDB）追加到
+  `MUSICUNLOCK_LOG`；没设这个变量时写到数据目录的 `crash.log`（`%LOCALAPPDATA%\MusicUnlock\crash.log`）。
 - 预览是静态的，和 macOS 的 PreviewRenderer 一样不播放动效；`--convert` 的端到端转换保留动效，顺带检查动效代码。
 
 ## 分发目录
