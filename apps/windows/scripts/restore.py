@@ -11,6 +11,7 @@ package lists do not interfere. Nothing is written outside build/ and the store.
 from pathlib import Path
 import base64
 import hashlib
+import http.client
 import io
 import os
 import shutil
@@ -60,7 +61,7 @@ def download(package_id: str, version: str) -> bytes:
         try:
             with urllib.request.urlopen(url, timeout=120) as response:
                 return response.read()
-        except OSError as error:
+        except (OSError, http.client.HTTPException) as error:  # includes truncated bodies (IncompleteRead)
             if attempt == 4:
                 sys.exit(f"下载 {package_id} {version} 失败：{error}")
             time.sleep(2 * (attempt + 1))
