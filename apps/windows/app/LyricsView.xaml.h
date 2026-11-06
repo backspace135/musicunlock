@@ -14,6 +14,11 @@ struct LyricsView : LyricsViewT<LyricsView> {
     LyricsView() = default;
     void InitializeComponent();
 
+    /// Preview renders: a neutral sample output folder, and settings are never saved.
+    void UsePreviewData();
+    /// Fills the results and editor with the same sample songs as the macOS preview renderer.
+    void ShowSampleSongs();
+
     /// "查找这首歌的歌词" from the audio queue: searches songs by the track's title.
     void SearchForAudio(std::string title) { Search(workspace_.search_for_audio(std::move(title))); }
     /// Puts the cursor in the search field (Ctrl+F).

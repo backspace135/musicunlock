@@ -80,6 +80,37 @@ void LyricsView::InitializeComponent() {
     Refresh();
 }
 
+void LyricsView::UsePreviewData() {
+    persist_ = false;
+    workspace_.set_output_directory(L"C:\\Users\\示例\\Downloads\\音匣输出\\歌词");
+    Refresh();
+}
+
+void LyricsView::ShowSampleSongs() {
+    auto sample = [](std::string id, std::string title, std::int64_t duration) {
+        mu::LyricSong song;
+        song.song_id = std::move(id);
+        song.title = std::move(title);
+        song.artist = "音匣示例";
+        song.album = "旅途中的歌";
+        song.duration_ms = duration;
+        return song;
+    };
+    // Through the same calls as a real search, without the network.
+    workspace_.set_query("远行的旋律");
+    workspace_.set_kind(mu::SearchKind::song);
+    const auto request = workspace_.search();
+    mu::SearchResult result;
+    result.songs = {sample("example", "远行的旋律", 216'000), sample("example2", "午后的唱片", 187'000)};
+    if (const auto lyrics = workspace_.search_finished(*request, std::move(result))) {
+        workspace_.lyrics_loaded(*lyrics, {"[00:00.000] 远行的旋律\n[00:12.500] 把风装进行囊\n[00:17.800] 让脚步跟上远方\n"
+                                           "[00:23.200] 城市慢慢退到身后\n[00:28.600] 我们向着光的方向",
+                                           "[00:12.500] Pack the wind into a bag\n[00:17.800] Follow the road beyond", "", ""});
+    }
+    workspace_.select_all();
+    Refresh();
+}
+
 HWND LyricsView::OwnerWindow() const {
     return Microsoft::UI::GetWindowFromWindowId(XamlRoot().ContentIslandEnvironment().AppWindowId());
 }
