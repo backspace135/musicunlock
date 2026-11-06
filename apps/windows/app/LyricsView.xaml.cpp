@@ -6,6 +6,7 @@
 #endif
 
 #include <algorithm>
+#include <cmath>
 
 #include <winrt/Windows.ApplicationModel.DataTransfer.h>
 
@@ -24,6 +25,9 @@ namespace {
 constexpr mu::SearchKind search_kinds[] = {mu::SearchKind::song, mu::SearchKind::album, mu::SearchKind::playlist};
 constexpr mu::LyricFormat lyric_formats[] = {mu::LyricFormat::lrc, mu::LyricFormat::srt, mu::LyricFormat::txt,
                                              mu::LyricFormat::vtt};
+constexpr mu::LyricEncoding lyric_encodings[] = {mu::LyricEncoding::utf8, mu::LyricEncoding::utf8_bom,
+                                                 mu::LyricEncoding::utf16le};
+constexpr mu::LyricLayout lyric_layouts[] = {mu::LyricLayout::stagger, mu::LyricLayout::merge, mu::LyricLayout::separate};
 
 Visibility shown(bool visible) { return visible ? Visibility::Visible : Visibility::Collapsed; }
 
@@ -62,7 +66,12 @@ void LyricsView::InitializeComponent() {
         item.Text(to_hstring(mu::lyric_tab_label(tab)));
         EditorTabs().Items().Append(item);
     }
-    for (auto format : lyric_formats) FormatBox().Items().Append(box_value(to_hstring(mu::format_label(format))));
+    for (auto format : lyric_formats) {
+        FormatBox().Items().Append(box_value(to_hstring(mu::format_label(format))));
+        FormatOption().Items().Append(box_value(to_hstring(mu::format_label(format))));
+    }
+    for (auto encoding : lyric_encodings) EncodingOption().Items().Append(box_value(to_hstring(mu::encoding_label(encoding))));
+    for (auto layout : lyric_layouts) LayoutOption().Items().Append(box_value(to_hstring(mu::layout_label(layout))));
     ShowTab(mu::LyricTab::original);
     ResultList().ItemsSource(rows_);
     const auto saved = settings::load_lyrics();
@@ -85,6 +94,67 @@ void LyricsView::SetOptions(mu::LyricOptions options) {
     SaveSettings();
     RefreshEditor();
     RefreshFooter();
+}
+
+void LyricsView::SyncOptions() {
+    const auto& options = workspace_.options();
+    syncing_ = true;
+    FormatOption().SelectedIndex(index_of(lyric_formats, options.format));
+    EncodingOption().SelectedIndex(index_of(lyric_encodings, options.encoding));
+    if (to_string(FilenameOption().Text()) != options.filename) FilenameOption().Text(to_hstring(options.filename));
+    const auto& folder = workspace_.output_directory();
+    OutputOptionName().Text(folder.filename().c_str());
+    ToolTipService::SetToolTip(OutputOption(), box_value(hstring(folder.c_str())));
+    Automation::AutomationProperties::SetName(OutputOption(), L"更改歌词输出文件夹：" + hstring(folder.c_str()));
+    OriginalOption().IsChecked(options.include_original);
+    TranslationOption().IsChecked(options.include_translation);
+    RomanizationOption().IsChecked(options.include_romanization);
+    PinyinOption().IsChecked(options.include_pinyin);
+    LayoutOption().SelectedIndex(index_of(lyric_layouts, options.layout));
+    if (to_string(SeparatorOption().Text()) != options.separator) SeparatorOption().Text(to_hstring(options.separator));
+    SeparatorOption().IsEnabled(options.layout == mu::LyricLayout::merge);
+    PrecisionOption().SelectedIndex(options.precision - 1);
+    OffsetOption().Value(static_cast<double>(options.offset));
+    IgnoreEmptyOption().IsChecked(options.ignore_empty);
+    SkipInstrumentalOption().IsChecked(options.skip_instrumental);
+    WordTimingOption().IsChecked(options.word_timing);
+    syncing_ = false;
+}
+
+void LyricsView::ReadOptions() {
+    if (syncing_) return;
+    auto checked = [](Primitives::ToggleButton const& box) { return box.IsChecked() && box.IsChecked().Value(); };
+    auto options = workspace_.options();
+    if (const int index = FormatOption().SelectedIndex(); index >= 0) options.format = lyric_formats[index];
+    if (const int index = EncodingOption().SelectedIndex(); index >= 0) options.encoding = lyric_encodings[index];
+    if (const int index = LayoutOption().SelectedIndex(); index >= 0) options.layout = lyric_layouts[index];
+    if (const int index = PrecisionOption().SelectedIndex(); index >= 0) options.precision = index + 1;
+    options.filename = to_string(FilenameOption().Text());
+    options.separator = to_string(SeparatorOption().Text());
+    // An emptied field reads as NaN; keep the last offset then.
+    if (const double offset = OffsetOption().Value(); !std::isnan(offset)) {
+        options.offset = std::llround(std::clamp(offset, -86'400'000.0, 86'400'000.0));
+    }
+    options.include_original = checked(OriginalOption());
+    options.include_translation = checked(TranslationOption());
+    options.include_romanization = checked(RomanizationOption());
+    options.include_pinyin = checked(PinyinOption());
+    options.ignore_empty = checked(IgnoreEmptyOption());
+    options.skip_instrumental = checked(SkipInstrumentalOption());
+    options.word_timing = checked(WordTimingOption());
+    SeparatorOption().IsEnabled(options.layout == mu::LyricLayout::merge);
+    SetOptions(std::move(options));
+}
+
+fire_and_forget LyricsView::OnShowSettings(IInspectable const&, RoutedEventArgs const&) {
+    auto strong = get_strong();
+    SyncOptions();
+    SettingsDialog().XamlRoot(XamlRoot());
+    try {
+        co_await SettingsDialog().ShowAsync();
+    } catch (hresult_error const&) {
+        // Another dialog is already open.
+    }
 }
 
 void LyricsView::Refresh() {
@@ -325,6 +395,7 @@ void LyricsView::OnChooseOutput(IInspectable const&, RoutedEventArgs const&) {
     if (auto folder = shell::pick_folder(OwnerWindow(), workspace_.output_directory(), L"选择歌词输出文件夹")) {
         workspace_.set_output_directory(*folder);
         SaveSettings();
+        SyncOptions();
         Refresh();
     }
 }

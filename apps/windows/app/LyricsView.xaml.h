@@ -43,6 +43,14 @@ struct LyricsView : LyricsViewT<LyricsView> {
     void OnExportCurrent(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { ExportCurrent(); }
     void OnExportChecked(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { Export(workspace_.export_checked()); }
     void OnStopExport(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { StopExport(); }
+    fire_and_forget OnShowSettings(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
+    void OnOptionSelected(IInspectable const&, Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const&) { ReadOptions(); }
+    void OnOptionTextChanged(IInspectable const&, Microsoft::UI::Xaml::Controls::TextChangedEventArgs const&) { ReadOptions(); }
+    void OnOptionToggled(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { ReadOptions(); }
+    void OnOffsetChanged(Microsoft::UI::Xaml::Controls::NumberBox const&,
+                         Microsoft::UI::Xaml::Controls::NumberBoxValueChangedEventArgs const&) {
+        ReadOptions();
+    }
 
 private:
     void Refresh();
@@ -57,6 +65,9 @@ private:
     /// Exports the batch one song at a time in the background.
     fire_and_forget Export(std::optional<mu::ExportBatch> batch);
     void SetOptions(mu::LyricOptions options);
+    /// Settings dialog: model to controls, and controls to model.
+    void SyncOptions();
+    void ReadOptions();
     void SaveSettings() const;
     HWND OwnerWindow() const;
 
