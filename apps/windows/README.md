@@ -26,7 +26,8 @@ apps/windows/
 ├── tests/         core 与歌词测试，读取 ../../tests/fixtures/qmc
 ├── third_party/   nlohmann/json 3.12.0（单头文件，MIT）
 └── scripts/       build.py：核心与命令行；smoke_cli.py：命令行冒烟测试；restore.py / build_app.py：界面；
-                   screenshot.py：界面预览与端到端转换检查；remote.py：在 Windows 机器的独立工作树里构建
+                   stage_app.py：整理分发目录；screenshot.py：界面预览与端到端转换检查；
+                   remote.py：在 Windows 机器的独立工作树里构建
 ```
 
 ## 构建核心与命令行版
@@ -47,7 +48,8 @@ musicunlock.exe D:\输出目录 D:\音乐\歌曲.ncm D:\另一个音乐目录
 
 开发 Mac 上同一命令可编译核心与测试，用于快速验证算法（需要 CMake 与 Ninja）。
 
-GitHub Actions（`.github/workflows/windows.yml`）在 windows-2022 上执行同一脚本、编译界面并上传 `musicunlock.exe`；
+GitHub Actions（`.github/workflows/windows.yml`）在 windows-2022 上执行同一脚本、编译界面，上传 `musicunlock.exe`、
+精简后的界面目录和单独的符号文件；
 手动触发时额外运行联网的平台接口检查。
 
 ## 构建界面
@@ -58,6 +60,8 @@ GitHub Actions（`.github/workflows/windows.yml`）在 windows-2022 上执行同
 python scripts/build_app.py          # 恢复 NuGet 包并用 MSBuild 编译，产物在 build/app-release/
 python scripts/screenshot.py         # 空队列与示例队列的浅色 / 深色预览，输出到 build/previews/
 python scripts/screenshot.py --convert   # 另外导入并实际转换示例文件，逐字节核对输出
+python scripts/stage_app.py [--zip]  # 整理分发目录 build/dist/MusicUnlock/，--zip 另外打包并报告体积
+python scripts/screenshot.py --dist [--convert]   # 用分发目录里的 App 渲染预览
 ```
 
 - `restore.py` 按 `app/packages.config` 从 nuget.org 下载固定版本并校验 SHA-512，解压到 `build/packages/`。
@@ -69,6 +73,30 @@ python scripts/screenshot.py --convert   # 另外导入并实际转换示例文�
   它新建独立桌面运行 App，结束后关闭桌面并删除计划任务，不显示也不截取用户桌面。
   渲染时 `MUSICUNLOCK_DATA_DIR` 指向输出目录，设置不会写入用户的 AppData。
 
+## 分发目录
+
+`stage_app.py` 把 `build/app-release/` 复制到 `build/dist/MusicUnlock/`，单 exe 启动器打包的就是这个目录。
+默认全部复制，只去掉下面几类运行时不会加载的文件（规则在脚本开头，新加的运行时文件如 `WebView2Loader.dll`
+不用改脚本就会带上；某个被去掉的文件确实需要时，把文件名加进 `KEEP`）：
+
+| 去掉的文件 | 为什么可以去掉 |
+| --- | --- |
+| 除 `zh-CN`、`zh-TW`、`en-US` 外的语言文件夹 | 只有 `Microsoft.ui.xaml.dll` 等的 `.mui` 字符串；界面是中文，`en-US` 是系统找不到语言时的回退 |
+| `.winmd` | WinRT 元数据，只在编译时给 C++/WinRT 和 XAML 编译器用；运行时激活靠清单和 `XamlTypeInfo` |
+| `.lib`、`.exp`（以及 `.ilk`、`.iobj`、`.ipdb`、`.map`） | 链接器的中间产物 |
+| `.pdb` | 移到 `build/dist/symbols/`，分析崩溃时用 |
+
+脚本最后检查 `MusicUnlock.exe`、`MusicUnlock.pri`、WinUI 与 Windows App SDK 的 DLL、`kgm.mask`、`LICENSE`、
+`THIRD_PARTY_NOTICES.txt` 都在。`app/packages.config` 不包含 `Microsoft.WindowsAppSDK.Runtime`：那个包是给依赖框架的应用
+安装 Windows App Runtime 的 MSIX（172 MB），自包含部署的文件来自各组件包。
+引入新的运行时依赖（例如 WebView2）后，用 `screenshot.py --dist --convert` 确认分发目录仍能独立运行。
+
+| | 目录 | zip（deflate 9） |
+| --- | --- | --- |
+| `build/app-release/` | 143.1 MB | 39.3 MB |
+| `build/dist/MusicUnlock/` | 60.4 MB | 21.7 MB |
+| `build/dist/symbols/` | 76.7 MB | |
+
 ## 在 Windows 机器上并行开发
 
 开发 Mac 上用 `remote.py` 把当前分支交给 Windows 机器（git 远程 `g16win`）构建。每个分支有自己的工作树
@@ -78,6 +106,7 @@ python scripts/screenshot.py --convert   # 另外导入并实际转换示例文�
 python3 apps/windows/scripts/remote.py build                  # 核心、测试与命令行冒烟测试
 python3 apps/windows/scripts/remote.py app                    # 编译界面
 python3 apps/windows/scripts/remote.py screenshot [--convert] # 编译界面并渲染预览，取回到 build/previews/
+python3 apps/windows/scripts/remote.py screenshot --dist      # 同上，但先整理分发目录，用它渲染
 python3 apps/windows/scripts/remote.py run -- <命令>           # 在工作树的 apps/windows 下运行任意命令
 python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 / 删除当前分支的工作树
 ```

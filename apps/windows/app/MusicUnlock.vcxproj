@@ -25,6 +25,9 @@
     <WindowsPackageType>None</WindowsPackageType>
     <AppxPackage>false</AppxPackage>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <!-- WebView2 turns on its WinRT projection when it sees the Microsoft.WindowsAppSDK.Runtime package, which a
+         self-contained app does not need; WinUI's WebView2 control uses that projection, so ask for it directly. -->
+    <WebView2UseWinRT>true</WebView2UseWinRT>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <ItemGroup Label="ProjectConfigurations">
