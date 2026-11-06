@@ -70,7 +70,6 @@
             </TitleBar.RightHeader>
         </TitleBar>
         <local:UnlockView x:Name="AudioView" Grid.Row="1" />
-        <TextBlock x:Name="LyricsPlaceholder" Grid.Row="1" Text="歌词工具" Visibility="Collapsed"
-                   HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource MuSecondaryBrush}" />
+        <local:LyricsView x:Name="LyricsWorkspace" Grid.Row="1" Visibility="Collapsed" />
     </Grid>
 </Window>

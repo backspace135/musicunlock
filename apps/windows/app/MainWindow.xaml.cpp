@@ -100,7 +100,7 @@ void MainWindow::OnWorkspaceChanged(Controls::SelectorBar const&, Controls::Sele
     AudioView().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     AudioActions().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     LyricsActions().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
-    LyricsPlaceholder().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
+    LyricsWorkspace().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
 }
 
 fire_and_forget MainWindow::ShowAccounts(mu::MusicProvider provider) {

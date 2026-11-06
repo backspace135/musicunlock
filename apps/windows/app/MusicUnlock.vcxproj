@@ -95,6 +95,7 @@
     <Page Include="MainWindow.xaml" />
     <Page Include="Theme.xaml" />
     <Page Include="UnlockView.xaml" />
+    <Page Include="LyricsView.xaml" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -109,6 +110,9 @@
     </ClInclude>
     <ClInclude Include="UnlockView.xaml.h">
       <DependentUpon>UnlockView.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="LyricsView.xaml.h">
+      <DependentUpon>LyricsView.xaml</DependentUpon>
     </ClInclude>
     <ClInclude Include="JobItem.h">
       <DependentUpon>JobItem.idl</DependentUpon>
@@ -135,6 +139,9 @@
     </ClCompile>
     <ClCompile Include="UnlockView.xaml.cpp">
       <DependentUpon>UnlockView.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="LyricsView.xaml.cpp">
+      <DependentUpon>LyricsView.xaml</DependentUpon>
     </ClCompile>
     <ClCompile Include="JobItem.cpp">
       <DependentUpon>JobItem.idl</DependentUpon>
@@ -168,6 +175,10 @@
     <Midl Include="UnlockView.idl">
       <SubType>Code</SubType>
       <DependentUpon>UnlockView.xaml</DependentUpon>
+    </Midl>
+    <Midl Include="LyricsView.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>LyricsView.xaml</DependentUpon>
     </Midl>
     <Midl Include="JobItem.idl" />
     <Midl Include="LyricRow.idl" />
