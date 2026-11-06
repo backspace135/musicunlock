@@ -102,6 +102,8 @@ void MainWindow::InitializeComponent() {
 
 void MainWindow::OnWorkspaceChanged(Controls::SelectorBar const&, Controls::SelectorBarSelectionChangedEventArgs const&) {
     const bool audio = WorkspaceBar().SelectedItem() == AudioItem();
+    // The title bar centres the switcher in the space left by the actions; keep their widest width so it stays put.
+    HeaderActions().MinWidth(std::max(HeaderActions().MinWidth(), HeaderActions().ActualWidth()));
     AudioView().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     AudioActions().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     LyricsActions().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);

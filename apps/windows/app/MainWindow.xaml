@@ -41,7 +41,7 @@
                 </SelectorBar>
             </TitleBar.Content>
             <TitleBar.RightHeader>
-                <Grid>
+                <Grid x:Name="HeaderActions">
                     <StackPanel x:Name="AudioActions" Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
                         <Button Click="OnAddFolder" Background="Transparent" BorderThickness="0" Padding="10,6"
                                 ToolTipService.ToolTip="添加文件夹（Ctrl+Shift+O）" AutomationProperties.Name="添加文件夹">
@@ -59,7 +59,8 @@
                         </Button>
                     </StackPanel>
                     <!-- Lyrics workspace actions (macOS: 打开歌词, 账号登录). -->
-                    <StackPanel x:Name="LyricsActions" Orientation="Horizontal" Spacing="4" Margin="0,0,8,0" Visibility="Collapsed">
+                    <StackPanel x:Name="LyricsActions" Orientation="Horizontal" Spacing="4" Margin="0,0,8,0" HorizontalAlignment="Right"
+                                Visibility="Collapsed">
                         <Button Click="OnOpenLyrics" Background="Transparent" BorderThickness="0" Padding="10,6"
                                 ToolTipService.ToolTip="打开本地 LRC 或 TXT（Ctrl+O）" AutomationProperties.Name="打开歌词">
                             <StackPanel Orientation="Horizontal" Spacing="6">
