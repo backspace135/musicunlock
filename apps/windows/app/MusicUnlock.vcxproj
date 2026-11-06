@@ -91,6 +91,7 @@
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="App.xaml" />
+    <Page Include="AccountsDialog.xaml" />
     <Page Include="MainWindow.xaml" />
     <Page Include="Theme.xaml" />
     <Page Include="UnlockView.xaml" />
@@ -99,6 +100,9 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="App.xaml.h">
       <DependentUpon>App.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="AccountsDialog.xaml.h">
+      <DependentUpon>AccountsDialog.xaml</DependentUpon>
     </ClInclude>
     <ClInclude Include="MainWindow.xaml.h">
       <DependentUpon>MainWindow.xaml</DependentUpon>
@@ -120,6 +124,9 @@
     <ClCompile Include="App.xaml.cpp">
       <DependentUpon>App.xaml</DependentUpon>
     </ClCompile>
+    <ClCompile Include="AccountsDialog.xaml.cpp">
+      <DependentUpon>AccountsDialog.xaml</DependentUpon>
+    </ClCompile>
     <ClCompile Include="MainWindow.xaml.cpp">
       <DependentUpon>MainWindow.xaml</DependentUpon>
     </ClCompile>
@@ -139,8 +146,15 @@
     <ClCompile Include="..\core\src\*.cpp" Exclude="..\core\src\*_mac.cpp;..\core\src\crypto_commoncrypto.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="..\third_party\qrcodegen\qrcodegen.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <Midl Include="AccountsDialog.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>AccountsDialog.xaml</DependentUpon>
+    </Midl>
     <Midl Include="MainWindow.idl">
       <SubType>Code</SubType>
       <DependentUpon>MainWindow.xaml</DependentUpon>
