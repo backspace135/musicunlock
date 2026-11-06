@@ -192,6 +192,11 @@ void UnlockView::OnRevealOutput(IInspectable const& sender, RoutedEventArgs cons
     if (const auto* job = queue_.find(job_id(sender)); job && !job->output.empty()) shell::reveal(job->output);
 }
 
+void UnlockView::OnFindLyrics(IInspectable const& sender, RoutedEventArgs const&) {
+    // The restored tag title, else the file name without extension (macOS searchForAudio).
+    if (const auto* job = queue_.find(job_id(sender)); job && find_lyrics_) find_lyrics_(job->display_title());
+}
+
 }  // namespace winrt::MusicUnlock::implementation
 
 namespace winrt::MusicUnlock::implementation {

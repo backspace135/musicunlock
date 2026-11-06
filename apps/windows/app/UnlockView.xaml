@@ -158,6 +158,16 @@
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="local:JobItem">
                                     <Grid>
+                                        <!-- Row context menu (macOS: the queue row's contextMenu). -->
+                                        <Grid.ContextFlyout>
+                                            <MenuFlyout>
+                                                <MenuFlyoutItem Text="查找这首歌的歌词" Tag="{x:Bind Id}" Click="OnFindLyrics">
+                                                    <MenuFlyoutItem.Icon>
+                                                        <FontIcon Glyph="&#xE721;" />
+                                                    </MenuFlyoutItem.Icon>
+                                                </MenuFlyoutItem>
+                                            </MenuFlyout>
+                                        </Grid.ContextFlyout>
                                         <Border Background="{ThemeResource MuRunningRowBrush}" Visibility="{x:Bind IsRunning, Mode=OneWay}" />
                                         <Grid Padding="16,15" ColumnSpacing="12">
                                             <Grid.ColumnDefinitions>

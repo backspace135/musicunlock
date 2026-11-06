@@ -2,6 +2,7 @@
 
 #include "UnlockView.g.h"
 
+#include <functional>
 #include <map>
 
 #include "JobItem.h"
@@ -59,6 +60,10 @@ struct UnlockView : UnlockViewT<UnlockView> {
     void OnRemoveJob(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnRevealOutput(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
 
+    /// "查找这首歌的歌词": the window switches to the lyrics workspace and searches for the title.
+    void OnFindLyricsRequested(std::function<void(std::string)> handler) { find_lyrics_ = std::move(handler); }
+    void OnFindLyrics(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
+
 private:
     void Refresh();
     void SyncItems();
@@ -79,6 +84,7 @@ private:
     Windows::Foundation::Collections::IObservableVector<IInspectable> items_ =
         single_threaded_observable_vector<IInspectable>();
     std::map<uint64_t, com_ptr<JobItem>> item_cache_;
+    std::function<void(std::string)> find_lyrics_;
 };
 
 }  // namespace winrt::MusicUnlock::implementation

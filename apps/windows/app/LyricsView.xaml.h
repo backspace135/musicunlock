@@ -14,6 +14,8 @@ struct LyricsView : LyricsViewT<LyricsView> {
     LyricsView() = default;
     void InitializeComponent();
 
+    /// "查找这首歌的歌词" from the audio queue: searches songs by the track's title.
+    void SearchForAudio(std::string title) { Search(workspace_.search_for_audio(std::move(title))); }
     /// Puts the cursor in the search field (Ctrl+F).
     void FocusSearch();
     /// Opens a local LRC or TXT as an editable song (Ctrl+O in this workspace).

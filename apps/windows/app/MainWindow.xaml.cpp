@@ -86,6 +86,10 @@ void MainWindow::InitializeComponent() {
         args.Cancel(true);
         ConfirmClose();
     });
+    Audio().OnFindLyricsRequested([this](std::string title) {
+        ShowWorkspace(false);
+        Lyrics().SearchForAudio(std::move(title));
+    });
     Audio().Import(shell::command_line_paths());
     UpdateAccountsButton();
     if (auto directory = environment(L"MUSICUNLOCK_RENDER_DIR"); !directory.empty()) {
