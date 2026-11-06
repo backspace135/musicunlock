@@ -13,7 +13,10 @@ namespace shell {
 /// Returns nothing when cancelled.
 std::vector<std::filesystem::path> pick_audio(HWND owner, bool folders);
 /// Single folder, starting at `initial` when it exists.
-std::optional<std::filesystem::path> pick_folder(HWND owner, const std::filesystem::path& initial);
+std::optional<std::filesystem::path> pick_folder(HWND owner, const std::filesystem::path& initial,
+                                                 const wchar_t* title = L"选择输出文件夹");
+/// A local LRC or TXT lyric file.
+std::optional<std::filesystem::path> pick_lyric_file(HWND owner);
 /// Paths passed on the command line (Explorer "open with" and drag onto the exe).
 std::vector<std::filesystem::path> command_line_paths();
 
