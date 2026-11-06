@@ -38,8 +38,10 @@ std::string_view naming_label(NamingPolicy policy) {
     return "保留原文件名";
 }
 
-std::string sanitize_file_stem(std::string_view name) {
-    constexpr std::size_t max_units = 180;
+namespace detail {
+
+std::string sanitize_component(std::string_view name, std::size_t max_units, std::string_view fallback,
+                               bool trim_leading_dots) {
     std::u16string text;
     for (char16_t c : utf8_to_utf16(name)) {
         const bool reserved = c < 0x20 || c == 0x7f || std::u16string_view(u"<>:\"/\\|?*").find(c) != std::u16string_view::npos;
@@ -51,15 +53,19 @@ std::string sanitize_file_stem(std::string_view name) {
         text.resize(cut);
     }
     std::size_t start = 0;
-    while (start < text.size() && is_space(text[start])) ++start;
+    while (start < text.size() && (is_space(text[start]) || (trim_leading_dots && text[start] == u'.'))) ++start;
     std::size_t end = text.size();
     // Windows silently drops trailing dots and spaces, which would change the name we checked.
     while (end > start && (is_space(text[end - 1]) || text[end - 1] == u'.')) --end;
     text = text.substr(start, end - start);
-    if (text.empty()) return "音频";
+    if (text.empty()) return std::string(fallback);
     if (is_reserved_device(text)) text.insert(text.begin(), u'_');
     return utf16_to_utf8(text);
 }
+
+}  // namespace detail
+
+std::string sanitize_file_stem(std::string_view name) { return detail::sanitize_component(name, 180, "音频", false); }
 
 ConversionOutput convert_file(const std::filesystem::path& source, const std::filesystem::path& directory,
                               NamingPolicy naming, ByteSpan kgm_mask) {

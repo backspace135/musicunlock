@@ -2,7 +2,7 @@
 
 Windows 原生版本的开发目录，与 macOS 版本在同一个 Git 仓库维护。
 
-**当前状态：解封装核心与命令行版已实现；WinUI 3 界面、歌词工具与单 exe 打包开发中。**
+**当前状态：解封装核心、命令行版与歌词核心已实现；WinUI 3 界面与单 exe 打包开发中。**
 
 ## 技术方向
 
@@ -18,9 +18,10 @@ Windows 原生版本的开发目录，与 macOS 版本在同一个 Git 仓库维
 
 ```text
 apps/windows/
-├── core/          纯 C++20 静态库：解密、标签、命名（Windows 用 CNG，Mac 开发机用 CommonCrypto）
+├── core/          纯 C++20 静态库：解密、标签、命名、歌词解析与导出、登录会话、网易云 / QQ 音乐接口
+│                  （Windows 用 CNG、WinHTTP、系统 ICU；Mac 开发机用 CommonCrypto、CoreFoundation）
 ├── cli/           musicunlock.exe，用法与 macOS CLI 相同；静态 CRT，kgm.mask 以资源内嵌
-├── tests/         core 测试，读取 ../../tests/fixtures/qmc
+├── tests/         core 与歌词测试，读取 ../../tests/fixtures/qmc
 ├── third_party/   nlohmann/json 3.12.0（单头文件，MIT）
 └── scripts/       build.py：配置、编译与测试
 ```
@@ -47,6 +48,11 @@ musicunlock.exe D:\输出目录 D:\音乐\歌曲.ncm D:\另一个音乐目录
 
 - 核心测试覆盖五组 QQ 音乐上游样本逐字节一致、密钥派生、KGM 常量、NCM 容器与元数据、ID3 / FLAC 标签、
   KWM / XM、同名文件不覆盖、超过 260 字符的输出路径、Windows 文件名规则（保留字符、设备名、结尾的点与空格）以及坏文件不崩溃。
+- 歌词测试对照 macOS 的 `LyricsTests` 移植：LRC 解析（重复时间戳、offset、逐字 LRC、YRC）、LRC / SRT / VTT / TXT 导出的
+  三种排列、时间偏移与精度、拼音（系统 ICU，与 macOS 结果逐字一致）、UTF-8 / UTF-8 BOM / UTF-16 LE 与 GBK 读取、
+  导出不覆盖、链接识别、Set-Cookie 与会话规则；接口请求和解析用脚本化传输层测试，无需联网。
+- 设置 `MUSICUNLOCK_LIVE_TESTS=1` 后在 Windows 上运行测试，会通过 WinHTTP 实际请求网易云和 QQ 音乐的搜索、
+  链接解析、歌词和扫码接口。
 - 与 macOS Swift CLI 对同一批 31 个样本（覆盖全部格式、封面与标签、错误文件和同名冲突）交叉比对，输出逐字节一致。
 
 ## 目录边界

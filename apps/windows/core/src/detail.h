@@ -98,6 +98,13 @@ extern const std::array<std::uint8_t, 272> kgm_predefined;
 
 Bytes restore_tags(Bytes audio, std::string_view ext, const AudioMetadata& metadata);
 
+/// Windows-safe single path component; see sanitize_file_stem.
+std::string sanitize_component(std::string_view name, std::size_t max_units, std::string_view fallback,
+                               bool trim_leading_dots);
+
+/// Legacy Chinese text (GBK / GB18030) to UTF-8 through the platform codec; nullopt if invalid.
+std::optional<std::string> gb18030_to_utf8(ByteSpan bytes);
+
 /// Reads a whole file; paths may be long or non-ASCII on Windows.
 Bytes read_file(const std::filesystem::path& path);
 /// Creates `path` exclusively and writes `data`. Returns false if the name is taken.

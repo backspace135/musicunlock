@@ -25,18 +25,23 @@ add_library(musicunlock_core STATIC
   core/src/conversion.cpp
   core/src/file_io.cpp
   core/src/legacy.cpp
+  core/src/lyrics.cpp
+  core/src/music_api.cpp
   core/src/ncm.cpp
   core/src/qmc.cpp
+  core/src/session.cpp
   core/src/tags.cpp
   core/src/text.cpp
 )
 target_include_directories(musicunlock_core PUBLIC core/include PRIVATE core/src)
 target_include_directories(musicunlock_core SYSTEM PRIVATE third_party)
 if(WIN32)
-  target_sources(musicunlock_core PRIVATE core/src/crypto_bcrypt.cpp)
-  target_link_libraries(musicunlock_core PUBLIC bcrypt)
+  target_sources(musicunlock_core PRIVATE core/src/crypto_bcrypt.cpp core/src/http_winhttp.cpp core/src/platform_text_win.cpp)
+  target_link_libraries(musicunlock_core PUBLIC bcrypt winhttp)
 elseif(APPLE)
-  target_sources(musicunlock_core PRIVATE core/src/crypto_commoncrypto.cpp)
+  # No HTTP transport on the Mac: API tests use a scripted transport.
+  target_sources(musicunlock_core PRIVATE core/src/crypto_commoncrypto.cpp core/src/platform_text_mac.cpp)
+  target_link_libraries(musicunlock_core PUBLIC "-framework CoreFoundation")
 else()
   message(FATAL_ERROR "Only Windows (product) and macOS (development) are supported.")
 endif()
@@ -50,10 +55,11 @@ if(WIN32)
 endif()
 
 enable_testing()
-add_executable(musicunlock_core_tests tests/core_tests.cpp)
+add_executable(musicunlock_core_tests tests/core_tests.cpp tests/lyrics_tests.cpp)
 target_link_libraries(musicunlock_core_tests PRIVATE musicunlock_core)
 target_include_directories(musicunlock_core_tests PRIVATE core/src)
 target_compile_definitions(musicunlock_core_tests PRIVATE
+  _CRT_SECURE_NO_WARNINGS  # std::getenv for the opt-in live tests
   MU_FIXTURES_DIR="${MU_REPO_ROOT}/tests/fixtures/qmc"
   MU_TEST_SCRATCH="${CMAKE_CURRENT_BINARY_DIR}/test-scratch")
 add_test(NAME core COMMAND musicunlock_core_tests)

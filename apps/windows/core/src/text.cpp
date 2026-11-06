@@ -80,6 +80,49 @@ std::string utf16_to_utf8(std::u16string_view text) {
     return out;
 }
 
+std::string repair_utf8(std::string_view text) {
+    std::string out;
+    out.reserve(text.size());
+    for (std::size_t i = 0; i < text.size();) append_utf8(out, next_scalar(text, i));
+    return out;
+}
+
+bool is_valid_utf8(std::string_view text) {
+    for (std::size_t i = 0; i < text.size();) {
+        const std::size_t start = i;
+        // A literal U+FFFD in the input is valid; only a substituted one marks an error.
+        if (next_scalar(text, i) == replacement && text.substr(start, i - start) != "\xEF\xBF\xBD") return false;
+    }
+    return true;
+}
+
+std::string_view trim_space(std::string_view text) {
+    auto is_space = [](char32_t c) {
+        return (c >= 0x09 && c <= 0x0d) || c == 0x20 || c == 0x85 || c == 0xa0 || c == 0x1680 ||
+               (c >= 0x2000 && c <= 0x200a) || c == 0x2028 || c == 0x2029 || c == 0x202f || c == 0x205f ||
+               c == 0x3000;
+    };
+    std::size_t start = 0;
+    while (start < text.size()) {
+        std::size_t next = start;
+        if (!is_space(next_scalar(text, next))) break;
+        start = next;
+    }
+    std::size_t end = start;
+    for (std::size_t i = start; i < text.size();) {
+        if (!is_space(next_scalar(text, i))) end = i;
+    }
+    return text.substr(start, end - start);
+}
+
+std::string replace_all(std::string text, std::string_view from, std::string_view to) {
+    if (from.empty()) return text;
+    for (std::size_t at = text.find(from); at != std::string::npos; at = text.find(from, at + to.size())) {
+        text.replace(at, from.size(), to);
+    }
+    return text;
+}
+
 std::string ascii_lower(std::string_view text) {
     std::string out(text);
     for (char& c : out) {

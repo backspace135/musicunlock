@@ -12,50 +12,12 @@
 #include "musicunlock/audio.h"
 #include "musicunlock/conversion.h"
 #include "musicunlock/text.h"
+#include "test_support.h"
 
 namespace fs = std::filesystem;
 using mu::Bytes;
 
 namespace {
-
-struct TestCase {
-    const char* name;
-    std::function<void()> body;
-};
-
-std::vector<TestCase>& registry() {
-    static std::vector<TestCase> tests;
-    return tests;
-}
-
-struct Registrar {
-    Registrar(const char* name, std::function<void()> body) { registry().push_back({name, std::move(body)}); }
-};
-
-int failures = 0;
-
-void report(const char* file, int line, const std::string& message) {
-    ++failures;
-    std::cerr << file << ":" << line << ": " << message << "\n";
-}
-
-#define TEST(name)                                       \
-    void name();                                         \
-    const Registrar name##_registrar(#name, name);       \
-    void name()
-
-#define CHECK(expr) \
-    do { if (!(expr)) report(__FILE__, __LINE__, "CHECK(" #expr ") failed"); } while (0)
-
-#define CHECK_EQ(a, b, label) \
-    do { if (!((a) == (b))) report(__FILE__, __LINE__, std::string("mismatch: ") + (label)); } while (0)
-
-#define CHECK_THROWS(expr, label)                                                                 \
-    do {                                                                                          \
-        bool thrown = false;                                                                      \
-        try { (void)(expr); } catch (const mu::DecodeError&) { thrown = true; }                   \
-        if (!thrown) report(__FILE__, __LINE__, std::string("expected DecodeError: ") + (label)); \
-    } while (0)
 
 const fs::path fixtures = mu::utf8_to_path(MU_FIXTURES_DIR);
 const fs::path scratch_root = mu::utf8_to_path(MU_TEST_SCRATCH);
