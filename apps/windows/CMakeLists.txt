@@ -30,10 +30,12 @@ add_library(musicunlock_core STATIC
   core/src/music_api.cpp
   core/src/ncm.cpp
   core/src/qmc.cpp
+  core/src/qr_login.cpp
   core/src/queue.cpp
   core/src/session.cpp
   core/src/tags.cpp
   core/src/text.cpp
+  third_party/qrcodegen/qrcodegen.cpp
 )
 target_include_directories(musicunlock_core PUBLIC core/include PRIVATE core/src)
 target_include_directories(musicunlock_core SYSTEM PRIVATE third_party)
@@ -57,7 +59,7 @@ if(WIN32)
 endif()
 
 enable_testing()
-add_executable(musicunlock_core_tests tests/core_tests.cpp tests/import_tests.cpp tests/lyrics_tests.cpp tests/queue_tests.cpp)
+add_executable(musicunlock_core_tests tests/core_tests.cpp tests/account_tests.cpp tests/import_tests.cpp tests/lyrics_tests.cpp tests/queue_tests.cpp)
 target_link_libraries(musicunlock_core_tests PRIVATE musicunlock_core)
 target_include_directories(musicunlock_core_tests PRIVATE core/src)
 target_compile_definitions(musicunlock_core_tests PRIVATE

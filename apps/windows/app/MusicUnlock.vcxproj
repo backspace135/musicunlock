@@ -139,6 +139,9 @@
     <ClCompile Include="..\core\src\*.cpp" Exclude="..\core\src\*_mac.cpp;..\core\src\crypto_commoncrypto.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="..\third_party\qrcodegen\qrcodegen.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Midl Include="MainWindow.idl">
