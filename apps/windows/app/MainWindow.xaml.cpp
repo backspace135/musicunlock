@@ -326,6 +326,7 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
 
     resize(760);
     co_await RenderAccountPreviews(folder);
+    co_await RenderLogin(folder);
 
     // Simulated high contrast last, as for the account dialog: it stays on Root.
     resize(720);
@@ -398,6 +399,66 @@ Windows::Foundation::IAsyncAction MainWindow::RenderAccountPreviews(std::filesys
     dialog.Hide();
     co_await resume_after(200ms);
     co_await wil::resume_foreground(dispatcher);
+}
+
+Windows::Foundation::IAsyncAction MainWindow::RenderLogin(std::filesystem::path directory) {
+    auto strong = get_strong();
+    auto dispatcher = DispatcherQueue();
+    const auto wait = [&](auto duration) -> Windows::Foundation::IAsyncAction {
+        co_await resume_after(duration);
+        co_await wil::resume_foreground(dispatcher);
+    };
+    // The dialog ShowAccounts opened, found among the window's popups once the last one has gone (one at a time).
+    const auto open_dialog = [&]() -> Windows::Foundation::IAsyncOperation<MusicUnlock::AccountsDialog> {
+        for (int i = 0; i < 30 && Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(Root().XamlRoot()).Size(); ++i) {
+            co_await wait(100ms);
+        }
+        ShowAccounts(mu::MusicProvider::qq);
+        co_await wait(400ms);
+        for (auto const& popup : Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(Root().XamlRoot())) {
+            if (auto dialog = popup.Child().try_as<MusicUnlock::AccountsDialog>()) co_return dialog;
+        }
+        co_return nullptr;
+    };
+    const auto until = [&](auto done) -> Windows::Foundation::IAsyncOperation<bool> {
+        for (int i = 0; i < 100 && !done(); ++i) co_await wait(100ms);
+        co_return done();
+    };
+    const auto step = [](const wchar_t* what, bool ok) { log_error(L"login", ok ? S_OK : E_FAIL, what); };
+    ShowWorkspace(false);
+    Root().RequestedTheme(ElementTheme::Light);
+
+    auto dialog = co_await open_dialog();
+    if (!dialog) co_return step(L"account dialog did not open", false);
+    dialog.RequestedTheme(ElementTheme::Light);
+    auto* view = get_self<AccountsDialog>(dialog);
+    view->Select(mu::MusicProvider::qq);  // the QQ 音乐 tab, as the user picks it
+    view->Live(true);
+    if (!co_await until([&] { return view->ShowsSession(); })) co_return step(L"qq login was not accepted", false);
+    co_await wait(800ms);  // the dialog has closed the login page and read the account name
+    step(L"qq session saved and shown", accounts::signed_in(mu::MusicProvider::qq));
+    co_await SavePreview(directory / L"login-qq-saved-light.png");
+    dialog.Hide();
+    co_await wait(500ms);
+    step(L"dialog closed, title bar updated", !accounts_open_);
+    co_await SavePreview(directory / L"login-qq-lyrics-light.png");
+
+    dialog = co_await open_dialog();
+    if (!dialog) co_return step(L"account dialog did not reopen", false);
+    dialog.RequestedTheme(ElementTheme::Light);
+    view = get_self<AccountsDialog>(dialog);
+    view->Select(mu::MusicProvider::qq);
+    view->Live(false);
+    step(L"reopened on the saved session", view->ShowsSession());
+    co_await wait(500ms);
+    co_await SavePreview(directory / L"login-qq-reopened-light.png");
+    view->OnLogout(nullptr, nullptr);
+    co_await wait(1500ms);
+    step(L"logged out", !accounts::signed_in(mu::MusicProvider::qq) && !view->ShowsSession());
+    co_await SavePreview(directory / L"login-qq-logged-out-light.png");
+    dialog.Hide();
+    co_await wait(500ms);
+    step(L"done, app still running", !accounts_open_);
 }
 
 Windows::Foundation::IAsyncAction MainWindow::SavePreview(std::filesystem::path file) {

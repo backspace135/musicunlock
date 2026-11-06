@@ -47,6 +47,9 @@ private:
     fire_and_forget RenderPreviews(std::wstring directory);
     /// The account dialog's states over the lyrics workspace in light, dark and simulated high contrast.
     Windows::Foundation::IAsyncAction RenderAccountPreviews(std::filesystem::path directory);
+    /// A simulated QQ Music login through 账号登录 (fake cookies, AccountsDialog::Live), reopening and logging out;
+    /// logs each step, so a render that stops early shows where the app went down.
+    Windows::Foundation::IAsyncAction RenderLogin(std::filesystem::path directory);
     /// One PNG of the window content, with open dialogs drawn over it.
     Windows::Foundation::IAsyncAction SavePreview(std::filesystem::path file);
 };

@@ -166,10 +166,13 @@ def main() -> None:
         subprocess.run(["schtasks", "/Delete", "/TN", TASK, "/F"], capture_output=True)
     if not done.exists():
         sys.exit("截图超时；计划任务已删除")
-    print("app exit:", done.read_text().strip())
+    exit_code = done.read_text().strip()
+    print("app exit:", exit_code)
     log = output / "app.log"
     if log.exists():
         print(log.read_text(encoding="utf-8-sig"))
+    if exit_code != "0x00000000":
+        sys.exit(f"App 异常退出（{exit_code}），见上面 app.log 里的 crash 记录")
     if args.single:
         launcher_log = output / "launcher.log"
         text = launcher_log.read_text(encoding="utf-8-sig") if launcher_log.exists() else ""
@@ -180,11 +183,18 @@ def main() -> None:
     for png in sorted(output.glob("*.png")):
         print(png)
     if not args.convert:
-        # The account previews start WebView2 once; its data must follow MUSICUNLOCK_DATA_DIR.
+        text = log.read_text(encoding="utf-8-sig") if log.exists() else ""
+        # The account previews start WebView2; its data must follow MUSICUNLOCK_DATA_DIR. (The simulated login
+        # logs out afterwards, which deletes the folder again.)
         webview = output / "appdata" / "WebView2" / "qq"
-        if not webview.is_dir() or "ready" not in (log.read_text(encoding="utf-8-sig") if log.exists() else ""):
+        if f"ready, user data {webview}".lower() not in text.lower():
             sys.exit(f"WebView2 未能启动，或数据没有放在 {webview}")
         print("WebView2 data folder:", webview)
+        # MainWindow::RenderLogin: a simulated QQ Music login, reopening the dialog and logging out.
+        login = [line for line in text.splitlines() if line.startswith("login: ")]
+        if not login or any(" 0x00000000 " not in line for line in login) or not login[-1].endswith("app still running"):
+            sys.exit("模拟 QQ 音乐登录失败，或 App 在登录后退出：\n" + "\n".join(login))
+        print("simulated QQ Music login: saved, reopened, logged out; the app kept running")
     if args.convert:
         converted = folder / "输出" / "中文 歌曲.wav"
         if not converted.exists() or converted.read_bytes() != audio:
