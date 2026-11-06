@@ -2,6 +2,7 @@
 
 #include "App.xaml.h"
 #include "MainWindow.xaml.h"
+#include "Taskbar.h"
 
 #include <cstdio>
 
@@ -43,6 +44,7 @@ void App::OnLaunched(Microsoft::UI::Xaml::LaunchActivatedEventArgs const&) {
 int __stdcall wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     try {
         winrt::init_apartment(winrt::apartment_type::single_threaded);
+        taskbar::claim_process();
         winrt::Microsoft::UI::Xaml::Application::Start(
             [](auto&&) { winrt::make<winrt::MusicUnlock::implementation::App>(); });
     } catch (winrt::hresult_error const& error) {

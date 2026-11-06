@@ -4,7 +4,7 @@
     python3 apps/windows/scripts/remote.py sync                    # send the working tree
     python3 apps/windows/scripts/remote.py run -- python scripts/build.py
     python3 apps/windows/scripts/remote.py app                     # build_app.py
-    python3 apps/windows/scripts/remote.py screenshot [--convert] [--dist|--single]  # previews into build/previews here
+    python3 apps/windows/scripts/remote.py screenshot [--convert] [--dist|--single [--shortcut plain|app-id]]
     python3 apps/windows/scripts/remote.py list | remove
 
 Each branch gets D:\\project\\musicunlock\\.worktrees\\<branch>, so parallel sessions never share a
@@ -124,6 +124,8 @@ def main() -> None:
     shape = shot.add_mutually_exclusive_group()
     shape.add_argument("--dist", action="store_true", help="stage build/dist/MusicUnlock and render that instead")
     shape.add_argument("--single", action="store_true", help="pack build/dist/MusicUnlock.exe and render through it")
+    shot.add_argument("--shortcut", choices=["plain", "app-id"],
+                      help="with --single: start it from a shortcut without or with the app's AppUserModelID")
     commands.add_parser("list", help="list worktrees on the Windows machine")
     commands.add_parser("remove", help="delete this branch's worktree")
     args = parser.parse_args()
@@ -161,7 +163,8 @@ def main() -> None:
             code = remote.run(["python", "scripts/pack.py"])
         if code == 0:
             code = remote.run(["python", "scripts/screenshot.py", *(["--convert"] if args.convert else []),
-                               *(["--dist"] if args.dist else []), *(["--single"] if args.single else [])])
+                               *(["--dist"] if args.dist else []), *(["--single"] if args.single else []),
+                               *(["--shortcut", args.shortcut] if args.shortcut else [])])
         if code == 0:
             print(f"预览已取回：{remote.fetch_previews()}")
         sys.exit(code)

@@ -119,6 +119,7 @@ python scripts/build_app.py
 python scripts/pack.py               # 先运行 stage_app.py，再生成 build/dist/MusicUnlock.exe
 python scripts/pack.py --compare     # 比较压缩算法和分块大小
 python scripts/screenshot.py --single [--convert]  # 通过单 exe 启动 App 渲染预览；--convert 另外在命令行上传一个文件，检查拖放导入
+python scripts/screenshot.py --single --shortcut plain|app-id  # 从不带 / 带 AppUserModelID 的快捷方式启动，检查任务栏身份
 ```
 
 - 打包：`launcher_pack` 把分发目录按扩展名排成一个数据块，按 4 MiB 分块用 LZMS 压缩（`cabinet.dll` 的
@@ -151,6 +152,35 @@ python scripts/screenshot.py --single [--convert]  # 通过单 exe 启动 App �
 
 LZMS 比 XPRESS Huffman 小约 26%，多出的解压时间只在首次运行时付一次。
 
+### 任务栏与固定
+
+App 实际运行的是 `runtime\<版本>\MusicUnlock.exe`。不做处理的话，固定到任务栏的是这个副本：升级后旧目录被删除，
+固定的图标失效；从固定图标启动也会绕过启动器的校验和修复。所以（`app/Taskbar.cpp`）：
+
+- 启动器启动 App 时设置环境变量 `MUSICUNLOCK_LAUNCHER_PATH` 为单 exe 的完整路径（覆盖继承来的值）；App 读取后立即清掉，
+  不传给它打开的程序。
+- 通过启动器启动时，App 在显示任何窗口之前用 `SetCurrentProcessExplicitAppUserModelID` 设置固定的 AppUserModelID
+  `MusicUnlock.App`（文件对话框的最近项目也归到这个 ID），并在主窗口显示前用 `SHGetPropertyStoreForWindow` 设置
+  `RelaunchCommand`（带引号的单 exe 路径，不带参数）、`RelaunchDisplayNameResource`（“音匣”）、
+  `RelaunchIconResource`（单 exe 的图标 `<路径>,-1`），最后设置 `PKEY_AppUserModel_ID`。窗口销毁前
+  （`AppWindow.Destroying`）按同样的顺序把它们清空，ID 最后清。固定时 Windows 用这些属性生成快捷方式，指向单 exe。
+- 单 exe 被覆盖成新版本后，固定图标照样启动它，经过启动器的校验和旧版本清理；单 exe 被移动或改名后固定图标失效，这是预期行为。
+- **直接运行**程序目录里的 `MusicUnlock.exe`（`build/app-release/`、`build/dist/MusicUnlock/`、开发调试）时什么都不设置，
+  保持 Windows 按路径推导的身份：开发版不会和用户固定的单 exe 合成一个按钮，也不会把自己固定成正式版。
+- **从快捷方式启动**时启动器把 `STARTF_TITLEISLINKNAME`（以及 `STARTF_TITLEISAPPID`）原样传给 App，App 读出快捷方式的
+  AppUserModelID：是 `MusicUnlock.App`（例如从上面固定的图标启动）就照常设置；快捷方式没有 ID（用户自己建的快捷方式、
+  在资源管理器里对 exe 文件“固定到任务栏”）时什么都不设置，让任务栏跟着快捷方式走——它本来就指向单 exe，显式 ID 反而会把
+  窗口和这个固定图标分成两个按钮。
+- 启动器本身不设置 ID：它没有窗口，只有出错时的对话框，那时还没有 App 窗口可以合并。
+- **安装版（#10）**：开始菜单、桌面快捷方式都要在创建时写入 `System.AppUserModel.ID = MusicUnlock.App`（文件关联的
+  ProgID 也写 `AppUserModelID`），否则快捷方式和运行中的窗口会分成两个任务栏按钮。安装版如果不经过启动器直接运行 App，
+  App 也需要在那种情况下设置同一个 ID（目前只在 `MUSICUNLOCK_LAUNCHER_PATH` 存在时设置），并让 `RelaunchCommand`
+  指向安装后的 exe，或者交给快捷方式提供。ID 一旦发布就不能再改。
+- 测试：`MUSICUNLOCK_TASKBAR_LOG` 让 App 把进程 ID 和从窗口属性存储读回的值（设置后、清除后）写进文件；
+  `screenshot.py` 每次都检查：`--single` 时 `RelaunchCommand` 指向 `build/dist/MusicUnlock.exe`、关闭前已清空，
+  直接运行时一项都没有；`--shortcut plain|app-id` 由 `desktop_shot` 在输出目录里建一个快捷方式并按资源管理器的方式启动，
+  分别检查不设置和照常设置。**真正固定到任务栏会改动用户的任务栏，只能人工验证。**
+
 | 测量（g16win，Defender 实时保护关闭） | |
 | --- | --- |
 | `MusicUnlock.exe` | 19.4 MB（启动器本身 0.39 MB） |
@@ -169,6 +199,7 @@ python3 apps/windows/scripts/remote.py app                    # 编译界面
 python3 apps/windows/scripts/remote.py screenshot [--convert] # 编译界面并渲染预览，取回到 build/previews/
 python3 apps/windows/scripts/remote.py screenshot --dist      # 同上，但先整理分发目录，用它渲染
 python3 apps/windows/scripts/remote.py screenshot --single    # 同上，但先生成单 exe，通过它启动 App
+python3 apps/windows/scripts/remote.py screenshot --single --shortcut plain   # 同上，从快捷方式启动
 python3 apps/windows/scripts/remote.py run -- <命令>           # 在工作树的 apps/windows 下运行任意命令
 python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 / 删除当前分支的工作树
 ```

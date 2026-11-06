@@ -8,7 +8,10 @@ right after the run. PNGs go to build/previews. --convert also imports and conve
 --dist runs the staged folder from stage_app.py (build/dist/MusicUnlock) instead of build/app-release;
 --single runs the single-file build/dist/MusicUnlock.exe from pack.py, which extracts into build/runtime (kept
 between runs, so the second run is a warm start). With --convert it also gets a file on its command line, as if
-the file had been dropped on the exe.
+the file had been dropped on the exe. Every run checks the taskbar identity the app read back from its window:
+through the single exe it pins and relaunches that exe, run directly it sets none. --shortcut plain|app-id starts
+the single exe from a shortcut without or with the app's AppUserModelID; without it, the shortcut keeps the
+identity and the app sets none.
 """
 from pathlib import Path
 import argparse
@@ -43,7 +46,7 @@ def build_helper() -> Path:
     env.update(TMP=str(tmp), TEMP=str(tmp))
     cl = shutil.which("cl", path=env.get("PATH") or env.get("Path"))
     subprocess.run([cl, "/nologo", "/utf-8", "/W4", "/EHsc", "/O2", "/MT", "/std:c++20", str(source),
-                    f"/Fe{helper}", f"/Fo{helper.parent}\\", "/link", "user32.lib",
+                    f"/Fe{helper}", f"/Fo{helper.parent}\\", "/link", "user32.lib", "ole32.lib", "shlwapi.lib",
                     # No console: the task starts it in the user's session, where a console window would show.
                     "/SUBSYSTEM:WINDOWS", "/ENTRY:wmainCRTStartup"], env=env, check=True)
     return helper
@@ -91,13 +94,39 @@ def prepare_conversion() -> tuple[Path, bytes]:
     return folder, audio
 
 
+def check_taskbar(output: Path, single_exe: Path | None) -> None:
+    """app/Taskbar.cpp: through the single exe the process and window carry the app's ID and the window relaunches
+    the single exe (cleared again before it is destroyed); run directly, nothing is set."""
+    log = output / "taskbar.log"
+    lines = log.read_text(encoding="utf-8-sig").splitlines() if log.exists() else []
+    print("\n".join(lines))
+    found = dict(line.split(": ", 1) for line in lines)
+    names = ["ID", "RelaunchCommand", "RelaunchDisplayNameResource", "RelaunchIconResource"]
+    none = {f"window {name}": "(none)" for name in names}
+    if single_exe:
+        expected = {"process ID": "MusicUnlock.App", "window ID": "MusicUnlock.App",
+                    "window RelaunchCommand": f'"{single_exe}"', "window RelaunchDisplayNameResource": "音匣",
+                    "window RelaunchIconResource": f"{single_exe},-1",
+                    **{f"cleared {name}": "(none)" for name in names}}
+    else:
+        expected = {"process ID": "(none)", **none}
+    # Paths compare case-insensitively, as Windows does.
+    if {k: v.lower() for k, v in found.items()} != {k: v.lower() for k, v in expected.items()}:
+        sys.exit("任务栏属性不对：\n" + "\n".join(lines))
+    print("taskbar:", "pins and relaunches the single exe" if single_exe else "no explicit identity")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--convert", action="store_true", help="import and convert sample files, then capture")
     shape = parser.add_mutually_exclusive_group()
     shape.add_argument("--dist", action="store_true", help="run build/dist/MusicUnlock from stage_app.py")
     shape.add_argument("--single", action="store_true", help="run the single build/dist/MusicUnlock.exe from pack.py")
+    parser.add_argument("--shortcut", choices=["plain", "app-id"],
+                        help="with --single: start from a shortcut without or with the app's AppUserModelID")
     args = parser.parse_args()
+    if args.shortcut and not args.single:
+        parser.error("--shortcut 需要 --single")
     if os.name != "nt":
         sys.exit("只能在 Windows 上运行")
     if args.single:
@@ -112,7 +141,7 @@ def main() -> None:
     output = BUILD / "previews"
     shutil.rmtree(output, ignore_errors=True)
     output.mkdir(parents=True)
-    arguments = [DESKTOP, str(app), str(output)]
+    arguments = [*(["--shortcut", args.shortcut] if args.shortcut else []), DESKTOP, str(app), str(output)]
     if args.convert:
         folder, audio = prepare_conversion()
         arguments.append(str(folder))
@@ -147,6 +176,7 @@ def main() -> None:
         print(text)
         if " started " not in text:
             sys.exit("启动器没有启动 App")
+    check_taskbar(output, app if args.single and args.shortcut != "plain" else None)
     for png in sorted(output.glob("*.png")):
         print(png)
     if not args.convert:
