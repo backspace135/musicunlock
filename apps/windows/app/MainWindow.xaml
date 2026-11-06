@@ -1,0 +1,30 @@
+<Window
+    x:Class="MusicUnlock.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="音匣">
+    <Grid x:Name="Root">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <!-- Mirrors the macOS toolbar: workspace switcher in the middle, file actions on the right. -->
+        <TitleBar x:Name="AppTitleBar" Title="音匣">
+            <TitleBar.Content>
+                <SelectorBar x:Name="WorkspaceBar" HorizontalAlignment="Center">
+                    <SelectorBarItem x:Name="AudioItem" Text="音乐解锁" IsSelected="True">
+                        <SelectorBarItem.Icon>
+                            <FontIcon Glyph="&#xE785;" />
+                        </SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="LyricsItem" Text="歌词工具">
+                        <SelectorBarItem.Icon>
+                            <FontIcon Glyph="&#xE8E4;" />
+                        </SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                </SelectorBar>
+            </TitleBar.Content>
+        </TitleBar>
+        <TextBlock Grid.Row="1" Text="音匣" HorizontalAlignment="Center" VerticalAlignment="Center" />
+    </Grid>
+</Window>
