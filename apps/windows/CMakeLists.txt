@@ -71,3 +71,11 @@ target_compile_definitions(musicunlock_core_tests PRIVATE
   MU_FIXTURES_DIR="${MU_REPO_ROOT}/tests/fixtures/qmc"
   MU_TEST_SCRATCH="${CMAKE_CURRENT_BINARY_DIR}/test-scratch")
 add_test(NAME core COMMAND musicunlock_core_tests)
+
+# Single-exe launcher. The payload format is portable and tested on the Mac too.
+add_library(musicunlock_launcher STATIC launcher/payload.cpp)
+target_include_directories(musicunlock_launcher PUBLIC launcher)
+add_executable(musicunlock_launcher_tests tests/launcher_tests.cpp)
+target_link_libraries(musicunlock_launcher_tests PRIVATE musicunlock_launcher)
+target_include_directories(musicunlock_launcher_tests PRIVATE core/include)
+add_test(NAME launcher COMMAND musicunlock_launcher_tests)
