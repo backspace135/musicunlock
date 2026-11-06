@@ -6,6 +6,7 @@
 .idea/
 .vscode/
 .cache/
+.worktrees/
 
 # Build output and dependency caches (all platforms)
 build/
