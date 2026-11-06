@@ -24,7 +24,7 @@ apps/windows/
 ├── app/           WinUI 3 界面（C++/WinRT，未打包、Windows App SDK 自包含、静态 CRT）
 ├── tools/         desktop_shot.cpp：在独立桌面上运行界面预览渲染
 ├── tests/         core 与歌词测试，读取 ../../tests/fixtures/qmc
-├── third_party/   nlohmann/json 3.12.0（单头文件，MIT）
+├── third_party/   nlohmann/json 3.12.0（单头文件，MIT）、nayuki QR-Code-generator 1.8.0（MIT）
 └── scripts/       build.py：核心与命令行；smoke_cli.py：命令行冒烟测试；restore.py / build_app.py：界面；
                    stage_app.py：整理分发目录；screenshot.py：界面预览与端到端转换检查；
                    remote.py：在 Windows 机器的独立工作树里构建
