@@ -191,7 +191,7 @@ struct MusicLoginSheet: View {
             loading = false; status = "请使用网易云音乐扫码"
             for _ in 0..<90 {
                 try await Task.sleep(for: .seconds(2))
-                let response = try await api.checkQRCode(key: code.key)
+                let response = try await api.checkQRCode(code)
                 try Task.checkCancellation()
                 switch response.code {
                 case 800: expired = true; status = "二维码已过期，请刷新。"; return

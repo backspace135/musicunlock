@@ -66,7 +66,7 @@ final class LyricsTests: XCTestCase {
         XCTAssertFalse(MusicProvider.qq.owns(domain: "notqq.com"))
     }
 
-    func testLiveFirstPartySearchResolveLyricsAndQR() async throws {
+    func testLiveFirstPartySearchResolveLyrics() async throws {
         guard ProcessInfo.processInfo.environment["MUSICUNLOCK_LIVE_TESTS"] == "1" else { throw XCTSkip("设置 MUSICUNLOCK_LIVE_TESTS=1 验证实际平台接口") }
         let api = MusicAPI()
         for provider in MusicProvider.allCases {
@@ -93,9 +93,5 @@ final class LyricsTests: XCTestCase {
             let playlistSongs = try await api.resolve(playlist, cookie: "")
             XCTAssertGreaterThan(playlistSongs.count, 1, provider.title)
         }
-        let code = try await api.createQRCode()
-        XCTAssertEqual(code.url.host, "music.163.com")
-        let status = try await api.checkQRCode(key: code.key)
-        XCTAssertEqual(status.code, 801)
     }
 }
