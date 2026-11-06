@@ -78,6 +78,17 @@ target_include_directories(musicunlock_launcher PUBLIC launcher)
 if(WIN32)
   target_sources(musicunlock_launcher PRIVATE launcher/codec.cpp launcher/install.cpp)
   target_link_libraries(musicunlock_launcher PUBLIC bcrypt cabinet shell32 ole32)
+  # The MusicUnlock.exe stub: scripts/pack.py embeds the app folder into a copy of it. It reuses the app's
+  # resource script for the icon and version information; the include path resolves the icon file.
+  set(MU_APP_RC "${CMAKE_CURRENT_SOURCE_DIR}/app/MusicUnlock.rc")
+  configure_file(launcher/launcher.rc.in "${CMAKE_CURRENT_BINARY_DIR}/launcher.rc" @ONLY)
+  add_executable(launcher WIN32 launcher/main.cpp "${CMAKE_CURRENT_BINARY_DIR}/launcher.rc" launcher/launcher.manifest)
+  target_include_directories(launcher PRIVATE app)
+  target_link_libraries(launcher PRIVATE musicunlock_launcher)
+  # Resolve cabinet.dll and bcrypt.dll from System32 only, never from the download folder the exe sits in.
+  target_link_options(launcher PRIVATE /DEPENDENTLOADFLAG:0x800)
+  add_executable(launcher_pack launcher/pack.cpp)
+  target_link_libraries(launcher_pack PRIVATE musicunlock_launcher)
 endif()
 add_executable(musicunlock_launcher_tests tests/launcher_tests.cpp)
 target_link_libraries(musicunlock_launcher_tests PRIVATE musicunlock_launcher)

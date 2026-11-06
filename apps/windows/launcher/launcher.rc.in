@@ -1,0 +1,4 @@
+// The single exe carries the app's icon and version information: reuse the app's resource script.
+// Included by absolute path (the CLI's generated musicunlock.rc sits in the build folder under the same name);
+// apps/windows/app is on the include path, so its Assets\AppIcon.ico resolves too.
+#include "@MU_APP_RC@"
