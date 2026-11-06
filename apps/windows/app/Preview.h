@@ -16,4 +16,7 @@ void scale_text(xaml::DependencyObject const& root, double factor);
 /// List rows appear as the list reports them to Narrator, named by the item (JobItem::ToString).
 void write_automation_tree(xaml::UIElement const& root, std::filesystem::path const& file);
 
+/// The Tab order under `root`, by moving keyboard focus from the first focusable element until it wraps.
+void write_tab_order(xaml::UIElement const& root, std::filesystem::path const& file);
+
 }  // namespace preview

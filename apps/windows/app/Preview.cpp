@@ -59,4 +59,26 @@ void write_automation_tree(UIElement const& root, std::filesystem::path const& f
     std::ofstream(file, std::ios::binary) << to_string(text);
 }
 
+void write_tab_order(UIElement const& root, std::filesystem::path const& file) {
+    using namespace Input;
+    std::wstring text;
+    const auto first = FocusManager::FindFirstFocusableElement(root).try_as<Controls::Control>();
+    if (first && first.Focus(FocusState::Keyboard)) {
+        FindNextElementOptions options;
+        options.SearchRoot(root);
+        for (int step = 0; step < 80; ++step) {
+            const auto focused = FocusManager::GetFocusedElement(root.XamlRoot()).try_as<UIElement>();
+            // Identity, not interface pointers: back at the first element means the order wrapped around.
+            if (!focused || (step > 0 && focused.as<IUnknown>() == first.as<IUnknown>())) break;
+            const auto peer = Automation::Peers::FrameworkElementAutomationPeer::CreatePeerForElement(focused);
+            text += std::to_wstring(step + 1) + L". " +
+                    (peer ? std::wstring(peer.GetLocalizedControlType()) + L"「" + std::wstring(peer.GetName()) + L"」"
+                          : std::wstring(get_class_name(focused))) +
+                    L"\n";
+            if (!FocusManager::TryMoveFocus(FocusNavigationDirection::Next, options)) break;
+        }
+    }
+    std::ofstream(file, std::ios::binary) << to_string(text);
+}
+
 }  // namespace preview

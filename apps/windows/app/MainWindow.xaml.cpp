@@ -333,6 +333,8 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
     co_await shot(L"contrast-empty", ElementTheme::Light);
     audio.ShowSampleJobs();
     co_await shot(L"contrast-queue", ElementTheme::Light);
+    // Last: moving focus through everything scrolls the settings panel.
+    preview::write_tab_order(Root(), folder / L"tab-order.txt");
     Application::Current().Exit();
 }
 
