@@ -200,7 +200,7 @@ void LyricsView::Refresh() {
     SearchButton().Visibility(shown(!searching));
     SearchButton().IsEnabled(!exporting && !mu::trim_space(workspace_.query()).empty());
     CancelSearchButton().Visibility(shown(searching));
-    const bool signed_in = !accounts::cookie_header(workspace_.provider()).empty();
+    const bool signed_in = accounts::signed_in(workspace_.provider());
     SessionGlyph().Glyph(signed_in ? L"\xEA18" : L"\xE774");  // Shield / Globe
     SessionText().Text(signed_in ? L"登录会话已保存" : L"公开内容可免登录读取");
 

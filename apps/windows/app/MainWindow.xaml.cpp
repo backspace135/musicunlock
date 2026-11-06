@@ -126,6 +126,7 @@ fire_and_forget MainWindow::ShowAccounts(mu::MusicProvider provider) {
     }
     accounts_open_ = false;
     UpdateAccountsButton();
+    Lyrics().AccountsChanged();
 }
 
 void MainWindow::UpdateAccountsButton() {

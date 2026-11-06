@@ -30,6 +30,8 @@ struct LyricsView : LyricsViewT<LyricsView> {
     /// Stops the batch after the current song; finished files stay (Ctrl+.).
     void StopExport();
     bool Busy() const { return workspace_.exporting(); }
+    /// After the account dialog: the title row shows whether the provider's session is saved.
+    void AccountsChanged() { Refresh(); }
 
     void OnProviderChanged(IInspectable const&, Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const&);
     void OnKindChanged(IInspectable const&, Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const&);
