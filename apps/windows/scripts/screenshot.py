@@ -29,7 +29,9 @@ DESKTOP = f"MusicUnlockShot-{CHECKOUT_ID}"
 def build_helper() -> Path:
     source = ROOT / "tools" / "desktop_shot.cpp"
     helper = BUILD / "tools" / "desktop_shot.exe"
-    if helper.exists() and helper.stat().st_mtime >= source.stat().st_mtime:
+    # Rebuild when the source or the build flags below change.
+    newest = max(source.stat().st_mtime, Path(__file__).stat().st_mtime)
+    if helper.exists() and helper.stat().st_mtime >= newest:
         return helper
     helper.parent.mkdir(parents=True, exist_ok=True)
     tmp = BUILD / "tmp"
@@ -37,7 +39,9 @@ def build_helper() -> Path:
     env.update(TMP=str(tmp), TEMP=str(tmp))
     cl = shutil.which("cl", path=env.get("PATH") or env.get("Path"))
     subprocess.run([cl, "/nologo", "/utf-8", "/W4", "/EHsc", "/O2", "/MT", "/std:c++20", str(source),
-                    f"/Fe{helper}", f"/Fo{helper.parent}\\", "/link", "user32.lib"], env=env, check=True)
+                    f"/Fe{helper}", f"/Fo{helper.parent}\\", "/link", "user32.lib",
+                    # No console: the task starts it in the user's session, where a console window would show.
+                    "/SUBSYSTEM:WINDOWS", "/ENTRY:wmainCRTStartup"], env=env, check=True)
     return helper
 
 
