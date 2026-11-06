@@ -4,7 +4,7 @@
     python3 apps/windows/scripts/remote.py sync                    # send the working tree
     python3 apps/windows/scripts/remote.py run -- python scripts/build.py
     python3 apps/windows/scripts/remote.py app                     # build_app.py
-    python3 apps/windows/scripts/remote.py screenshot [--convert] [--dist]  # previews into build/previews here
+    python3 apps/windows/scripts/remote.py screenshot [--convert] [--dist|--single]  # previews into build/previews here
     python3 apps/windows/scripts/remote.py list | remove
 
 Each branch gets D:\\project\\musicunlock\\.worktrees\\<branch>, so parallel sessions never share a
@@ -121,7 +121,9 @@ def main() -> None:
     commands.add_parser("app", help="sync, then scripts/build_app.py")
     shot = commands.add_parser("screenshot", help="sync, build the app, render previews and fetch them")
     shot.add_argument("--convert", action="store_true", help="also convert sample files end to end")
-    shot.add_argument("--dist", action="store_true", help="stage build/dist/MusicUnlock and render that instead")
+    shape = shot.add_mutually_exclusive_group()
+    shape.add_argument("--dist", action="store_true", help="stage build/dist/MusicUnlock and render that instead")
+    shape.add_argument("--single", action="store_true", help="pack build/dist/MusicUnlock.exe and render through it")
     commands.add_parser("list", help="list worktrees on the Windows machine")
     commands.add_parser("remove", help="delete this branch's worktree")
     args = parser.parse_args()
@@ -153,9 +155,13 @@ def main() -> None:
         code = remote.run(["python", "scripts/build_app.py"])
         if code == 0 and args.dist:
             code = remote.run(["python", "scripts/stage_app.py", "--zip"])
+        if code == 0 and args.single:
+            code = remote.run(["python", "scripts/build.py", "--no-test"])  # the launcher
+        if code == 0 and args.single:
+            code = remote.run(["python", "scripts/pack.py"])
         if code == 0:
             code = remote.run(["python", "scripts/screenshot.py", *(["--convert"] if args.convert else []),
-                               *(["--dist"] if args.dist else [])])
+                               *(["--dist"] if args.dist else []), *(["--single"] if args.single else [])])
         if code == 0:
             print(f"预览已取回：{remote.fetch_previews()}")
         sys.exit(code)

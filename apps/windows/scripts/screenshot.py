@@ -5,7 +5,10 @@ A one-shot scheduled task (MusicUnlockShot-<checkout id>) starts tools/desktop_s
 (an SSH session has no desktop compositor). The helper creates a separate desktop, runs the app there in
 render mode and closes the desktop; the user's own desktop is never shown or captured. The task is deleted
 right after the run. PNGs go to build/previews. --convert also imports and converts sample files and checks the output;
---dist runs the staged folder from stage_app.py (build/dist/MusicUnlock) instead of build/app-release.
+--dist runs the staged folder from stage_app.py (build/dist/MusicUnlock) instead of build/app-release;
+--single runs the single-file build/dist/MusicUnlock.exe from pack.py, which extracts into build/runtime (kept
+between runs, so the second run is a warm start). With --convert it also gets a file on its command line, as if
+the file had been dropped on the exe.
 """
 from pathlib import Path
 import argparse
@@ -91,13 +94,19 @@ def prepare_conversion() -> tuple[Path, bytes]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--convert", action="store_true", help="import and convert sample files, then capture")
-    parser.add_argument("--dist", action="store_true", help="run build/dist/MusicUnlock from stage_app.py")
+    shape = parser.add_mutually_exclusive_group()
+    shape.add_argument("--dist", action="store_true", help="run build/dist/MusicUnlock from stage_app.py")
+    shape.add_argument("--single", action="store_true", help="run the single build/dist/MusicUnlock.exe from pack.py")
     args = parser.parse_args()
     if os.name != "nt":
         sys.exit("只能在 Windows 上运行")
-    app = BUILD / ("dist/MusicUnlock" if args.dist else "app-release") / "MusicUnlock.exe"
+    if args.single:
+        app = BUILD / "dist" / "MusicUnlock.exe"
+    else:
+        app = BUILD / ("dist/MusicUnlock" if args.dist else "app-release") / "MusicUnlock.exe"
     if not app.exists():
-        sys.exit("请先运行 scripts/stage_app.py" if args.dist else "请先运行 scripts/build_app.py")
+        sys.exit("请先运行 scripts/pack.py" if args.single else
+                 "请先运行 scripts/stage_app.py" if args.dist else "请先运行 scripts/build_app.py")
     print("app:", app)
     helper = build_helper()
     output = BUILD / "previews"
@@ -107,6 +116,13 @@ def main() -> None:
     if args.convert:
         folder, audio = prepare_conversion()
         arguments.append(str(folder))
+        if args.single:
+            # Outside the imported folder: it only reaches the queue through the command line.
+            dropped = BUILD / "tmp" / "app-e2e-drop" / "拖入 歌曲.uc"
+            shutil.rmtree(dropped.parent, ignore_errors=True)
+            dropped.parent.mkdir(parents=True)
+            dropped.write_bytes(bytes(b ^ 0xA3 for b in audio))
+            arguments.append(str(dropped))
     definition = BUILD / "tmp" / f"{TASK}.xml"
     definition.write_text(task_xml(helper, arguments, os.environ["USERNAME"]), encoding="utf-16")
     subprocess.run(["schtasks", "/Create", "/TN", TASK, "/XML", str(definition), "/F"], check=True, capture_output=True)
@@ -125,6 +141,12 @@ def main() -> None:
     log = output / "app.log"
     if log.exists():
         print(log.read_text(encoding="utf-8-sig"))
+    if args.single:
+        launcher_log = output / "launcher.log"
+        text = launcher_log.read_text(encoding="utf-8-sig") if launcher_log.exists() else ""
+        print(text)
+        if " started " not in text:
+            sys.exit("启动器没有启动 App")
     for png in sorted(output.glob("*.png")):
         print(png)
     if not args.convert:
@@ -138,6 +160,11 @@ def main() -> None:
         if not converted.exists() or converted.read_bytes() != audio:
             sys.exit("端到端转换失败：输出缺失或内容不一致")
         print("end-to-end conversion: output matches the source audio")
+        if args.single:
+            converted = folder / "输出" / "拖入 歌曲.wav"
+            if not converted.exists() or converted.read_bytes() != audio:
+                sys.exit("通过命令行传入的文件没有导入或转换")
+            print("command-line file: imported and converted through the launcher")
         saved = json.loads((output / "appdata" / "settings.json").read_text(encoding="utf-8"))
         if Path(saved.get("outputDirectory", "")) != folder / "输出":
             sys.exit(f"设置未保存输出文件夹：{saved}")

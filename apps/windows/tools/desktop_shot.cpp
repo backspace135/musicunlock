@@ -1,9 +1,11 @@
 // Runs MusicUnlock.exe on a private desktop so preview renders never show on, or capture, the user's desktop.
 // The app renders its own XAML tree to PNG (MUSICUNLOCK_RENDER_DIR) and exits; the desktop is closed afterwards.
 //
-//   desktop_shot.exe <desktop name> <MusicUnlock.exe> <output directory> [folder to import and convert]
+//   desktop_shot.exe <desktop name> <MusicUnlock.exe> <output directory> [folder to import and convert [file...]]
 //
-// The desktop name is unique per checkout, so parallel worktrees never share a desktop.
+// The desktop name is unique per checkout, so parallel worktrees never share a desktop. Files after the folder
+// are passed on the app's command line, as Explorer does for files dropped on the exe. The single-file
+// MusicUnlock.exe extracts into <output directory>\..\runtime and logs to launcher.log; it waits for the app.
 //
 // Writes <output directory>\shot.done with the app's exit code when finished. Started by scripts/screenshot.py.
 #include <windows.h>
@@ -24,7 +26,7 @@ void finish(const std::wstring& directory, const std::wstring& status) {
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
-    if (argc != 4 && argc != 5) return 2;
+    if (argc < 4) return 2;
     const std::wstring desktop_name = argv[1];
     const std::wstring app = argv[2];
     const std::wstring directory = argv[3];
@@ -41,15 +43,20 @@ int wmain(int argc, wchar_t** argv) {
 
     SetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_DIR", directory.c_str());
     SetEnvironmentVariableW(L"MUSICUNLOCK_LOG", (directory + L"\\app.log").c_str());
-    SetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_CONVERT", argc == 5 ? argv[4] : nullptr);
+    SetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_CONVERT", argc >= 5 ? argv[4] : nullptr);
     // Keep anything the app saves inside the output folder, never in the profile.
     SetEnvironmentVariableW(L"MUSICUNLOCK_DATA_DIR", (directory + L"\\appdata").c_str());
+    // Same for the single exe's extracted runtime, which stays between runs (warm starts).
+    const std::wstring build = directory.substr(0, directory.find_last_of(L'\\'));
+    SetEnvironmentVariableW(L"MUSICUNLOCK_RUNTIME_DIR", (build + L"\\runtime").c_str());
+    SetEnvironmentVariableW(L"MUSICUNLOCK_LAUNCHER_LOG", (directory + L"\\launcher.log").c_str());
     std::wstring startup_desktop = L"WinSta0\\" + desktop_name;
     STARTUPINFOW startup{};
     startup.cb = sizeof startup;
     startup.lpDesktop = startup_desktop.data();
     PROCESS_INFORMATION process{};
     std::wstring command = L"\"" + app + L"\"";
+    for (int i = 5; i < argc; ++i) command += L" \"" + std::wstring(argv[i]) + L"\"";
     const std::wstring folder = app.substr(0, app.find_last_of(L'\\'));
     std::wstring status;
     if (CreateProcessW(app.c_str(), command.data(), nullptr, nullptr, FALSE, CREATE_SUSPENDED, nullptr, folder.c_str(),
