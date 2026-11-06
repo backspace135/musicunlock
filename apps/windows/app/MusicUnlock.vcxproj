@@ -213,6 +213,18 @@
       </ClCompile>
     </ItemGroup>
   </Target>
+  <!-- VC exports LibraryPath as LIB for every tool, MSBuild's inline C# tasks included, and those warn (CS1668)
+       about directories that do not exist: ATL / MFC are not part of the Build Tools C++ workload, and one SDK
+       entry is relative. LIB from the environment is not used (UseEnv is false), so prune the property itself. -->
+  <Target Name="MuPruneLibraryPath" BeforeTargets="SetBuildDefaultEnvironmentVariables">
+    <ItemGroup>
+      <_MuLibraryDirectory Include="$(LibraryPath)" />
+      <_MuExistingLibraryDirectory Include="@(_MuLibraryDirectory)" Condition="Exists('%(Identity)')" />
+    </ItemGroup>
+    <PropertyGroup>
+      <LibraryPath>@(_MuExistingLibraryDirectory)</LibraryPath>
+    </PropertyGroup>
+  </Target>
   <Target Name="MuEnsurePackages" BeforeTargets="PrepareForBuild">
     <Error Condition="!Exists('$(MuImports).targets')" Text="NuGet 包尚未恢复，请先运行 python scripts/restore.py" />
   </Target>
