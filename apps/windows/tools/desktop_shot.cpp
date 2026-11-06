@@ -1,7 +1,7 @@
 // Runs MusicUnlock.exe on a private desktop so preview renders never show on, or capture, the user's desktop.
 // The app renders its own XAML tree to PNG (MUSICUNLOCK_RENDER_DIR) and exits; the desktop is closed afterwards.
 //
-//   desktop_shot.exe <MusicUnlock.exe> <output directory>
+//   desktop_shot.exe <MusicUnlock.exe> <output directory> [folder to import and convert]
 //
 // Writes <output directory>\shot.done with the app's exit code when finished. Started by scripts/screenshot.py.
 #include <windows.h>
@@ -22,7 +22,7 @@ void finish(const std::wstring& directory, const std::wstring& status) {
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
-    if (argc != 3) return 2;
+    if (argc != 3 && argc != 4) return 2;
     const std::wstring app = argv[1];
     const std::wstring directory = argv[2];
     HDESK desktop = CreateDesktopW(L"MusicUnlockShot", nullptr, nullptr, 0, GENERIC_ALL, nullptr);
@@ -38,6 +38,7 @@ int wmain(int argc, wchar_t** argv) {
 
     SetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_DIR", directory.c_str());
     SetEnvironmentVariableW(L"MUSICUNLOCK_LOG", (directory + L"\\app.log").c_str());
+    SetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_CONVERT", argc == 4 ? argv[3] : nullptr);
     wchar_t desktop_name[] = L"WinSta0\\MusicUnlockShot";
     STARTUPINFOW startup{};
     startup.cb = sizeof startup;

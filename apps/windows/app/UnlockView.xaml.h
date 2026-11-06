@@ -27,7 +27,9 @@ struct UnlockView : UnlockViewT<UnlockView> {
     /// Stops after the current file (Ctrl+.).
     void Stop();
     bool Busy() const { return queue_.running(); }
-
+    bool Idle() const { return imports_ == 0 && !queue_.running(); }
+    /// Preview renders of a real conversion write here instead of the user's folder.
+    void UseOutputDirectory(std::filesystem::path directory) { SetOutputDirectory(std::move(directory)); }
 
     void OnChooseFiles(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { ChooseFiles(false); }
     void OnChooseOutput(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);

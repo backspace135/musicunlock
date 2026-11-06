@@ -10,6 +10,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <vector>
 
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
 #include <winrt/Windows.Graphics.Imaging.h>
@@ -107,9 +108,22 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
         const wchar_t* name;
         ElementTheme theme;
     };
-    // Same set as the macOS PreviewRenderer: empty and populated queue, light and dark.
-    const Shot shots[] = {{L"empty-light", ElementTheme::Light}, {L"empty-dark", ElementTheme::Dark},
-                          {L"queue-light", ElementTheme::Light}, {L"queue-dark", ElementTheme::Dark}};
+    std::vector<Shot> shots;
+    if (auto convert = environment(L"MUSICUNLOCK_RENDER_CONVERT"); !convert.empty()) {
+        // End-to-end: import a real folder, convert it into <folder>\输出, then capture the result.
+        Audio().UseOutputDirectory(std::filesystem::path(convert) / L"输出");
+        Audio().Import({std::filesystem::path(convert)});
+        for (int i = 0; i < 600 && !Audio().Idle(); ++i) co_await resume_after(100ms), co_await wil::resume_foreground(dispatcher);
+        Audio().Start();
+        co_await resume_after(100ms);
+        co_await wil::resume_foreground(dispatcher);
+        for (int i = 0; i < 600 && !Audio().Idle(); ++i) co_await resume_after(100ms), co_await wil::resume_foreground(dispatcher);
+        shots = {Shot{L"converted-light", ElementTheme::Light}, Shot{L"converted-dark", ElementTheme::Dark}};
+    } else {
+        // Same set as the macOS PreviewRenderer: empty and populated queue, light and dark.
+        shots = {Shot{L"empty-light", ElementTheme::Light}, Shot{L"empty-dark", ElementTheme::Dark},
+                 Shot{L"queue-light", ElementTheme::Light}, Shot{L"queue-dark", ElementTheme::Dark}};
+    }
     bool samples = false;
     for (const Shot shot : shots) {
         if (!samples && std::wstring_view(shot.name).starts_with(L"queue")) {
