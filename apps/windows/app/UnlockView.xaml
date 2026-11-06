@@ -203,7 +203,7 @@
                                             </Grid.ColumnDefinitions>
                                             <Grid Width="36" Height="40" CornerRadius="7" VerticalAlignment="Top"
                                                   Background="{ThemeResource MuChipBrush}">
-                                                <FontIcon Glyph="&#xEC4F;" FontSize="17" />
+                                                <FontIcon Glyph="&#xEC4F;" FontSize="17" AutomationProperties.AccessibilityView="Raw" />
                                                 <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill"
                                                        Visibility="{x:Bind HasCover, Mode=OneWay}" />
                                             </Grid>
@@ -221,9 +221,11 @@
                                             </StackPanel>
                                             <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="5" Margin="0,3,0,0" VerticalAlignment="Top">
                                                 <ProgressRing IsActive="{x:Bind IsRunning, Mode=OneWay}" Width="12" Height="12"
-                                                              Visibility="{x:Bind IsRunning, Mode=OneWay}" />
+                                                              Visibility="{x:Bind IsRunning, Mode=OneWay}"
+                                                              AutomationProperties.AccessibilityView="Raw" />
                                                 <FontIcon x:Name="StateIcon" Glyph="{x:Bind StateGlyph, Mode=OneWay}" FontSize="12"
-                                                          Visibility="{x:Bind ShowsStateGlyph, Mode=OneWay}" />
+                                                          Visibility="{x:Bind ShowsStateGlyph, Mode=OneWay}"
+                                                          AutomationProperties.AccessibilityView="Raw" />
                                                 <TextBlock Text="{x:Bind StateLabel, Mode=OneWay}" FontSize="11" />
                                             </StackPanel>
                                             <Grid Grid.Column="4" VerticalAlignment="Top">
@@ -319,7 +321,7 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center" Spacing="7">
-                    <TextBlock x:Name="StatusTitle" FontSize="12" FontWeight="Medium" />
+                    <TextBlock x:Name="StatusTitle" FontSize="12" FontWeight="Medium" AutomationProperties.LiveSetting="Polite" />
                     <TextBlock x:Name="StatusDetail" FontSize="11" Foreground="{ThemeResource MuSecondaryBrush}" />
                     <ProgressBar x:Name="BatchProgress" Width="240" HorizontalAlignment="Left" Visibility="Collapsed"
                                  AutomationProperties.Name="转换进度" />

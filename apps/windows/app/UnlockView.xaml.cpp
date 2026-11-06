@@ -5,6 +5,7 @@
 #include "UnlockView.g.cpp"
 #endif
 
+#include <winrt/Microsoft.UI.Xaml.Automation.Peers.h>
 #include <winrt/Microsoft.UI.Xaml.Media.Animation.h>
 #include <winrt/Windows.ApplicationModel.DataTransfer.h>
 #include <winrt/Windows.Storage.h>
@@ -142,6 +143,7 @@ void UnlockView::Refresh() {
     CountText().Text(empty ? hstring() : to_hstring(std::to_string(queue_.jobs().size()) + " 个文件"));
     FilterBar().Visibility(shown(!empty));
     const hstring notice = to_hstring(notice_);
+    if (!notice.empty() && (notice != Notice().Message() || Notice().Visibility() == Visibility::Collapsed)) Announce(notice);
     if (!notice.empty()) Notice().Message(notice);  // keeps the text while the banner fades out
     Notice().Visibility(shown(!notice.empty()));
     ImportingPanel().Visibility(shown(imports_ > 0));
@@ -159,7 +161,14 @@ void UnlockView::Refresh() {
     ClearCompletedItem().IsEnabled(done > 0);
     ClearQueueItem().IsEnabled(!running && !empty);
 
-    StatusTitle().Text(to_hstring(queue_.status_title()));
+    if (const hstring title = to_hstring(queue_.status_title()); title != status_title_) {
+        status_title_ = title;
+        StatusTitle().Text(title);
+        // Polite live region: Narrator reads progress and the batch summary as they change.
+        if (auto peer = Automation::Peers::FrameworkElementAutomationPeer::FromElement(StatusTitle())) {
+            peer.RaiseAutomationEvent(Automation::Peers::AutomationEvents::LiveRegionChanged);
+        }
+    }
     StatusDetail().Text(to_hstring(queue_.status_detail()));
     StatusDetail().Visibility(shown(!running));
     BatchProgress().Visibility(shown(running));
@@ -221,6 +230,13 @@ void UnlockView::PopState(MusicUnlock::JobItem const& item, bool bounce) {
     }
 }
 
+void UnlockView::Announce(hstring const& text) {
+    using namespace Automation::Peers;
+    if (auto peer = FrameworkElementAutomationPeer::CreatePeerForElement(StatusTitle())) {
+        peer.RaiseNotificationEvent(AutomationNotificationKind::ActionCompleted,
+                                    AutomationNotificationProcessing::CurrentThenMostRecent, text, L"MusicUnlock.Queue");
+    }
+}
 
 void UnlockView::OnFilterChanged(SelectorBar const& bar, SelectorBarSelectionChangedEventArgs const&) {
     uint32_t index = 0;
@@ -348,8 +364,14 @@ fire_and_forget UnlockView::Start() {
             failure = failure_text(reason);
         }
         co_await ui;
-        if (output) queue_.job_succeeded(id, *output);
-        else queue_.job_failed(id, std::move(failure));
+        if (output) {
+            queue_.job_succeeded(id, *output);
+        } else {
+            if (const mu::AudioJob* failed = queue_.find(id)) {
+                Announce(to_hstring(failed->display_title() + "：未完成，" + failure));
+            }
+            queue_.job_failed(id, std::move(failure));
+        }
         Refresh();
     }
     notice_ = queue_.end_batch();

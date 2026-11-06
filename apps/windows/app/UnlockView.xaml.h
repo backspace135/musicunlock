@@ -78,6 +78,8 @@ private:
     void SyncItems();
     void ShowNotice(std::string text);
     void ShowDropTarget(bool shown);
+    /// Speaks `text` through Narrator without moving focus (failures, notices).
+    void Announce(hstring const& text);
     /// Animates the state glyph of a realized row.
     void PopState(MusicUnlock::JobItem const& item, bool bounce);
     bool RemoveJob(uint64_t id);
@@ -99,6 +101,7 @@ private:
     std::map<uint64_t, com_ptr<JobItem>> item_cache_;
     std::function<void(std::string)> find_lyrics_;
     std::set<uint64_t> entering_;  // rows inserted since the last layout; they settle in once realized
+    hstring status_title_;
     motion::Loop drift_;
     motion::Loop hop_;
 };
