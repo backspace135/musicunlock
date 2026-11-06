@@ -7,6 +7,7 @@
 #include "Motion.h"
 #include "Preview.h"
 #include "Shell.h"
+#include "Taskbar.h"
 #if __has_include("MainWindow.g.cpp")
 #include "MainWindow.g.cpp"
 #endif
@@ -75,6 +76,7 @@ void MainWindow::InitializeComponent() {
     auto pixels = [scale](int value) { return static_cast<int32_t>(value * scale + 0.5); };
     auto window = AppWindow();
     window.SetIcon(GetIconIdFromIcon(LoadIconW(GetModuleHandleW(nullptr), MAKEINTRESOURCEW(1))));
+    taskbar::label_window(hwnd, window);
     window.Resize({pixels(1060), pixels(720)});
     if (auto presenter = window.Presenter().try_as<Windowing::OverlappedPresenter>()) {
         presenter.PreferredMinimumWidth(pixels(880));

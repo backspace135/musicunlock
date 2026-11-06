@@ -125,6 +125,7 @@
     <ClInclude Include="Preview.h" />
     <ClInclude Include="Settings.h" />
     <ClInclude Include="Shell.h" />
+    <ClInclude Include="Taskbar.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">
@@ -156,6 +157,7 @@
     <ClCompile Include="Preview.cpp" />
     <ClCompile Include="Settings.cpp" />
     <ClCompile Include="Shell.cpp" />
+    <ClCompile Include="Taskbar.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
   <!-- The portable core, compiled with the app's settings (static CRT, no precompiled header). -->
