@@ -60,7 +60,7 @@ void MainWindow::InitializeComponent() {
     Audio().Import(shell::command_line_paths());
     if (auto directory = environment(L"MUSICUNLOCK_RENDER_DIR"); !directory.empty()) {
         PreviewBackdrop().Visibility(Visibility::Visible);
-        get_self<UnlockView>(AudioView())->UsePreviewData();
+        if (environment(L"MUSICUNLOCK_RENDER_CONVERT").empty()) Audio().UsePreviewData();
         Root().Loaded([this, directory](auto&&, auto&&) { RenderPreviews(directory); });
     }
 }

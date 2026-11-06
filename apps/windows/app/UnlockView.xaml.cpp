@@ -8,6 +8,7 @@
 #include <winrt/Windows.ApplicationModel.DataTransfer.h>
 #include <winrt/Windows.Storage.h>
 
+#include "Settings.h"
 #include "Shell.h"
 #include "detail.h"
 #include "musicunlock/text.h"
@@ -58,14 +59,20 @@ void UnlockView::InitializeComponent() {
         FilterBar().Items().Append(item);
     }
     FilterBar().SelectedItem(FilterBar().Items().GetAt(0));
+    const auto saved = settings::load();
+    naming_ = saved.naming;
     for (auto policy : naming_policies) NamingBox().Items().Append(box_value(to_hstring(mu::naming_label(policy))));
-    NamingBox().SelectedIndex(0);
+    NamingBox().SelectedIndex(static_cast<int32_t>(std::find(std::begin(naming_policies), std::end(naming_policies), naming_) -
+                                                   std::begin(naming_policies)));
     JobList().ItemsSource(items_);
-    SetOutputDirectory(shell::downloads_folder() / L"音匣输出");
+    SetOutputDirectory(saved.output_directory.value_or(shell::downloads_folder() / L"音匣输出"));
     Refresh();
 }
 
-void UnlockView::UsePreviewData() { SetOutputDirectory(L"C:\\Users\\示例\\Downloads\\音匣输出"); }
+void UnlockView::UsePreviewData() {
+    persist_ = false;
+    SetOutputDirectory(L"C:\\Users\\示例\\Downloads\\音匣输出");
+}
 
 void UnlockView::ShowSampleJobs() {
     mu::ImportScan scan;
@@ -258,13 +265,22 @@ void UnlockView::Stop() {
     Refresh();
 }
 
+void UnlockView::SaveSettings() const {
+    if (persist_) settings::save({output_directory_, naming_});
+}
+
 void UnlockView::OnChooseOutput(IInspectable const&, RoutedEventArgs const&) {
-    if (auto folder = shell::pick_folder(OwnerWindow(), output_directory_)) SetOutputDirectory(*folder);
+    if (auto folder = shell::pick_folder(OwnerWindow(), output_directory_)) {
+        SetOutputDirectory(*folder);
+        SaveSettings();
+    }
 }
 
 void UnlockView::OnNamingChanged(IInspectable const&, SelectionChangedEventArgs const&) {
     const int index = NamingBox().SelectedIndex();
-    if (index >= 0) naming_ = naming_policies[index];
+    if (index < 0 || naming_policies[index] == naming_) return;
+    naming_ = naming_policies[index];
+    SaveSettings();
 }
 
 void UnlockView::OnRetry(IInspectable const&, RoutedEventArgs const&) {

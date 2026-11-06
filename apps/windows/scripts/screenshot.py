@@ -8,6 +8,7 @@ right after the run. PNGs go to build/previews. --convert also imports and conve
 """
 from pathlib import Path
 import argparse
+import json
 import os
 import shutil
 import subprocess
@@ -87,6 +88,10 @@ def main() -> None:
         if not converted.exists() or converted.read_bytes() != audio:
             sys.exit("端到端转换失败：输出缺失或内容不一致")
         print("end-to-end conversion: output matches the source audio")
+        saved = json.loads((output / "appdata" / "settings.json").read_text(encoding="utf-8"))
+        if Path(saved.get("outputDirectory", "")) != folder / "输出":
+            sys.exit(f"设置未保存输出文件夹：{saved}")
+        print("settings saved:", saved)
 
 
 if __name__ == "__main__":

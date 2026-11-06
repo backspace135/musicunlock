@@ -39,6 +39,8 @@ int wmain(int argc, wchar_t** argv) {
     SetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_DIR", directory.c_str());
     SetEnvironmentVariableW(L"MUSICUNLOCK_LOG", (directory + L"\\app.log").c_str());
     SetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_CONVERT", argc == 4 ? argv[3] : nullptr);
+    // Keep anything the app saves inside the output folder, never in the profile.
+    SetEnvironmentVariableW(L"MUSICUNLOCK_DATA_DIR", (directory + L"\\appdata").c_str());
     wchar_t desktop_name[] = L"WinSta0\\MusicUnlockShot";
     STARTUPINFOW startup{};
     startup.cb = sizeof startup;

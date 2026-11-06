@@ -28,8 +28,12 @@ struct UnlockView : UnlockViewT<UnlockView> {
     void Stop();
     bool Busy() const { return queue_.running(); }
     bool Idle() const { return imports_ == 0 && !queue_.running(); }
-    /// Preview renders of a real conversion write here instead of the user's folder.
-    void UseOutputDirectory(std::filesystem::path directory) { SetOutputDirectory(std::move(directory)); }
+    /// Preview renders of a real conversion write here instead of the user's folder (and save it, so the
+    /// render also checks the settings file in MUSICUNLOCK_DATA_DIR).
+    void UseOutputDirectory(std::filesystem::path directory) {
+        SetOutputDirectory(std::move(directory));
+        SaveSettings();
+    }
 
     void OnChooseFiles(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { ChooseFiles(false); }
     void OnChooseOutput(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
@@ -62,7 +66,10 @@ private:
     HWND OwnerWindow() const;
     fire_and_forget ReceiveDrop(Microsoft::UI::Xaml::DragEventArgs args);
 
+    void SaveSettings() const;
+
     mu::NamingPolicy naming_ = mu::NamingPolicy::original;
+    bool persist_ = true;  // preview renders never touch the saved settings
     int imports_ = 0;  // scans in flight
     mu::AudioQueue queue_;
     mu::QueueFilter filter_ = mu::QueueFilter::all;
