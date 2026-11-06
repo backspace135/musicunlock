@@ -39,10 +39,10 @@ struct QrLoginStep {
     std::vector<Cookie> session;  // accepted cookies, only when confirmed
 };
 
-/// Polls `key` up to `attempts` times. `wait` runs before each poll (2 s in the app) and may throw Cancelled;
+/// Polls `ticket` up to `attempts` times. `wait` runs before each poll (2 s in the app) and may throw Cancelled;
 /// `report` receives each change between waiting and scanned. Returns the final step: confirmed with the accepted session,
 /// expired (code 800 or out of attempts) or failed with a message. Throws Cancelled when `cancel` triggers.
-QrLoginStep poll_qr_login(const MusicApi& api, const std::string& key, const CancelToken& cancel,
+QrLoginStep poll_qr_login(const MusicApi& api, const QrTicket& ticket, const CancelToken& cancel,
                           const std::function<void()>& wait, const std::function<void(const QrLoginStep&)>& report,
                           int attempts = 90);
 

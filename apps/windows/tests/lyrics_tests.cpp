@@ -1,5 +1,7 @@
 // Lyric, session and platform API tests mirroring apps/macos/Tests/MusicUnlockCoreTests/LyricsTests.swift.
 // Requests run against a scripted transport; set MUSICUNLOCK_LIVE_TESTS=1 on Windows to hit the real platforms.
+#include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -355,6 +357,75 @@ TEST(md5_reference_vectors) {
     CHECK_EQ(mu::detail::md5_hex("网易云"), std::string("1a17aec70bd7d64faafb3f894b1491ee"), "utf-8");
 }
 
+/// The plain text of an eapi request body, after checking its form, encryption and digest:
+/// "<path>-36cd479b6b5-<json>-36cd479b6b5-<md5>" with the digest over "nobody<path>use<json>md5forencrypt".
+std::string open_eapi(const mu::HttpRequest& request, std::string_view path) {
+    if (!request.body.starts_with("params=")) return "";
+    const std::string_view hex = std::string_view(request.body).substr(7);
+    Bytes sealed;
+    for (std::size_t i = 0; i + 1 < hex.size(); i += 2) {
+        auto digit = [](char c) { return c >= 'A' ? c - 'A' + 10 : c - '0'; };
+        if (!std::isxdigit(static_cast<unsigned char>(hex[i])) || std::islower(static_cast<unsigned char>(hex[i]))) return "";
+        sealed.push_back(static_cast<std::uint8_t>(digit(hex[i]) << 4 | digit(hex[i + 1])));
+    }
+    const std::string_view key = "e82ckenh8dichen8";
+    const auto plain = mu::detail::aes128_ecb(mu::detail::AesMode::decrypt, sealed,
+                                              mu::ByteSpan(reinterpret_cast<const std::uint8_t*>(key.data()), key.size()));
+    if (!plain) return "";
+    const std::string text(plain->begin(), plain->end());
+    const std::string separator = "-36cd479b6b5-";
+    const std::size_t first = text.find(separator);
+    const std::size_t last = text.rfind(separator);
+    if (first == std::string::npos || first == last || text.substr(0, first) != path) return "";
+    const std::string payload = text.substr(first + separator.size(), last - first - separator.size());
+    const std::string digest = mu::detail::md5_hex("nobody" + std::string(path) + "use" + payload + "md5forencrypt");
+    return text.substr(last + separator.size()) == digest ? payload : "";
+}
+
+TEST(qr_login_as_pc_client) {
+    ScriptedTransport script;
+    script.on("qrcode/unikey", R"({"code":200,"unikey":"KEY"})");
+    script.on("qrcode/client/login", R"({"code":801,"message":"等待扫码"})");
+    const auto api = api_for(script);
+    const auto ticket = api.create_qr_code();
+    CHECK_EQ(ticket.key, std::string("KEY"), "key");
+    CHECK(ticket.device.size() == 32 &&
+          std::all_of(ticket.device.begin(), ticket.device.end(), [](char c) { return std::isdigit(c) || (c >= 'A' && c <= 'F'); }));
+    CHECK_EQ(ticket.url,
+             "https://music.163.com/login?codekey=KEY&chainId=v1_" + ticket.device + "_pc_login_1700000000123", "qr url");
+    CHECK(api.create_qr_code().device != ticket.device);  // a fresh device per code
+    CHECK_EQ(api.check_qr_code(ticket).code, 801, "waiting");
+    CHECK_EQ(script.sent->size(), std::size_t{3}, "requests");
+
+    const auto& unikey = script.sent->front();
+    const auto& poll = script.sent->back();
+    CHECK_EQ(unikey.url, std::string("https://interfacepc.music.163.com/eapi/login/qrcode/unikey"), "unikey url");
+    CHECK_EQ(poll.url, std::string("https://interfacepc.music.163.com/eapi/login/qrcode/client/login"), "poll url");
+    for (const auto* request : {&unikey, &poll}) {
+        CHECK_EQ(request->method, std::string("POST"), "method");
+        CHECK_EQ(header(*request, "Content-Type"), std::string("application/x-www-form-urlencoded"), "content type");
+        CHECK(contains(header(*request, "User-Agent"), "NeteaseMusicDesktop/3.1.17.204416"));
+        const std::string cookie = header(*request, "Cookie");
+        for (const std::string part : {"os=pc", "appver=3.1.17.204416", "channel=netease",
+                                       "osver=Microsoft-Windows-10-Professional-build-19045-64bit"}) {
+            CHECK(contains(cookie, part));
+        }
+        CHECK(contains(cookie, "deviceId=" + ticket.device));
+        CHECK(header(*request, "Referer").empty());
+    }
+    const std::string first = open_eapi(unikey, "/api/login/qrcode/unikey");
+    CHECK(contains(first, R"("type":3)") && contains(first, R"("e_r":false)") && !contains(first, "key\":"));
+    const std::string second = open_eapi(poll, "/api/login/qrcode/client/login");
+    CHECK(contains(second, R"("key":"KEY")") && contains(second, R"("type":3)") && contains(second, R"("e_r":false)"));
+    const std::string device = "\"deviceId\":\"" + ticket.device + "\"";
+    for (const std::string& payload : {first, second}) {
+        CHECK(contains(payload, R"("os":"pc")") && contains(payload, R"("appver":"3.1.17.204416")"));
+        CHECK(contains(payload, device));
+        CHECK(contains(payload, R"("requestId":"1700000000123_0123")") && contains(payload, R"("buildver":"1700000000")"));
+    }
+    CHECK(open_eapi(mu::HttpRequest{"", "POST", {}, "params=00"}, "/api/x").empty());
+}
+
 TEST(qr_login_and_account) {
     ScriptedTransport script;
     script.on("qrcode/unikey", R"({"code":200,"unikey":"KEY"})");
@@ -363,8 +434,8 @@ TEST(qr_login_and_account) {
     script.on("account/get", R"({"code":200,"profile":{"nickname":"昵称"}})");
     const auto api = api_for(script);
     const auto ticket = api.create_qr_code();
-    CHECK_EQ(ticket.url, std::string("https://music.163.com/login?codekey=KEY"), "qr url");
-    const auto status = api.check_qr_code(ticket.key);
+    CHECK(ticket.url.starts_with("https://music.163.com/login?codekey=KEY&chainId=v1_"));
+    const auto status = api.check_qr_code(ticket);
     CHECK_EQ(status.code, 803, "confirmed");
     CHECK(status.cookies.size() == 1 && status.cookies[0].name == "MUSIC_U");
     CHECK(mu::accept_session(status.cookies, mu::MusicProvider::netease, mu::unix_now()).has_value());
@@ -374,7 +445,7 @@ TEST(qr_login_and_account) {
 }
 
 #ifdef _WIN32
-TEST(live_first_party_search_resolve_lyrics_and_qr) {
+TEST(live_first_party_search_resolve_lyrics) {
     const char* flag = std::getenv("MUSICUNLOCK_LIVE_TESTS");
     if (!flag || std::string(flag) != "1") {
         std::cout << "  skipped: set MUSICUNLOCK_LIVE_TESTS=1 to check the real platforms\n";
@@ -397,9 +468,6 @@ TEST(live_first_party_search_resolve_lyrics_and_qr) {
         CHECK(api.resolve(*mu::MusicLink::parse(netease ? "18905" : "000MkMni19ClKG", provider, mu::SearchKind::album), "").size() > 1);
         CHECK(api.resolve(*mu::MusicLink::parse(netease ? "3778678" : "3235982757", provider, mu::SearchKind::playlist), "").size() > 1);
     }
-    const auto code = api.create_qr_code();
-    CHECK(code.url.starts_with("https://music.163.com/"));
-    CHECK_EQ(api.check_qr_code(code.key).code, 801, "waiting for scan");
 }
 #endif
 

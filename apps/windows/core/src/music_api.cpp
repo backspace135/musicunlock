@@ -4,7 +4,9 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <map>
+#include <random>
 
 #include <nlohmann/json.hpp>
 
@@ -22,6 +24,16 @@ constexpr const char* user_agent =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 "
     "Safari/537.36 Edg/130.0.0.0";
 constexpr std::size_t max_response = 20'000'000;
+
+// NetEase's Windows client, as QR login has to present itself (values from NeteaseCloudMusicApiEnhanced's
+// `osMap.pc`, which follows the official client). Only the QR login requests use this identity.
+constexpr const char* pc_host = "https://interfacepc.music.163.com";
+constexpr const char* pc_appver = "3.1.17.204416";
+constexpr const char* pc_osver = "Microsoft-Windows-10-Professional-build-19045-64bit";
+constexpr const char* pc_user_agent =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 "
+    "NeteaseMusicDesktop/3.1.17.204416 Safari/537.36";
+constexpr std::string_view eapi_key = "e82ckenh8dichen8";
 
 const Json null_json;
 
@@ -136,6 +148,35 @@ std::string with_query(std::string url, const Params& params) {
 std::string host_of(std::string_view url) {
     const std::size_t start = url.find("://") + 3;
     return std::string(url.substr(start, url.find('/', start) - start));
+}
+
+std::string upper_hex(const Bytes& bytes) {
+    static constexpr char hex[] = "0123456789ABCDEF";
+    std::string out;
+    out.reserve(bytes.size() * 2);
+    for (const std::uint8_t byte : bytes) out += {hex[byte >> 4], hex[byte & 15]};
+    return out;
+}
+
+/// The eapi `params` form value for `path` (an /api/ path) and its JSON payload.
+std::string eapi_params(std::string_view path, std::string_view payload) {
+    const std::string digest = detail::md5_hex("nobody" + std::string(path) + "use" + std::string(payload) + "md5forencrypt");
+    const std::string plain = std::string(path) + "-36cd479b6b5-" + std::string(payload) + "-36cd479b6b5-" + digest;
+    auto bytes = [](std::string_view text) { return ByteSpan(reinterpret_cast<const std::uint8_t*>(text.data()), text.size()); };
+    const auto sealed = detail::aes128_ecb(detail::AesMode::encrypt, bytes(plain), bytes(eapi_key));
+    if (!sealed) throw LyricError("无法生成网易云音乐登录请求，请重试。");
+    return upper_hex(*sealed);
+}
+
+/// 32 random uppercase hex digits, like the device ids of NetEase's clients.
+std::string new_device_id() {
+    std::random_device random;
+    std::string id;
+    while (id.size() < 32) {
+        const std::uint32_t bits = random();
+        for (int shift = 0; shift < 32 && id.size() < 32; shift += 4) id.push_back("0123456789ABCDEF"[(bits >> shift) & 15]);
+    }
+    return id;
 }
 
 std::optional<LyricSong> netease_song(const Json& item) {
@@ -269,12 +310,17 @@ public:
         : transport_(transport), clock_ms_(clock_ms), cancel_(std::move(cancel)) {}
 
     Response request(const std::string& url, MusicProvider provider, const std::string& cookie) const {
-        cancel_.check();
         HttpRequest request{url, "GET", {}, {}};
         request.headers = {{"User-Agent", user_agent},
                            {"Referer", std::string(provider_home(provider))},
                            {"Accept", "application/json"}};
         if (!cookie.empty()) request.headers.emplace_back("Cookie", cookie);
+        return send(request, provider);
+    }
+
+    Response send(const HttpRequest& request, MusicProvider provider) const {
+        cancel_.check();
+        const std::string& url = request.url;
         const std::string title(provider_title(provider));
         HttpResponse response;
         try {
@@ -311,19 +357,56 @@ public:
     Response netease(const std::string& path, Params params, const std::string& cookie = "") const {
         params["_t"] = std::to_string(clock_ms_());
         Response result = request(with_query("https://music.163.com" + path, params), MusicProvider::netease, cookie);
-        const std::int64_t code = number(field(result.json, "code"));
+        check_netease(result.json);
+        return result;
+    }
+
+    /// An eapi request as NetEase's Windows client sends it: the client identity goes both into the cookies
+    /// and into the encrypted payload's `header`. Responses stay plain JSON (`e_r` false).
+    Response netease_pc(const std::string& path, Json payload, const std::string& device) const {
+        const std::int64_t now = clock_ms_();
+        char request_id[8];
+        std::snprintf(request_id, sizeof request_id, "_%04d", static_cast<int>(now % 1000));
+        const Json header = {{"os", "pc"},
+                             {"appver", pc_appver},
+                             {"osver", pc_osver},
+                             {"deviceId", device},
+                             {"versioncode", "140"},
+                             {"buildver", std::to_string(now / 1000)},
+                             {"resolution", "1920x1080"},
+                             {"__csrf", ""},
+                             {"channel", "netease"},
+                             {"requestId", std::to_string(now) + request_id}};
+        std::string cookie;
+        for (const auto& [name, value] : header.items()) {
+            if (!cookie.empty()) cookie += "; ";
+            cookie += url_encode(name) + "=" + url_encode(value.get<std::string>());
+        }
+        payload["header"] = header;
+        payload["e_r"] = false;
+        HttpRequest request{std::string(pc_host) + "/eapi/" + path.substr(5), "POST", {}, {}};
+        request.headers = {{"User-Agent", pc_user_agent},
+                           {"Content-Type", "application/x-www-form-urlencoded"},
+                           {"Cookie", cookie}};
+        request.body = "params=" + eapi_params(path, payload.dump());
+        Response result = send(request, MusicProvider::netease);
+        check_netease(result.json);
+        return result;
+    }
+
+    static void check_netease(const Json& json) {
+        const std::int64_t code = number(field(json, "code"));
         if (code == 301 || code == 302 || code == 401 || code == 50000005) {
             throw LyricError("这项内容需要登录网易云音乐，或登录已过期。请点击“账号登录”重新授权。");
         }
         if (code != 200 && (code < 800 || code > 803)) {
             for (const char* key : {"message", "msg"}) {
-                if (const Json& message = field(result.json, key); message.is_string()) {
+                if (const Json& message = field(json, key); message.is_string()) {
                     throw LyricError(message.get<std::string>());
                 }
             }
             throw LyricError("网易云音乐请求失败（" + std::to_string(code) + "），请稍后重试。");
         }
-        return result;
     }
 
     Json qq(const std::string& path, Params params, const std::string& cookie) const {
@@ -549,15 +632,19 @@ LyricDocument MusicApi::lyrics(const LyricSong& song, const std::string& cookie,
 
 QrTicket MusicApi::create_qr_code() const {
     const Client client(transport_, clock_ms_);
-    const Json json = client.netease("/api/login/qrcode/unikey", {{"type", "3"}}).json;
+    std::string device = new_device_id();
+    const Json json = client.netease_pc("/api/login/qrcode/unikey", {{"type", 3}}, device).json;
     const Json& key = field(json, "unikey");
     if (!key.is_string() || key.get_ref<const std::string&>().empty()) throw LyricError("无法生成登录二维码，请重试。");
-    return {key.get<std::string>(), "https://music.163.com/login?codekey=" + key.get<std::string>()};
+    // The chainId ties the scan to this device's login; without it NetEase refuses the login after the scan.
+    std::string url = "https://music.163.com/login?codekey=" + url_encode(key.get<std::string>()) + "&chainId=v1_" +
+                      device + "_pc_login_" + std::to_string(clock_ms_());
+    return {key.get<std::string>(), std::move(url), std::move(device)};
 }
 
-QrStatus MusicApi::check_qr_code(const std::string& key) const {
+QrStatus MusicApi::check_qr_code(const QrTicket& ticket) const {
     const Client client(transport_, clock_ms_);
-    Response response = client.netease("/api/login/qrcode/client/login", {{"key", key}, {"type", "3"}});
+    Response response = client.netease_pc("/api/login/qrcode/client/login", {{"key", ticket.key}, {"type", 3}}, ticket.device);
     return {static_cast<int>(number(field(response.json, "code"))), std::move(response.cookies)};
 }
 

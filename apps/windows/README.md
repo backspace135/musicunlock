@@ -242,7 +242,9 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
 - 歌词请求在后台线程直连平台，可随时取消；批量导出逐首进行，可以停止，已完成的文件保留，同名不覆盖，失败原因逐首列出。
 - 歌词工作区标题栏右侧是“账号登录”，对话框分网易云音乐和 QQ 音乐两页（对应 macOS 的账号菜单和登录 Sheet）：
   - 网易云：nayuki QR Code generator 生成矢量二维码，每 2 秒轮询一次（800 已过期、801 等待扫码、802 已扫码、803 已确认），
-    关闭对话框即停止；也可以改用官方登录页。QQ 音乐：WebView2 打开官方登录页，每秒读取一次 Cookie，
+    关闭对话框即停止；也可以改用官方登录页。扫码登录照官方 Windows 客户端的方式请求：eapi 加密（AES-128-ECB + MD5 摘要）发到
+    `interfacepc.music.163.com`，Cookie 和加密体里都带 `os=pc`、`appver` 和每个二维码随机的 `deviceId`，二维码内容带同一设备的
+    `chainId`。网页式的明文请求同样能拿到 801，但手机扫码后会被风控拒绝（8821“请切换其他登录方式或升级新版本再试”）。QQ 音乐：WebView2 打开官方登录页，每秒读取一次 Cookie，
     出现音乐会话后再读一次确认，交给 `mu::accept_session` 判断。登录页只允许 https，不允许下载、权限请求、开发者工具。
   - 会话用 DPAPI（当前用户）加密 `mu::cookies_to_json` 的结果，存为 `%LOCALAPPDATA%\MusicUnlock\sessions\<平台>.bin`；
     不提供手动输入 Cookie 的地方。显示“会话已保存”和 `MusicApi::account_name` 取得的账号名，有效期由平台决定。
@@ -257,12 +259,14 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
 - 歌词测试对照 macOS 的 `LyricsTests` 移植：LRC 解析（重复时间戳、offset、逐字 LRC、YRC）、LRC / SRT / VTT / TXT 导出的
   三种排列、时间偏移与精度、拼音（系统 ICU，与 macOS 结果逐字一致）、UTF-8 / UTF-8 BOM / UTF-16 LE 与 GBK 读取、
   导出不覆盖、链接识别、Set-Cookie 与会话规则；接口请求和解析用脚本化传输层测试，无需联网。
-- 账号测试：二维码矩阵与路径数据、扫码状态对应与轮询（确认、过期、超时、无效会话、网络错误、取消）、
+- 账号测试：二维码矩阵与路径数据、扫码登录的 eapi 请求（解密后核对路径、摘要、客户端标识和 chainId）、
+  扫码状态对应与轮询（确认、过期、超时、无效会话、网络错误、取消）、
   会话文件的保存、读取、过期、损坏与删除；Windows 上另外用真实 DPAPI 加解密并检查篡改后无法解开。
 - 歌词工作区的规则对照 macOS 的 `LyricsModel` 放在核心（`lyric_workspace.h`）里测试：搜索与翻页、链接和歌单解析、
   过期结果丢弃、勾选与预览分开、编辑缓存、本地歌词、导出预览与设置错误、批量导出的跳过 / 失败 / 停止和提示文案。
 - 设置 `MUSICUNLOCK_LIVE_TESTS=1` 后在 Windows 上运行测试，会通过 WinHTTP 实际请求网易云和 QQ 音乐的搜索、
-  链接解析、歌词和扫码接口，并用歌词工作区免登录搜索、导出，核对文件与核心渲染结果逐字节一致。
+  链接解析、歌词和扫码接口（生成一个二维码并查询一次，应为 801），并用歌词工作区免登录搜索、导出，核对文件与核心渲染结果逐字节一致。
+  测试程序可以带测试名片段只跑一部分，例如 `musicunlock_core_tests live_netease`。
 - 与 macOS Swift CLI 对同一批 31 个样本（覆盖全部格式、封面与标签、错误文件和同名冲突）交叉比对，输出逐字节一致。
 
 ## 目录边界

@@ -54,7 +54,7 @@ std::string_view qr_login_message(QrLoginState state) {
     return "平台登录状态异常，请刷新或使用官方登录页。";
 }
 
-QrLoginStep poll_qr_login(const MusicApi& api, const std::string& key, const CancelToken& cancel,
+QrLoginStep poll_qr_login(const MusicApi& api, const QrTicket& ticket, const CancelToken& cancel,
                           const std::function<void()>& wait, const std::function<void(const QrLoginStep&)>& report,
                           int attempts) {
     auto step = [](QrLoginState state, std::string_view message = {}) {
@@ -67,7 +67,7 @@ QrLoginStep poll_qr_login(const MusicApi& api, const std::string& key, const Can
         cancel.check();
         QrStatus status;
         try {
-            status = api.check_qr_code(key);
+            status = api.check_qr_code(ticket);
         } catch (const Cancelled&) {
             throw;
         } catch (const LyricError& error) {

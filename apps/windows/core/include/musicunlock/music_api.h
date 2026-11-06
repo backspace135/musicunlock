@@ -59,9 +59,13 @@ struct SearchPage {
     bool has_more = false;
 };
 
+/// A NetEase QR login, made the way the official Windows client does it: eapi requests that identify as
+/// the PC client, with the same device id in every request and in the code's chainId. A bare web-style
+/// request still gets 801, but NetEase refuses the login after the phone scans it (code 8821).
 struct QrTicket {
     std::string key;
-    std::string url;
+    std::string url;     // the QR code's content
+    std::string device;  // random per ticket, sent with each status query
 };
 
 struct QrStatus {
@@ -77,8 +81,9 @@ public:
                       const std::string& cookie, const CancelToken& cancel = {}) const;
     std::vector<LyricSong> resolve(const MusicLink& link, const std::string& cookie, const CancelToken& cancel = {}) const;
     LyricDocument lyrics(const LyricSong& song, const std::string& cookie, const CancelToken& cancel = {}) const;
+    /// Both throw LyricError with a hint towards the official login page when NetEase refuses the login.
     QrTicket create_qr_code() const;
-    QrStatus check_qr_code(const std::string& key) const;
+    QrStatus check_qr_code(const QrTicket& ticket) const;
     std::optional<std::string> account_name(MusicProvider provider, const std::string& cookie) const;
 
     /// QQ's g_tk: DJB hash of the session key over UTF-16 units.

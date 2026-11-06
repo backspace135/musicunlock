@@ -207,7 +207,7 @@ fire_and_forget AccountsDialog::StartQr() {
     mu::QrLoginStep result;
     try {
         result = mu::poll_qr_login(
-            api_, ticket->key, cancel,
+            api_, *ticket, cancel,
             [cancel] {
                 for (int slice = 0; slice < 20; ++slice) {
                     cancel.check();
