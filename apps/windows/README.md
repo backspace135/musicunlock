@@ -2,7 +2,7 @@
 
 Windows 原生版本的开发目录，与 macOS 版本在同一个 Git 仓库维护。
 
-**当前状态：解封装核心、命令行版、歌词核心、WinUI 3 音乐解锁工作区与账号登录已实现；歌词工作区与单 exe 打包开发中。**
+**当前状态：解封装核心、命令行版、歌词核心、WinUI 3 音乐解锁与歌词工作区、账号登录已实现；单 exe 打包开发中。**
 
 ## 技术方向
 
@@ -59,7 +59,7 @@ GitHub Actions（`.github/workflows/windows.yml`）在 windows-2022 上执行同
 
 ```sh
 python scripts/build_app.py          # 恢复 NuGet 包并用 MSBuild 编译，产物在 build/app-release/
-python scripts/screenshot.py         # 空队列、示例队列与账号登录对话框的预览，输出到 build/previews/
+python scripts/screenshot.py         # 空队列、示例队列、歌词工作区（空状态、编辑区）与账号登录对话框的预览，输出到 build/previews/
 python scripts/screenshot.py --convert   # 另外导入并实际转换示例文件，逐字节核对输出
 python scripts/stage_app.py [--zip]  # 整理分发目录 build/dist/MusicUnlock/，--zip 另外打包并报告体积
 python scripts/screenshot.py --dist [--convert]   # 用分发目录里的 App 渲染预览
@@ -126,13 +126,19 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
 ## 界面设计对应
 
 布局、文案和交互沿用 [macOS 版 DESIGN.md](../macos/DESIGN.md)：左侧转换队列，右侧 268 px 导出设置，底栏显示状态与操作。
+歌词工作区上方是来源、类型与关键词或分享链接，左侧 300 px 可勾选结果，右侧是原文 / 译文 / 罗马音 / 导出预览编辑区，
+底栏是格式、导出设置与导出操作；导出细项放在对话框里。
 
 - Liquid Glass 换成 Windows 系统材质：窗口用 Mica，面板是半透明表面加细描边，不用自绘模糊。
 - 只用黑白灰：系统强调色被覆盖为墨灰（浅色 #1C1C1C、深色 #F2F2F2），主按钮、选中指示与焦点随之变灰；
   状态靠 Segoe Fluent 图标和文字区分，不靠颜色。支持高对比度主题。
-- 工具栏换成自定义标题栏：中间是工作区切换，右侧是添加文件夹、添加文件；队列筛选用 SelectorBar。
-- 快捷键：Ctrl+O 添加文件、Ctrl+Shift+O 添加文件夹、Ctrl+Enter 开始、Ctrl+. 停止、Ctrl+1 / Ctrl+2 切换工作区。
-- 导出位置与命名方式保存在 `%LOCALAPPDATA%\MusicUnlock\settings.json`；转换中关闭窗口会先确认。
+- 工具栏换成自定义标题栏：中间是工作区切换，右侧是添加文件夹、添加文件（歌词工作区是打开歌词、账号登录）；
+  队列筛选和编辑区页签用 SelectorBar。
+- 快捷键：Ctrl+O 添加文件（歌词工作区里是打开歌词）、Ctrl+Shift+O 添加文件夹、Ctrl+Enter 开始、Ctrl+. 停止转换或导出、
+  Ctrl+1 / Ctrl+2 切换工作区、Ctrl+F 搜索歌词、Ctrl+S 导出当前歌词。队列行的右键菜单可以查找这首歌的歌词。
+- 导出位置与命名方式保存在 `%LOCALAPPDATA%\MusicUnlock\settings.json`，歌词导出设置在同目录的 `lyrics.json`；
+  转换或导出歌词时关闭窗口会先确认。
+- 歌词请求在后台线程直连平台，可随时取消；批量导出逐首进行，可以停止，已完成的文件保留，同名不覆盖，失败原因逐首列出。
 - 歌词工作区标题栏右侧是“账号登录”，对话框分网易云音乐和 QQ 音乐两页（对应 macOS 的账号菜单和登录 Sheet）：
   - 网易云：nayuki QR Code generator 生成矢量二维码，每 2 秒轮询一次（800 已过期、801 等待扫码、802 已扫码、803 已确认），
     关闭对话框即停止；也可以改用官方登录页。QQ 音乐：WebView2 打开官方登录页，每秒读取一次 Cookie，
@@ -152,8 +158,10 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
   导出不覆盖、链接识别、Set-Cookie 与会话规则；接口请求和解析用脚本化传输层测试，无需联网。
 - 账号测试：二维码矩阵与路径数据、扫码状态对应与轮询（确认、过期、超时、无效会话、网络错误、取消）、
   会话文件的保存、读取、过期、损坏与删除；Windows 上另外用真实 DPAPI 加解密并检查篡改后无法解开。
+- 歌词工作区的规则对照 macOS 的 `LyricsModel` 放在核心（`lyric_workspace.h`）里测试：搜索与翻页、链接和歌单解析、
+  过期结果丢弃、勾选与预览分开、编辑缓存、本地歌词、导出预览与设置错误、批量导出的跳过 / 失败 / 停止和提示文案。
 - 设置 `MUSICUNLOCK_LIVE_TESTS=1` 后在 Windows 上运行测试，会通过 WinHTTP 实际请求网易云和 QQ 音乐的搜索、
-  链接解析、歌词和扫码接口。
+  链接解析、歌词和扫码接口，并用歌词工作区免登录搜索、导出，核对文件与核心渲染结果逐字节一致。
 - 与 macOS Swift CLI 对同一批 31 个样本（覆盖全部格式、封面与标签、错误文件和同名冲突）交叉比对，输出逐字节一致。
 
 ## 目录边界
