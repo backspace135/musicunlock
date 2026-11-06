@@ -1,6 +1,6 @@
 // Single-exe launcher tests: the payload format and command-line handling everywhere, and on Windows the
 // compression, extraction, verification, repair, cleanup and locking. Scratch folders stay under the build folder;
-// nothing is written to %LOCALAPPDATA%.
+// nothing is written to %LOCALAPPDATA%. The launcher executable itself is covered by scripts/smoke_launcher.py.
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
