@@ -45,6 +45,8 @@ jobs:
           key: winui-packages-${{ hashFiles('apps/windows/app/packages.config') }}
       - name: Build the WinUI 3 app (restore pinned packages, MSBuild)
         run: python apps/windows/scripts/build_app.py
+      - name: Stage the slim self-contained app folder
+        run: python apps/windows/scripts/stage_app.py
       - name: Live platform checks (manual runs only)
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -54,4 +56,15 @@ jobs:
         with:
           name: musicunlock-cli-windows-x64
           path: apps/windows/build/windows-release/musicunlock.exe
+          if-no-files-found: error
+      # The artifact zip holds the folder's contents; the symbols are kept apart for crash analysis.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: musicunlock-app-windows-x64
+          path: apps/windows/build/dist/MusicUnlock/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: musicunlock-app-windows-x64-symbols
+          path: apps/windows/build/dist/symbols/
           if-no-files-found: error
