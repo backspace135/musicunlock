@@ -72,10 +72,15 @@ target_compile_definitions(musicunlock_core_tests PRIVATE
   MU_TEST_SCRATCH="${CMAKE_CURRENT_BINARY_DIR}/test-scratch")
 add_test(NAME core COMMAND musicunlock_core_tests)
 
-# Single-exe launcher. The payload format is portable and tested on the Mac too.
+# Single-exe launcher. The payload format is portable and tested on the Mac too; extraction is Windows code.
 add_library(musicunlock_launcher STATIC launcher/payload.cpp)
 target_include_directories(musicunlock_launcher PUBLIC launcher)
+if(WIN32)
+  target_sources(musicunlock_launcher PRIVATE launcher/codec.cpp launcher/install.cpp)
+  target_link_libraries(musicunlock_launcher PUBLIC bcrypt cabinet shell32 ole32)
+endif()
 add_executable(musicunlock_launcher_tests tests/launcher_tests.cpp)
 target_link_libraries(musicunlock_launcher_tests PRIVATE musicunlock_launcher)
 target_include_directories(musicunlock_launcher_tests PRIVATE core/include)
+target_compile_definitions(musicunlock_launcher_tests PRIVATE MU_TEST_SCRATCH="${CMAKE_CURRENT_BINARY_DIR}/test-scratch")
 add_test(NAME launcher COMMAND musicunlock_launcher_tests)
