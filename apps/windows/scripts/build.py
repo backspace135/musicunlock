@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Configure, build and test the portable core and CLI with CMake + Ninja.
+"""Configure, build and test the portable core, CLI and single-exe launcher with CMake + Ninja.
 
 Windows: uses the MSVC x64 toolchain found by vswhere (static CRT).
 macOS: builds the same core and tests with Apple clang for quick local checks.
@@ -75,6 +75,9 @@ def main() -> None:
         subprocess.run([ctest, "--test-dir", str(build_dir), "--output-on-failure"], env=env, check=True)
         cli = build_dir / ("musicunlock.exe" if platform == "windows" else "musicunlock")
         subprocess.run([sys.executable, str(ROOT / "scripts" / "smoke_cli.py"), str(cli)], env=env, check=True)
+        if platform == "windows":
+            subprocess.run([sys.executable, str(ROOT / "scripts" / "smoke_launcher.py"), str(build_dir)], env=env,
+                           check=True)
 
 
 if __name__ == "__main__":

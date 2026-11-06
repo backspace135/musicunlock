@@ -47,6 +47,8 @@ jobs:
         run: python apps/windows/scripts/build_app.py
       - name: Stage the slim self-contained app folder
         run: python apps/windows/scripts/stage_app.py
+      - name: Pack the single-file MusicUnlock.exe
+        run: python apps/windows/scripts/pack.py --input apps/windows/build/dist/MusicUnlock
       - name: Live platform checks (manual runs only)
         if: github.event_name == 'workflow_dispatch'
         env:
@@ -56,6 +58,11 @@ jobs:
         with:
           name: musicunlock-cli-windows-x64
           path: apps/windows/build/windows-release/musicunlock.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: musicunlock-windows-x64
+          path: apps/windows/build/dist/MusicUnlock.exe
           if-no-files-found: error
       # The artifact zip holds the folder's contents; the symbols are kept apart for crash analysis.
       - uses: actions/upload-artifact@v7
