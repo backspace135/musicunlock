@@ -106,6 +106,7 @@
     <ClInclude Include="JobItem.h">
       <DependentUpon>JobItem.idl</DependentUpon>
     </ClInclude>
+    <ClInclude Include="Accounts.h" />
     <ClInclude Include="Settings.h" />
     <ClInclude Include="Shell.h" />
   </ItemGroup>
@@ -125,6 +126,7 @@
     <ClCompile Include="JobItem.cpp">
       <DependentUpon>JobItem.idl</DependentUpon>
     </ClCompile>
+    <ClCompile Include="Accounts.cpp" />
     <ClCompile Include="Settings.cpp" />
     <ClCompile Include="Shell.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
