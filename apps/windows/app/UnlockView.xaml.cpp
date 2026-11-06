@@ -207,6 +207,8 @@ void UnlockView::OnContainerContentChanging(ListViewBase const&, ContainerConten
     const auto container = args.ItemContainer();
     const auto root = container.ContentTemplateRoot();
     if (!root) return;
+    // The row menu sits on the template root; keyboard requests (Shift+F10) come from the focused container.
+    container.ContextFlyout(root.ContextFlyout());
     if (auto background = find_named(root, L"RunningBackground")) motion::crossfade(background);
     if (entering_.erase(args.Item().as<MusicUnlock::JobItem>().Id()) > 0) motion::enter(root);
 }
@@ -248,9 +250,33 @@ void UnlockView::OnShowAll(IInspectable const&, RoutedEventArgs const&) {
     FilterBar().SelectedItem(FilterBar().Items().GetAt(0));
 }
 
-void UnlockView::OnRemoveJob(IInspectable const& sender, RoutedEventArgs const&) {
-    queue_.remove(job_id(sender));
+void UnlockView::OnRemoveJob(IInspectable const& sender, RoutedEventArgs const&) { RemoveJob(job_id(sender)); }
+
+bool UnlockView::RemoveJob(uint64_t id) {
+    if (!queue_.remove(id)) return false;
     Refresh();
+    return true;
+}
+
+/// Delete removes the focused row and keeps keyboard focus in the list.
+void UnlockView::OnJobListKeyDown(IInspectable const&, Input::KeyRoutedEventArgs const& args) {
+    if (args.Key() != Windows::System::VirtualKey::Delete) return;
+    const auto container = args.OriginalSource().try_as<ListViewItem>();
+    if (!container) return;
+    const int32_t index = JobList().IndexFromContainer(container);
+    if (index < 0 || !RemoveJob(container.Content().as<MusicUnlock::JobItem>().Id())) return;
+    args.Handled(true);
+    JobList().UpdateLayout();
+    if (items_.Size() == 0) {
+        if (ChooseFilesButton().Visibility() == Visibility::Visible) ChooseFilesButton().Focus(FocusState::Keyboard);
+        return;
+    }
+    const auto next = std::min<int32_t>(index, static_cast<int32_t>(items_.Size()) - 1);
+    if (auto row = JobList().ContainerFromIndex(next).try_as<Control>()) row.Focus(FocusState::Keyboard);
+}
+
+void UnlockView::OnRevealSource(IInspectable const& sender, RoutedEventArgs const&) {
+    if (const auto* job = queue_.find(job_id(sender))) shell::reveal(job->source);
 }
 
 void UnlockView::OnRevealOutput(IInspectable const& sender, RoutedEventArgs const&) {

@@ -63,9 +63,11 @@ struct UnlockView : UnlockViewT<UnlockView> {
     void OnClearQueue(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnShowAll(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnRemoveJob(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
+    void OnRevealSource(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnRevealOutput(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnContainerContentChanging(Microsoft::UI::Xaml::Controls::ListViewBase const&,
                                     Microsoft::UI::Xaml::Controls::ContainerContentChangingEventArgs const& args);
+    void OnJobListKeyDown(IInspectable const&, Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args);
 
     /// "查找这首歌的歌词": the window switches to the lyrics workspace and searches for the title.
     void OnFindLyricsRequested(std::function<void(std::string)> handler) { find_lyrics_ = std::move(handler); }
@@ -78,7 +80,7 @@ private:
     void ShowDropTarget(bool shown);
     /// Animates the state glyph of a realized row.
     void PopState(MusicUnlock::JobItem const& item, bool bounce);
-
+    bool RemoveJob(uint64_t id);
     void SetOutputDirectory(std::filesystem::path directory);
     HWND OwnerWindow() const;
     fire_and_forget ReceiveDrop(Microsoft::UI::Xaml::DragEventArgs args);

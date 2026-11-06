@@ -25,7 +25,6 @@
             <Setter Property="Margin" Value="0" />
             <Setter Property="MinHeight" Value="0" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="IsTabStop" Value="False" />
         </Style>
     </UserControl.Resources>
 
@@ -156,18 +155,38 @@
                             <TextBlock Grid.Column="2" Text="状态" FontSize="11" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}" />
                         </Grid>
                         <Rectangle Grid.Row="1" Height="1" Fill="{ThemeResource MuSeparatorBrush}" />
+                        <!-- Arrow keys move between rows, Delete removes one, Shift+F10 opens its menu. -->
                         <ListView x:Name="JobList" Grid.Row="2" SelectionMode="None" IsItemClickEnabled="False" Padding="0,4"
                                   ItemContainerStyle="{StaticResource MuQueueItemStyle}" AutomationProperties.Name="转换队列"
-                                  ContainerContentChanging="OnContainerContentChanging">
+                                  ContainerContentChanging="OnContainerContentChanging" KeyDown="OnJobListKeyDown">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="local:JobItem">
                                     <Grid>
-                                        <!-- Row context menu (macOS: the queue row's contextMenu). -->
+                                        <!-- Row context menu (macOS: the queue row's contextMenu). The row container shows
+                                             the same flyout, so Shift+F10 and the menu key open it on the focused row. -->
                                         <Grid.ContextFlyout>
                                             <MenuFlyout>
+                                                <MenuFlyoutItem Text="在资源管理器中显示源文件" Tag="{x:Bind Id}" Click="OnRevealSource">
+                                                    <MenuFlyoutItem.Icon>
+                                                        <FontIcon Glyph="&#xE838;" />
+                                                    </MenuFlyoutItem.Icon>
+                                                </MenuFlyoutItem>
+                                                <MenuFlyoutItem Text="在资源管理器中显示输出文件" Tag="{x:Bind Id}" Click="OnRevealOutput"
+                                                                Visibility="{x:Bind HasOutput, Mode=OneWay}">
+                                                    <MenuFlyoutItem.Icon>
+                                                        <FontIcon Glyph="&#xE8E5;" />
+                                                    </MenuFlyoutItem.Icon>
+                                                </MenuFlyoutItem>
                                                 <MenuFlyoutItem Text="查找这首歌的歌词" Tag="{x:Bind Id}" Click="OnFindLyrics">
                                                     <MenuFlyoutItem.Icon>
                                                         <FontIcon Glyph="&#xE721;" />
+                                                    </MenuFlyoutItem.Icon>
+                                                </MenuFlyoutItem>
+                                                <MenuFlyoutSeparator />
+                                                <MenuFlyoutItem Text="移出队列" Tag="{x:Bind Id}" Click="OnRemoveJob"
+                                                                IsEnabled="{x:Bind ShowsStateGlyph, Mode=OneWay}" KeyboardAcceleratorTextOverride="Delete">
+                                                    <MenuFlyoutItem.Icon>
+                                                        <FontIcon Glyph="&#xE711;" />
                                                     </MenuFlyoutItem.Icon>
                                                 </MenuFlyoutItem>
                                             </MenuFlyout>
