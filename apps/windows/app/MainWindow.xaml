@@ -39,22 +39,34 @@
                 </SelectorBar>
             </TitleBar.Content>
             <TitleBar.RightHeader>
-                <StackPanel x:Name="AudioActions" Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
-                    <Button Click="OnAddFolder" Background="Transparent" BorderThickness="0" Padding="10,6"
-                            ToolTipService.ToolTip="添加文件夹（Ctrl+Shift+O）" AutomationProperties.Name="添加文件夹">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon Glyph="&#xE8F4;" FontSize="14" />
-                            <TextBlock Text="添加文件夹" FontSize="12" />
-                        </StackPanel>
-                    </Button>
-                    <Button Click="OnAddFiles" Background="Transparent" BorderThickness="0" Padding="10,6"
-                            ToolTipService.ToolTip="添加文件（Ctrl+O）" AutomationProperties.Name="添加文件">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon Glyph="&#xE710;" FontSize="14" />
-                            <TextBlock Text="添加文件" FontSize="12" />
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
+                <Grid>
+                    <StackPanel x:Name="AudioActions" Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
+                        <Button Click="OnAddFolder" Background="Transparent" BorderThickness="0" Padding="10,6"
+                                ToolTipService.ToolTip="添加文件夹（Ctrl+Shift+O）" AutomationProperties.Name="添加文件夹">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE8F4;" FontSize="14" />
+                                <TextBlock Text="添加文件夹" FontSize="12" />
+                            </StackPanel>
+                        </Button>
+                        <Button Click="OnAddFiles" Background="Transparent" BorderThickness="0" Padding="10,6"
+                                ToolTipService.ToolTip="添加文件（Ctrl+O）" AutomationProperties.Name="添加文件">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE710;" FontSize="14" />
+                                <TextBlock Text="添加文件" FontSize="12" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                    <!-- Lyrics workspace actions (macOS: 打开歌词, 账号登录). -->
+                    <StackPanel x:Name="LyricsActions" Orientation="Horizontal" Spacing="4" Margin="0,0,8,0" Visibility="Collapsed">
+                        <Button x:Name="AccountsButton" Click="OnAccounts" Background="Transparent" BorderThickness="0" Padding="10,6"
+                                ToolTipService.ToolTip="官方登录后自动保存会话，无需手动获取 Cookie" AutomationProperties.Name="账号登录">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon x:Name="AccountsIcon" Glyph="&#xE77B;" FontSize="14" />
+                                <TextBlock Text="账号登录" FontSize="12" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
             </TitleBar.RightHeader>
         </TitleBar>
         <local:UnlockView x:Name="AudioView" Grid.Row="1" />

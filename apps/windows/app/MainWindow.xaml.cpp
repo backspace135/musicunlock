@@ -2,6 +2,8 @@
 
 #include "MainWindow.xaml.h"
 
+#include "Accounts.h"
+#include "AccountsDialog.xaml.h"
 #include "Shell.h"
 #if __has_include("MainWindow.g.cpp")
 #include "MainWindow.g.cpp"
@@ -12,6 +14,7 @@
 #include <fstream>
 #include <vector>
 
+#include <winrt/Microsoft.UI.Xaml.Automation.h>
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
 #include <winrt/Windows.Graphics.Imaging.h>
 #include <winrt/Windows.Storage.Streams.h>
@@ -64,6 +67,7 @@ void MainWindow::InitializeComponent() {
         ConfirmClose();
     });
     Audio().Import(shell::command_line_paths());
+    UpdateAccountsButton();
     if (auto directory = environment(L"MUSICUNLOCK_RENDER_DIR"); !directory.empty()) {
         PreviewBackdrop().Visibility(Visibility::Visible);
         if (environment(L"MUSICUNLOCK_RENDER_CONVERT").empty()) Audio().UsePreviewData();
@@ -75,7 +79,37 @@ void MainWindow::OnWorkspaceChanged(Controls::SelectorBar const&, Controls::Sele
     const bool audio = WorkspaceBar().SelectedItem() == AudioItem();
     AudioView().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     AudioActions().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
+    LyricsActions().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
     LyricsPlaceholder().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
+}
+
+fire_and_forget MainWindow::ShowAccounts(mu::MusicProvider provider) {
+    if (accounts_open_) co_return;
+    auto strong = get_strong();
+    accounts_open_ = true;
+    auto dialog = make<AccountsDialog>();
+    get_self<AccountsDialog>(dialog)->Select(provider);
+    dialog.XamlRoot(Content().XamlRoot());
+    // The dialog sits in a popup outside Root, so a theme forced on Root (preview renders) is passed on.
+    if (Root().RequestedTheme() != ElementTheme::Default) dialog.RequestedTheme(Root().RequestedTheme());
+    try {
+        co_await dialog.ShowAsync();
+    } catch (hresult_error const&) {
+        // Another dialog (closing confirmation) is open; only one can show at a time.
+    }
+    accounts_open_ = false;
+    UpdateAccountsButton();
+}
+
+void MainWindow::UpdateAccountsButton() {
+    const bool any = accounts::signed_in(mu::MusicProvider::netease) || accounts::signed_in(mu::MusicProvider::qq);
+    AccountsIcon().Glyph(any ? L"\uEA8C" : L"\uE77B");  // ContactSolid / Contact
+    hstring name = L"账号登录";
+    for (const auto provider : mu::all_providers) {
+        if (accounts::signed_in(provider)) name = name + L"，" + to_hstring(mu::provider_title(provider)) + L"会话已保存";
+    }
+    Controls::ToolTipService::SetToolTip(AccountsButton(), box_value(any ? name : hstring(L"官方登录后自动保存会话，无需手动获取 Cookie")));
+    Automation::AutomationProperties::SetName(AccountsButton(), name);
 }
 
 fire_and_forget MainWindow::ConfirmClose() {

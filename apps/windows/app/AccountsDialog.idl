@@ -1,0 +1,8 @@
+namespace MusicUnlock
+{
+    [default_interface]
+    runtimeclass AccountsDialog : Microsoft.UI.Xaml.Controls.ContentDialog
+    {
+        AccountsDialog();
+    }
+}

@@ -3,6 +3,7 @@
 #include "MainWindow.g.h"
 
 #include "UnlockView.xaml.h"
+#include "musicunlock/lyrics.h"
 
 namespace winrt::MusicUnlock::implementation {
 
@@ -14,8 +15,12 @@ struct MainWindow : MainWindowT<MainWindow> {
                             Microsoft::UI::Xaml::Controls::SelectorBarSelectionChangedEventArgs const&);
     void OnAddFiles(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnAddFolder(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
+    void OnAccounts(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { ShowAccounts(mu::MusicProvider::netease); }
     void OnAcceleratorInvoked(Microsoft::UI::Xaml::Input::KeyboardAccelerator const& accelerator,
                               Microsoft::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args);
+
+    /// 账号登录 on the provider's tab (the title bar button, or a lyrics request that needs a login).
+    fire_and_forget ShowAccounts(mu::MusicProvider provider);
 
 private:
     UnlockView& Audio() { return *get_self<UnlockView>(AudioView()); }
@@ -23,7 +28,11 @@ private:
     /// Asks before closing while a batch runs; finished files stay either way.
     fire_and_forget ConfirmClose();
 
+    /// Title bar glyph: outline person when no platform is signed in, filled when one is.
+    void UpdateAccountsButton();
+
     bool closing_confirmed_ = false;
+    bool accounts_open_ = false;
 
     /// Development renders (MUSICUNLOCK_RENDER_DIR): PNGs of the window content in light and dark, then exit.
     fire_and_forget RenderPreviews(std::wstring directory);
