@@ -1,11 +1,13 @@
 // Core tests mirroring apps/macos/Tests/MusicUnlockCoreTests/DecoderTests.swift, plus Windows naming rules.
 // Uses the shared vectors in tests/fixtures/qmc; scratch files stay under the build directory.
+#include <algorithm>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "detail.h"
@@ -264,8 +266,16 @@ TEST(malformed_files_throw_instead_of_crashing) {
 
 }  // namespace
 
-int main() {
+int main(int argc, char** argv) {
+    // Optional arguments pick tests by name fragment, e.g. `musicunlock_core_tests live_netease`.
+    std::size_t ran = 0;
     for (const auto& test : registry()) {
+        if (argc > 1 && std::none_of(argv + 1, argv + argc, [&](const char* part) {
+                return std::string_view(test.name).find(part) != std::string_view::npos;
+            })) {
+            continue;
+        }
+        ++ran;
         const int before = failures;
         try {
             test.body();
@@ -274,6 +284,6 @@ int main() {
         }
         std::cout << (failures == before ? "PASS " : "FAIL ") << test.name << "\n";
     }
-    std::cout << registry().size() << " tests, " << failures << " failures\n";
+    std::cout << ran << " tests, " << failures << " failures\n";
     return failures == 0 ? 0 : 1;
 }

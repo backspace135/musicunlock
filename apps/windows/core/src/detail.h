@@ -78,6 +78,9 @@ enum class AesMode { encrypt, decrypt };
 /// AES-128-ECB with PKCS#7 padding through the platform crypto library.
 std::optional<Bytes> aes128_ecb(AesMode mode, ByteSpan input, ByteSpan key);
 
+/// Lowercase hex MD5 digest (RFC 1321), portable; only for NetEase's eapi request digest.
+std::string md5_hex(std::string_view text);
+
 struct NcmResult {
     Bytes audio;
     AudioMetadata metadata;

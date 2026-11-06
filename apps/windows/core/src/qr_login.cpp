@@ -54,7 +54,13 @@ std::string_view qr_login_message(QrLoginState state) {
     return "平台登录状态异常，请刷新或使用官方登录页。";
 }
 
-QrLoginStep poll_qr_login(const MusicApi& api, const std::string& key, const CancelToken& cancel,
+std::string qr_refusal_message(std::int64_t code, std::string_view platform_message) {
+    std::string reason = std::to_string(code);
+    if (!platform_message.empty()) reason += "：" + std::string(platform_message);
+    return "网易云音乐拒绝了这次扫码登录（" + reason + "）。请点击“使用官方登录页”，在网易云音乐的网页上登录。";
+}
+
+QrLoginStep poll_qr_login(const MusicApi& api, const QrTicket& ticket, const CancelToken& cancel,
                           const std::function<void()>& wait, const std::function<void(const QrLoginStep&)>& report,
                           int attempts) {
     auto step = [](QrLoginState state, std::string_view message = {}) {
@@ -67,7 +73,7 @@ QrLoginStep poll_qr_login(const MusicApi& api, const std::string& key, const Can
         cancel.check();
         QrStatus status;
         try {
-            status = api.check_qr_code(key);
+            status = api.check_qr_code(ticket);
         } catch (const Cancelled&) {
             throw;
         } catch (const LyricError& error) {

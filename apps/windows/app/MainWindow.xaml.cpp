@@ -370,7 +370,8 @@ Windows::Foundation::IAsyncAction MainWindow::RenderAccountPreviews(std::filesys
     };
     constexpr State states[] = {{L"qr-waiting", Preview::qr_waiting},     {L"qr-scanned", Preview::qr_scanned},
                                 {L"qr-expired", Preview::qr_expired},     {L"qr-confirmed", Preview::qr_confirmed},
-                                {L"qq", Preview::official_page},          {L"signed-in", Preview::signed_in}};
+                                {L"qr-refused", Preview::qr_refused},     {L"qq", Preview::official_page},
+                                {L"signed-in", Preview::signed_in}};
     struct Theme {
         const wchar_t* name;
         ElementTheme theme;

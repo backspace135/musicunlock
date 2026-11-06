@@ -28,6 +28,7 @@ add_library(musicunlock_core STATIC
   core/src/legacy.cpp
   core/src/lyric_workspace.cpp
   core/src/lyrics.cpp
+  core/src/md5.cpp
   core/src/music_api.cpp
   core/src/ncm.cpp
   core/src/qmc.cpp

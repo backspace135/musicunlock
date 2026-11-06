@@ -55,7 +55,10 @@ const wchar_t* qr_glyph(QrLoginState state) {
     return L"\uE7BA";  // Warning
 }
 
-constexpr const char* sample_qr_url = "https://music.163.com/login?codekey=00000000-0000-4000-8000-000000000000";
+// Same shape as a real code: key plus chainId (see MusicApi::create_qr_code).
+constexpr const char* sample_qr_url =
+    "https://music.163.com/login?codekey=00000000-0000-4000-8000-000000000000"
+    "&chainId=v1_0123456789ABCDEF0123456789ABCDEF_pc_login_1700000000000";
 
 }  // namespace
 
@@ -207,7 +210,7 @@ fire_and_forget AccountsDialog::StartQr() {
     mu::QrLoginStep result;
     try {
         result = mu::poll_qr_login(
-            api_, ticket->key, cancel,
+            api_, *ticket, cancel,
             [cancel] {
                 for (int slice = 0; slice < 20; ++slice) {
                     cancel.check();
@@ -433,6 +436,10 @@ void AccountsDialog::ShowPreview(Preview state) {
             if (qr == QrLoginState::confirmed) message_ = "网易云音乐登录成功，会话已加密保存在这台电脑上。";
             break;
         }
+        case Preview::qr_refused:
+            SetQrCode(sample_qr_url);
+            ShowQrState(QrLoginState::failed, mu::qr_refusal_message(8821, "请切换其他登录方式或升级新版本再试"));
+            break;
         case Preview::official_page: StartWeb(); break;
         case Preview::signed_in:
             ShowSession(MusicProvider::netease);

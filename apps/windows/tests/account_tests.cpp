@@ -1,8 +1,10 @@
 // Account login tests: the NetEase QR code and its polling loop (scripted transport), and saved sessions.
 #include <algorithm>
 #include <cstdint>
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <iterator>
 #include <memory>
 #include <stdexcept>
@@ -43,6 +45,8 @@ struct QrScript {
     }
 };
 
+const mu::QrTicket sample_ticket{"KEY", "https://music.163.com/login?codekey=KEY", "DEVICE"};
+
 struct PollResult {
     mu::QrLoginStep final;
     std::vector<QrLoginState> reported;
@@ -52,7 +56,7 @@ struct PollResult {
 PollResult poll(const QrScript& script, int attempts = 90) {
     PollResult result;
     result.final = mu::poll_qr_login(
-        script.api(), "KEY", {}, [&] { ++result.waits; },
+        script.api(), sample_ticket, {}, [&] { ++result.waits; },
         [&](const mu::QrLoginStep& step) { result.reported.push_back(step.state); }, attempts);
     return result;
 }
@@ -136,7 +140,9 @@ TEST(qr_poll_endings) {
     QrScript refused;
     refused.answers = {{8821, {}}};
     result = poll(refused);
-    CHECK(result.final.state == QrLoginState::failed && result.final.message.find("8821") != std::string::npos);
+    CHECK(result.final.state == QrLoginState::failed);
+    CHECK_EQ(result.final.message, std::string("网易云音乐拒绝了这次扫码登录（8821）。请点击“使用官方登录页”，在网易云音乐的网页上登录。"),
+             "refusal points to the official page");
 
     QrScript offline;
     offline.answers = {{801, {}}};
@@ -151,7 +157,7 @@ TEST(qr_poll_cancels) {
     int waits = 0;
     bool cancelled = false;
     try {
-        mu::poll_qr_login(script.api(), "KEY", cancel, [&] {
+        mu::poll_qr_login(script.api(), sample_ticket, cancel, [&] {
             if (++waits == 3) cancel.cancel();
         }, {});
     } catch (const mu::Cancelled&) {
@@ -160,6 +166,27 @@ TEST(qr_poll_cancels) {
     CHECK(cancelled);
     CHECK_EQ(*script.polls, 2, "no poll after cancelling");
 }
+
+#ifdef _WIN32
+TEST(live_netease_qr_waits_for_scan) {
+    const char* flag = std::getenv("MUSICUNLOCK_LIVE_TESTS");
+    if (!flag || std::string(flag) != "1") {
+        std::cout << "  skipped: set MUSICUNLOCK_LIVE_TESTS=1 to check the real platform\n";
+        return;
+    }
+    // Two requests through WinHTTP as in the app: a fresh key and one status query. Nobody logs in.
+    const mu::HttpTransport system = mu::make_system_transport();
+    const mu::MusicApi api([&](const mu::HttpRequest& request) {
+        mu::HttpResponse response = system(request);
+        std::cout << "  " << request.url.substr(0, request.url.find('?')) << " -> " << response.status << " "
+                  << response.body.substr(0, 200) << "\n";
+        return response;
+    });
+    const auto ticket = api.create_qr_code();
+    CHECK(ticket.url.find("&chainId=v1_" + ticket.device + "_pc_login_") != std::string::npos);
+    CHECK_EQ(api.check_qr_code(ticket).code, 801, "waiting for scan");
+}
+#endif
 
 namespace {
 

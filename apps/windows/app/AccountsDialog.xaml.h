@@ -19,7 +19,7 @@ struct AccountsDialog : AccountsDialogT<AccountsDialog> {
     void Select(mu::MusicProvider provider);
 
     /// Preview renders: fixed states with sample data; no network, saved sessions or login pages.
-    enum class Preview { qr_waiting, qr_scanned, qr_expired, qr_confirmed, official_page, signed_in };
+    enum class Preview { qr_waiting, qr_scanned, qr_expired, qr_confirmed, qr_refused, official_page, signed_in };
     void ShowPreview(Preview state);
     /// Preview renders: starts WebView2 on a blank page with the provider's data folder and describes the
     /// result for the log, so renders check that the runtime loads from the app folder.
