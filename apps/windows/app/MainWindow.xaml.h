@@ -4,6 +4,7 @@
 
 #include <filesystem>
 
+#include "LyricsView.xaml.h"
 #include "UnlockView.xaml.h"
 #include "musicunlock/lyrics.h"
 
@@ -17,6 +18,7 @@ struct MainWindow : MainWindowT<MainWindow> {
                             Microsoft::UI::Xaml::Controls::SelectorBarSelectionChangedEventArgs const&);
     void OnAddFiles(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnAddFolder(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
+    void OnOpenLyrics(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnAccounts(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { ShowAccounts(mu::MusicProvider::netease); }
     void OnAcceleratorInvoked(Microsoft::UI::Xaml::Input::KeyboardAccelerator const& accelerator,
                               Microsoft::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args);
@@ -26,6 +28,7 @@ struct MainWindow : MainWindowT<MainWindow> {
 
 private:
     UnlockView& Audio() { return *get_self<UnlockView>(AudioView()); }
+    LyricsView& Lyrics() { return *get_self<LyricsView>(LyricsWorkspace()); }
     void ShowWorkspace(bool audio);
     /// Asks before closing while a batch runs; finished files stay either way.
     fire_and_forget ConfirmClose();

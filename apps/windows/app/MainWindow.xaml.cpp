@@ -82,25 +82,32 @@ void MainWindow::InitializeComponent() {
     stop.Invoked({this, &MainWindow::OnAcceleratorInvoked});
     Root().KeyboardAccelerators().Append(stop);
     AppWindow().Closing([this](auto&&, Windowing::AppWindowClosingEventArgs const& args) {
-        if (closing_confirmed_ || !Audio().Busy()) return;
+        if (closing_confirmed_ || !(Audio().Busy() || Lyrics().Busy())) return;
         args.Cancel(true);
         ConfirmClose();
+    });
+    Audio().OnFindLyricsRequested([this](std::string title) {
+        ShowWorkspace(false);
+        Lyrics().SearchForAudio(std::move(title));
     });
     Audio().Import(shell::command_line_paths());
     UpdateAccountsButton();
     if (auto directory = environment(L"MUSICUNLOCK_RENDER_DIR"); !directory.empty()) {
         PreviewBackdrop().Visibility(Visibility::Visible);
         if (environment(L"MUSICUNLOCK_RENDER_CONVERT").empty()) Audio().UsePreviewData();
+        Lyrics().UsePreviewData();
         Root().Loaded([this, directory](auto&&, auto&&) { RenderPreviews(directory); });
     }
 }
 
 void MainWindow::OnWorkspaceChanged(Controls::SelectorBar const&, Controls::SelectorBarSelectionChangedEventArgs const&) {
     const bool audio = WorkspaceBar().SelectedItem() == AudioItem();
+    // The title bar centres the switcher in the space left by the actions; keep their widest width so it stays put.
+    HeaderActions().MinWidth(std::max(HeaderActions().MinWidth(), HeaderActions().ActualWidth()));
     AudioView().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     AudioActions().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     LyricsActions().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
-    LyricsPlaceholder().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
+    LyricsWorkspace().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
 }
 
 fire_and_forget MainWindow::ShowAccounts(mu::MusicProvider provider) {
@@ -119,6 +126,7 @@ fire_and_forget MainWindow::ShowAccounts(mu::MusicProvider provider) {
     }
     accounts_open_ = false;
     UpdateAccountsButton();
+    Lyrics().AccountsChanged();
 }
 
 void MainWindow::UpdateAccountsButton() {
@@ -150,6 +158,7 @@ void MainWindow::ShowWorkspace(bool audio) { WorkspaceBar().SelectedItem(audio ?
 
 void MainWindow::OnAddFiles(IInspectable const&, RoutedEventArgs const&) { Audio().ChooseFiles(false); }
 void MainWindow::OnAddFolder(IInspectable const&, RoutedEventArgs const&) { Audio().ChooseFiles(true); }
+void MainWindow::OnOpenLyrics(IInspectable const&, RoutedEventArgs const&) { Lyrics().OpenLocal(); }
 
 void MainWindow::OnAcceleratorInvoked(Xaml::Input::KeyboardAccelerator const& accelerator,
                                       Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args) {
@@ -158,6 +167,11 @@ void MainWindow::OnAcceleratorInvoked(Xaml::Input::KeyboardAccelerator const& ac
                        Windows::System::VirtualKeyModifiers::None;
     switch (accelerator.Key()) {
         case Windows::System::VirtualKey::O:
+            // Like the macOS menu: Ctrl+O opens lyrics in the lyrics workspace and adds files otherwise.
+            if (!shift && LyricsWorkspace().Visibility() == Visibility::Visible) {
+                Lyrics().OpenLocal();
+                break;
+            }
             ShowWorkspace(true);
             Audio().ChooseFiles(shift);
             break;
@@ -166,8 +180,16 @@ void MainWindow::OnAcceleratorInvoked(Xaml::Input::KeyboardAccelerator const& ac
             break;
         case Windows::System::VirtualKey::Number1: ShowWorkspace(true); break;
         case Windows::System::VirtualKey::Number2: ShowWorkspace(false); break;
-        default:  // Ctrl+.
-            Audio().Stop();
+        case Windows::System::VirtualKey::F:
+            ShowWorkspace(false);
+            Lyrics().FocusSearch();
+            break;
+        case Windows::System::VirtualKey::S:
+            if (LyricsWorkspace().Visibility() == Visibility::Visible) Lyrics().ExportCurrent();
+            break;
+        default:  // Ctrl+. stops the visible workspace's batch
+            if (LyricsWorkspace().Visibility() == Visibility::Visible) Lyrics().StopExport();
+            else Audio().Stop();
             break;
     }
 }
@@ -193,15 +215,33 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
         for (int i = 0; i < 600 && !Audio().Idle(); ++i) co_await resume_after(100ms), co_await wil::resume_foreground(dispatcher);
         shots = {Shot{L"converted-light", ElementTheme::Light}, Shot{L"converted-dark", ElementTheme::Dark}};
     } else {
-        // Same set as the macOS PreviewRenderer: empty and populated queue, light and dark.
-        shots = {Shot{L"empty-light", ElementTheme::Light}, Shot{L"empty-dark", ElementTheme::Dark},
-                 Shot{L"queue-light", ElementTheme::Light}, Shot{L"queue-dark", ElementTheme::Dark}};
+        // Same set as the macOS PreviewRenderer: empty and populated queue and lyrics workspace, light and dark.
+        shots = {Shot{L"empty-light", ElementTheme::Light},         Shot{L"empty-dark", ElementTheme::Dark},
+                 Shot{L"queue-light", ElementTheme::Light},         Shot{L"queue-dark", ElementTheme::Dark},
+                 Shot{L"lyrics-empty-light", ElementTheme::Light},  Shot{L"lyrics-empty-dark", ElementTheme::Dark},
+                 Shot{L"lyrics-editor-light", ElementTheme::Light}, Shot{L"lyrics-editor-dark", ElementTheme::Dark}};
     }
     bool samples = false;
+    bool lyrics = false;
+    bool lyric_samples = false;
     for (const Shot shot : shots) {
-        if (!samples && std::wstring_view(shot.name).starts_with(L"queue")) {
+        const std::wstring_view name = shot.name;
+        if (!samples && name.starts_with(L"queue")) {
             get_self<UnlockView>(AudioView())->ShowSampleJobs();
             samples = true;
+        }
+        if (!lyrics && name.starts_with(L"lyrics")) {
+            // macOS renders the lyrics workspace at 1060 x 760.
+            HWND hwnd = nullptr;
+            this->try_as<::IWindowNative>()->get_WindowHandle(&hwnd);
+            const double scale = GetDpiForWindow(hwnd) / 96.0;
+            AppWindow().Resize({static_cast<int32_t>(1060 * scale + 0.5), static_cast<int32_t>(760 * scale + 0.5)});
+            ShowWorkspace(false);
+            lyrics = true;
+        }
+        if (!lyric_samples && name.starts_with(L"lyrics-editor")) {
+            Lyrics().ShowSampleSongs();
+            lyric_samples = true;
         }
         Root().RequestedTheme(shot.theme);
         co_await resume_after(600ms);

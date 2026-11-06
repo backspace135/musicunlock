@@ -29,8 +29,13 @@ std::filesystem::path downloads_folder() {
 
 namespace {
 
+struct Filter {
+    std::wstring name;
+    std::wstring patterns;
+};
+
 std::vector<std::filesystem::path> show(HWND owner, const wchar_t* title, FILEOPENDIALOGOPTIONS options,
-                                        const std::filesystem::path& initial = {}, bool audio_filter = false) {
+                                        const std::filesystem::path& initial = {}, std::vector<Filter> filters = {}) {
     winrt::com_ptr<IFileOpenDialog> dialog;
     if (FAILED(CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(dialog.put())))) {
         return {};
@@ -39,14 +44,11 @@ std::vector<std::filesystem::path> show(HWND owner, const wchar_t* title, FILEOP
     dialog->GetOptions(&current);
     dialog->SetOptions(current | options | FOS_FORCEFILESYSTEM | FOS_PATHMUSTEXIST);
     dialog->SetTitle(title);
-    if (audio_filter) {
-        std::wstring patterns;
-        for (const auto& ext : mu::supported_extensions()) {
-            if (!patterns.empty()) patterns += L";";
-            patterns += L"*." + std::wstring(ext.begin(), ext.end());
-        }
-        const COMDLG_FILTERSPEC filters[] = {{L"加密音乐文件", patterns.c_str()}, {L"所有文件", L"*.*"}};
-        dialog->SetFileTypes(2, filters);
+    if (!filters.empty()) {
+        filters.push_back({L"所有文件", L"*.*"});
+        std::vector<COMDLG_FILTERSPEC> specs;
+        for (const auto& filter : filters) specs.push_back({filter.name.c_str(), filter.patterns.c_str()});
+        dialog->SetFileTypes(static_cast<UINT>(specs.size()), specs.data());
     }
     if (!initial.empty()) {
         winrt::com_ptr<IShellItem> folder;
@@ -75,13 +77,24 @@ std::vector<std::filesystem::path> show(HWND owner, const wchar_t* title, FILEOP
 
 std::vector<std::filesystem::path> pick_audio(HWND owner, bool folders) {
     if (folders) return show(owner, L"添加音乐文件夹", FOS_PICKFOLDERS | FOS_ALLOWMULTISELECT);
-    return show(owner, L"添加加密音乐文件", FOS_ALLOWMULTISELECT | FOS_FILEMUSTEXIST, {}, true);
+    std::wstring patterns;
+    for (const auto& ext : mu::supported_extensions()) {
+        if (!patterns.empty()) patterns += L";";
+        patterns += L"*." + std::wstring(ext.begin(), ext.end());
+    }
+    return show(owner, L"添加加密音乐文件", FOS_ALLOWMULTISELECT | FOS_FILEMUSTEXIST, {}, {{L"加密音乐文件", patterns}});
 }
 
-std::optional<std::filesystem::path> pick_folder(HWND owner, const std::filesystem::path& initial) {
+std::optional<std::filesystem::path> pick_folder(HWND owner, const std::filesystem::path& initial, const wchar_t* title) {
     std::error_code error;
-    auto paths = show(owner, L"选择输出文件夹", FOS_PICKFOLDERS,
+    auto paths = show(owner, title, FOS_PICKFOLDERS,
                       std::filesystem::is_directory(initial, error) ? initial : std::filesystem::path());
+    if (paths.empty()) return std::nullopt;
+    return paths.front();
+}
+
+std::optional<std::filesystem::path> pick_lyric_file(HWND owner) {
+    auto paths = show(owner, L"打开本地歌词", FOS_FILEMUSTEXIST, {}, {{L"歌词文件（LRC、TXT）", L"*.lrc;*.txt"}});
     if (paths.empty()) return std::nullopt;
     return paths.front();
 }
