@@ -2,7 +2,7 @@
 
 Windows 原生版本的开发目录，与 macOS 版本在同一个 Git 仓库维护。
 
-**当前状态：解封装核心、命令行版、歌词核心、WinUI 3 音乐解锁与歌词工作区、账号登录已实现；单 exe 打包开发中。**
+**当前状态：解封装核心、命令行版、歌词核心、WinUI 3 音乐解锁与歌词工作区、账号登录与单 exe 启动器已实现。**
 
 ## 技术方向
 
@@ -23,12 +23,13 @@ apps/windows/
 │                  （Windows 用 CNG、WinHTTP、系统 ICU；Mac 开发机用 CommonCrypto、CoreFoundation）
 ├── cli/           musicunlock.exe，用法与 macOS CLI 相同；静态 CRT，kgm.mask 以资源内嵌
 ├── app/           WinUI 3 界面（C++/WinRT，未打包、Windows App SDK 自包含、静态 CRT）
+├── launcher/      单 exe 启动器（纯 Win32、静态 CRT）与打包工具 launcher_pack
 ├── tools/         desktop_shot.cpp：在独立桌面上运行界面预览渲染
-├── tests/         core 与歌词测试，读取 ../../tests/fixtures/qmc
+├── tests/         core、歌词与启动器测试，读取 ../../tests/fixtures/qmc
 ├── third_party/   nlohmann/json 3.12.0（单头文件，MIT）、nayuki QR-Code-generator 1.8.0（MIT）
-└── scripts/       build.py：核心与命令行；smoke_cli.py：命令行冒烟测试；restore.py / build_app.py：界面；
-                   stage_app.py：整理分发目录；screenshot.py：界面预览与端到端转换检查；
-                   remote.py：在 Windows 机器的独立工作树里构建
+└── scripts/       build.py：核心、命令行与启动器；smoke_cli.py / smoke_launcher.py：冒烟测试；
+                   restore.py / build_app.py：界面；stage_app.py：整理分发目录；pack.py：生成单 exe；
+                   screenshot.py：界面预览与端到端转换检查；remote.py：在 Windows 机器的独立工作树里构建
 ```
 
 ## 构建核心与命令行版
@@ -36,7 +37,7 @@ apps/windows/
 Windows 需要 Visual Studio 2022 Build Tools（“使用 C++ 的桌面开发”，含 MSVC x64、Windows SDK 与 CMake）和 Python 3：
 
 ```sh
-python scripts/build.py              # Release，编译后运行核心测试和命令行冒烟测试
+python scripts/build.py              # Release，编译后运行核心与启动器测试、命令行与启动器冒烟测试
 python scripts/build.py --config Debug --no-test
 ```
 
@@ -50,7 +51,7 @@ musicunlock.exe D:\输出目录 D:\音乐\歌曲.ncm D:\另一个音乐目录
 开发 Mac 上同一命令可编译核心与测试，用于快速验证算法（需要 CMake 与 Ninja）。
 
 GitHub Actions（`.github/workflows/windows.yml`）在 windows-2022 上执行同一脚本、编译界面，上传 `musicunlock.exe`、
-精简后的界面目录和单独的符号文件；
+单文件的 `MusicUnlock.exe`、精简后的界面目录和单独的符号文件；
 手动触发时额外运行联网的平台接口检查。
 
 ## 构建界面
@@ -107,6 +108,56 @@ python scripts/screenshot.py --dist [--convert]   # 用分发目录里的 App �
 | `build/dist/MusicUnlock/` | 60.4 MB | 21.7 MB |
 | `build/dist/symbols/` | 76.7 MB | |
 
+## 单 exe
+
+最终交付的是单个 `build/dist/MusicUnlock.exe`：外层是 `launcher/` 里的小启动器（纯 Win32 C++、静态 CRT，
+不依赖 Windows App SDK），分发目录压缩后嵌在它的资源里。图标和版本信息直接复用 `app/MusicUnlock.rc`。
+
+```sh
+python scripts/build.py              # 同时编译启动器 launcher.exe 和打包工具 launcher_pack.exe
+python scripts/build_app.py
+python scripts/pack.py               # 先运行 stage_app.py，再生成 build/dist/MusicUnlock.exe
+python scripts/pack.py --compare     # 比较压缩算法和分块大小
+python scripts/screenshot.py --single [--convert]  # 通过单 exe 启动 App 渲染预览；--convert 另外在命令行上传一个文件，检查拖放导入
+```
+
+- 打包：`launcher_pack` 把分发目录按扩展名排成一个数据块，按 4 MiB 分块用 LZMS 压缩（`cabinet.dll` 的
+  Compression API），连同不压缩的清单（路径、大小、SHA-256）写进 exe 的 `PAYLOAD`（RCDATA）资源。
+  清单的 SHA-256 就是版本标识，前 16 位十六进制是运行目录名。
+- 首次运行：检查剩余空间，多线程解压，写进 `runtime\.tmp-<版本>-<进程号>\`，逐个文件从磁盘读回校验 SHA-256，
+  记下每个文件的大小和修改时间（`.musicunlock-stamp`），再整体重命名为 `runtime\<版本>\`，半途中断不会留下看似完整的目录。
+- 再次运行：只比较大小、修改时间和有没有多余的文件，不解压也不算哈希。对不上时逐个文件算哈希，
+  重写不一致的、删掉多余的（例如被放进来的 DLL）；按文件修复，所以另一个窗口还开着时也能修复。
+- 命令行原样传给 `MusicUnlock.exe`，拖到 exe 上的文件和“打开方式”都能导入；快捷方式的窗口状态和任务栏身份也一并传过去。
+- 每个运行根目录一个具名互斥体：多个实例同时启动时只有一个在解压，其余等它完成后直接复用。App 启动后才放锁，
+  然后删除其他版本的目录；有文件还开着（那个版本正在运行）的目录改名会失败，留到下次再删。只删除这种 16 位十六进制
+  名称的目录和中断留下的临时目录。
+- `cabinet.dll`、`bcrypt.dll` 只从 System32 加载（`/DEPENDENTLOADFLAG:0x800`），下载目录里放一个同名 DLL 不会被加载。
+- 失败时用中文对话框说明原因和做法：磁盘空间不足（需要多少、还剩多少）、目录不可写、文件正在使用、exe 已损坏、
+  解压出的文件校验失败或被安全软件拦截。
+- `MUSICUNLOCK_RUNTIME_DIR` 换掉运行根目录（默认 `%LOCALAPPDATA%\MusicUnlock\runtime`）；`MUSICUNLOCK_LAUNCHER_LOG`
+  把耗时和错误写进文件、不弹对话框，并等 App 退出后返回它的退出码。测试和 `screenshot.py --single` 都用这两个变量，
+  运行目录在 `build/` 里，不写用户的 `%LOCALAPPDATA%`。
+- 测试：`launcher_tests` 覆盖格式解析与路径校验（Mac 上也运行）、压缩、解压、篡改修复、旧版本清理和加锁；
+  `smoke_launcher.py`（`build.py` 在 Windows 上自动运行）用一个记录启动方式的替身 App 打包出真正的 exe，只把它复制到空目录里运行，
+  检查首次和再次启动、参数原样传递、篡改修复、6 个实例同时启动、旧版本清理与正在运行的版本保留，以及错误提示。
+
+压缩方式（`pack.py --compare`，分发目录 53 个文件 61.4 MB，g16win 16 线程；64 MiB 一块即单线程）：
+
+| 算法 | 分块 | 体积 | 解压 |
+| --- | --- | --- | --- |
+| XPRESS Huffman | 4 MiB | 25.7 MB | 16 ms（单线程 141 ms） |
+| LZMS（采用） | 4 MiB | 19.0 MB | 70–230 ms（单线程约 0.7 s） |
+
+LZMS 比 XPRESS Huffman 小约 26%，多出的解压时间只在首次运行时付一次。
+
+| 测量（g16win，Defender 实时保护关闭） | |
+| --- | --- |
+| `MusicUnlock.exe` | 19.4 MB（启动器本身 0.39 MB） |
+| 首次启动（运行目录为空）到 App 进程启动 | 170–185 ms（解压 70–90 ms，写入并校验 35 ms） |
+| 刚生成的 exe 第一次运行 | 约 1.0 s（另含系统第一次加载新 exe 的开销） |
+| 再次启动到 App 进程启动 | 31–35 ms |
+
 ## 在 Windows 机器上并行开发
 
 开发 Mac 上用 `remote.py` 把当前分支交给 Windows 机器（git 远程 `g16win`）构建。每个分支有自己的工作树
@@ -117,6 +168,7 @@ python3 apps/windows/scripts/remote.py build                  # 核心、测试�
 python3 apps/windows/scripts/remote.py app                    # 编译界面
 python3 apps/windows/scripts/remote.py screenshot [--convert] # 编译界面并渲染预览，取回到 build/previews/
 python3 apps/windows/scripts/remote.py screenshot --dist      # 同上，但先整理分发目录，用它渲染
+python3 apps/windows/scripts/remote.py screenshot --single    # 同上，但先生成单 exe，通过它启动 App
 python3 apps/windows/scripts/remote.py run -- <命令>           # 在工作树的 apps/windows 下运行任意命令
 python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 / 删除当前分支的工作树
 ```
