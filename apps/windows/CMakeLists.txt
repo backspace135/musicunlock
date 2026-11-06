@@ -1,7 +1,7 @@
 # Portable core, CLI and tests. Builds with MSVC on Windows and with Apple clang on the development Mac
 # (core and tests only need the platform AES backend). The WinUI 3 app has its own MSBuild project.
 cmake_minimum_required(VERSION 3.21)
-project(MusicUnlockWindows VERSION 0.1.0 LANGUAGES CXX)
+project(MusicUnlockWindows VERSION 0.1.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
