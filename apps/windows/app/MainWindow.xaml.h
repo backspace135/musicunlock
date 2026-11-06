@@ -30,8 +30,11 @@ private:
     UnlockView& Audio() { return *get_self<UnlockView>(AudioView()); }
     LyricsView& Lyrics() { return *get_self<LyricsView>(LyricsWorkspace()); }
     void ShowWorkspace(bool audio);
+    void UseBackdrop();
+    void ApplyMotion();
     /// Asks before closing while a batch runs; finished files stay either way.
     fire_and_forget ConfirmClose();
+    Microsoft::UI::Xaml::Controls::ContentDialog CloseDialog();
 
     /// Title bar glyph: outline person when no platform is signed in, filled when one is.
     void UpdateAccountsButton();
@@ -39,7 +42,8 @@ private:
     bool closing_confirmed_ = false;
     bool accounts_open_ = false;
 
-    /// Development renders (MUSICUNLOCK_RENDER_DIR): PNGs of the window content in light and dark, then exit.
+    /// Development renders (MUSICUNLOCK_RENDER_DIR): PNGs of the window content in light and dark, with
+    /// dialogs, menus, large text and high contrast, and the UI Automation tree; then exit.
     fire_and_forget RenderPreviews(std::wstring directory);
     /// The account dialog's states over the lyrics workspace in light, dark and simulated high contrast.
     Windows::Foundation::IAsyncAction RenderAccountPreviews(std::filesystem::path directory);

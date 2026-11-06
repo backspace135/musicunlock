@@ -4,6 +4,8 @@
 
 #include "Accounts.h"
 #include "AccountsDialog.xaml.h"
+#include "Motion.h"
+#include "Preview.h"
 #include "Shell.h"
 #if __has_include("MainWindow.g.cpp")
 #include "MainWindow.g.cpp"
@@ -59,10 +61,13 @@ void SimulateHighContrast(FrameworkElement const& element) {
 void log_error(std::wstring_view where, hresult code, std::wstring_view message);
 
 void MainWindow::InitializeComponent() {
+    const auto render_directory = environment(L"MUSICUNLOCK_RENDER_DIR");
+    // Previews are static like the macOS renderer; the end-to-end render keeps motion to exercise it.
+    motion::suspend(!render_directory.empty() && environment(L"MUSICUNLOCK_RENDER_CONVERT").empty());
     MainWindowT::InitializeComponent();
     ExtendsContentIntoTitleBar(true);
     SetTitleBar(AppTitleBar());
-    SystemBackdrop(Media::MicaBackdrop());
+    UseBackdrop();
     // AppWindow sizes are physical pixels; DESIGN.md sizes are effective pixels.
     HWND hwnd = nullptr;
     this->try_as<::IWindowNative>()->get_WindowHandle(&hwnd);
@@ -90,14 +95,41 @@ void MainWindow::InitializeComponent() {
         ShowWorkspace(false);
         Lyrics().SearchForAudio(std::move(title));
     });
+    ApplyMotion();
+    // "Animation effects" may have been switched in Settings while the window was in the background.
+    Activated([this](auto&&, WindowActivatedEventArgs const& args) {
+        if (args.WindowActivationState() != WindowActivationState::Deactivated) ApplyMotion();
+    });
     Audio().Import(shell::command_line_paths());
     UpdateAccountsButton();
-    if (auto directory = environment(L"MUSICUNLOCK_RENDER_DIR"); !directory.empty()) {
-        PreviewBackdrop().Visibility(Visibility::Visible);
+    if (!render_directory.empty()) {
+        SolidBackdrop().Visibility(Visibility::Visible);
         if (environment(L"MUSICUNLOCK_RENDER_CONVERT").empty()) Audio().UsePreviewData();
         Lyrics().UsePreviewData();
-        Root().Loaded([this, directory](auto&&, auto&&) { RenderPreviews(directory); });
+        Root().Loaded([this, render_directory](auto&&, auto&&) { RenderPreviews(render_directory); });
     }
+}
+
+/// Mica on Windows 11; Windows 10 has no Mica, so desktop acrylic, or a solid workspace colour when neither
+/// is available. MUSICUNLOCK_BACKDROP=acrylic or solid forces a fallback for checking it on Windows 11.
+void MainWindow::UseBackdrop() {
+    using namespace Microsoft::UI::Composition::SystemBackdrops;
+    const auto forced = environment(L"MUSICUNLOCK_BACKDROP");
+    if (forced.empty() && MicaController::IsSupported()) {
+        SystemBackdrop(Media::MicaBackdrop());
+    } else if (forced != L"solid" && DesktopAcrylicController::IsSupported()) {
+        SystemBackdrop(Media::DesktopAcrylicBackdrop());
+    } else {
+        SolidBackdrop().Visibility(Visibility::Visible);
+    }
+}
+
+void MainWindow::ApplyMotion() {
+    motion::crossfade(AudioView());
+    motion::crossfade(LyricsWorkspace());
+    motion::crossfade(AudioActions());
+    motion::crossfade(LyricsActions());
+    Audio().ApplyMotion();
 }
 
 void MainWindow::OnWorkspaceChanged(Controls::SelectorBar const&, Controls::SelectorBarSelectionChangedEventArgs const&) {
@@ -142,6 +174,12 @@ void MainWindow::UpdateAccountsButton() {
 
 fire_and_forget MainWindow::ConfirmClose() {
     auto strong = get_strong();
+    if (co_await CloseDialog().ShowAsync() != Controls::ContentDialogResult::Primary) co_return;
+    closing_confirmed_ = true;
+    Close();
+}
+
+Controls::ContentDialog MainWindow::CloseDialog() {
     Controls::ContentDialog dialog;
     dialog.XamlRoot(Content().XamlRoot());
     dialog.Title(box_value(L"任务仍在进行"));
@@ -149,9 +187,7 @@ fire_and_forget MainWindow::ConfirmClose() {
     dialog.PrimaryButtonText(L"退出");
     dialog.CloseButtonText(L"继续任务");
     dialog.DefaultButton(Controls::ContentDialogButton::Close);
-    if (co_await dialog.ShowAsync() != Controls::ContentDialogResult::Primary) co_return;
-    closing_confirmed_ = true;
-    Close();
+    return dialog;
 }
 
 void MainWindow::ShowWorkspace(bool audio) { WorkspaceBar().SelectedItem(audio ? AudioItem() : LyricsItem()); }
@@ -197,58 +233,108 @@ void MainWindow::OnAcceleratorInvoked(Xaml::Input::KeyboardAccelerator const& ac
 fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
     auto strong = get_strong();
     auto dispatcher = DispatcherQueue();
-    std::filesystem::create_directories(directory);
-    struct Shot {
-        const wchar_t* name;
-        ElementTheme theme;
+    const std::filesystem::path folder(directory);
+    std::filesystem::create_directories(folder);
+    auto& audio = Audio();
+    const auto wait = [&](auto duration) -> Windows::Foundation::IAsyncAction {
+        co_await resume_after(duration);
+        co_await wil::resume_foreground(dispatcher);
     };
-    std::vector<Shot> shots;
-    const auto convert = environment(L"MUSICUNLOCK_RENDER_CONVERT");
-    if (!convert.empty()) {
+    const auto shot = [&](const wchar_t* name, ElementTheme theme) -> Windows::Foundation::IAsyncAction {
+        Root().RequestedTheme(theme);
+        co_await wait(600ms);
+        co_await SavePreview(folder / (std::wstring(name) + L".png"));
+    };
+    const auto resize = [this](int height) {
+        HWND hwnd = nullptr;
+        this->try_as<::IWindowNative>()->get_WindowHandle(&hwnd);
+        const double scale = GetDpiForWindow(hwnd) / 96.0;
+        AppWindow().Resize({static_cast<int32_t>(1060 * scale + 0.5), static_cast<int32_t>(height * scale + 0.5)});
+    };
+    // Dialogs sit in popups outside Root and do not follow the theme forced on it.
+    const auto open = [&](Controls::ContentDialog const& dialog) {
+        dialog.RequestedTheme(ElementTheme::Light);
+        dialog.ShowAsync();
+    };
+
+    if (auto convert = environment(L"MUSICUNLOCK_RENDER_CONVERT"); !convert.empty()) {
         // End-to-end: import a real folder, convert it into <folder>\输出, then capture the result.
-        Audio().UseOutputDirectory(std::filesystem::path(convert) / L"输出");
-        Audio().Import({std::filesystem::path(convert)});
-        for (int i = 0; i < 600 && !Audio().Idle(); ++i) co_await resume_after(100ms), co_await wil::resume_foreground(dispatcher);
-        Audio().Start();
-        co_await resume_after(100ms);
-        co_await wil::resume_foreground(dispatcher);
-        for (int i = 0; i < 600 && !Audio().Idle(); ++i) co_await resume_after(100ms), co_await wil::resume_foreground(dispatcher);
-        shots = {Shot{L"converted-light", ElementTheme::Light}, Shot{L"converted-dark", ElementTheme::Dark}};
-    } else {
-        // Same set as the macOS PreviewRenderer: empty and populated queue and lyrics workspace, light and dark.
-        shots = {Shot{L"empty-light", ElementTheme::Light},         Shot{L"empty-dark", ElementTheme::Dark},
-                 Shot{L"queue-light", ElementTheme::Light},         Shot{L"queue-dark", ElementTheme::Dark},
-                 Shot{L"lyrics-empty-light", ElementTheme::Light},  Shot{L"lyrics-empty-dark", ElementTheme::Dark},
-                 Shot{L"lyrics-editor-light", ElementTheme::Light}, Shot{L"lyrics-editor-dark", ElementTheme::Dark}};
+        audio.UseOutputDirectory(std::filesystem::path(convert) / L"输出");
+        audio.Import({std::filesystem::path(convert)});
+        for (int i = 0; i < 600 && !audio.Idle(); ++i) co_await wait(100ms);
+        audio.Start();
+        co_await wait(100ms);
+        for (int i = 0; i < 600 && !audio.Idle(); ++i) co_await wait(100ms);
+        co_await shot(L"converted-light", ElementTheme::Light);
+        co_await shot(L"converted-dark", ElementTheme::Dark);
+        preview::write_automation_tree(Root(), folder / L"converted-a11y.txt");
+        Application::Current().Exit();
+        co_return;
     }
-    bool samples = false;
-    bool lyrics = false;
-    bool lyric_samples = false;
-    for (const Shot shot : shots) {
-        const std::wstring_view name = shot.name;
-        if (!samples && name.starts_with(L"queue")) {
-            get_self<UnlockView>(AudioView())->ShowSampleJobs();
-            samples = true;
-        }
-        if (!lyrics && name.starts_with(L"lyrics")) {
-            // macOS renders the lyrics workspace at 1060 x 760.
-            HWND hwnd = nullptr;
-            this->try_as<::IWindowNative>()->get_WindowHandle(&hwnd);
-            const double scale = GetDpiForWindow(hwnd) / 96.0;
-            AppWindow().Resize({static_cast<int32_t>(1060 * scale + 0.5), static_cast<int32_t>(760 * scale + 0.5)});
-            ShowWorkspace(false);
-            lyrics = true;
-        }
-        if (!lyric_samples && name.starts_with(L"lyrics-editor")) {
-            Lyrics().ShowSampleSongs();
-            lyric_samples = true;
-        }
-        Root().RequestedTheme(shot.theme);
-        co_await resume_after(600ms);
-        co_await wil::resume_foreground(dispatcher);
-        co_await SavePreview(std::filesystem::path(directory) / (std::wstring(shot.name) + L".png"));
-    }
-    if (convert.empty()) co_await RenderAccountPreviews(directory);
+
+    // Same set as the macOS PreviewRenderer: empty and populated queue, light and dark.
+    co_await shot(L"empty-light", ElementTheme::Light);
+    co_await shot(L"empty-dark", ElementTheme::Dark);
+    audio.PreviewDropTarget(true);
+    co_await shot(L"drop-light", ElementTheme::Light);
+    audio.PreviewDropTarget(false);
+    audio.ShowSampleJobs();
+    co_await shot(L"queue-light", ElementTheme::Light);
+    co_await shot(L"queue-dark", ElementTheme::Dark);
+    preview::write_automation_tree(Root(), folder / L"a11y.txt");
+
+    // Focus and hover visuals, the row menu and the dialogs (popups, drawn over the window by SavePreview).
+    audio.PreviewKeyboard();
+    co_await shot(L"keyboard-light", ElementTheme::Light);
+    audio.PreviewRowMenu(1);
+    co_await shot(L"menu-light", ElementTheme::Light);
+    for (const auto& popup : Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(Root().XamlRoot())) popup.IsOpen(false);
+    const auto about = audio.AboutDialog();
+    open(about);
+    co_await shot(L"about-light", ElementTheme::Light);
+    about.Hide();
+    co_await wait(300ms);
+    const auto close = CloseDialog();
+    open(close);
+    co_await shot(L"close-light", ElementTheme::Light);
+    close.Hide();
+    co_await wait(300ms);
+
+    // The lyrics workspace, empty and with sample songs; macOS renders it at 1060 x 760.
+    resize(760);
+    ShowWorkspace(false);
+    co_await shot(L"lyrics-empty-light", ElementTheme::Light);
+    co_await shot(L"lyrics-empty-dark", ElementTheme::Dark);
+    Lyrics().ShowSampleSongs();
+    co_await shot(L"lyrics-editor-light", ElementTheme::Light);
+    co_await shot(L"lyrics-editor-dark", ElementTheme::Dark);
+    resize(720);
+    ShowWorkspace(true);
+
+    // Stand-in for a system setting a render must not change: 200 % text.
+    preview::scale_text(Root(), 2.0);
+    audio.PreviewTextScale(2.0);
+    co_await shot(L"text200-queue-light", ElementTheme::Light);
+    audio.OnClearQueue(nullptr, nullptr);
+    co_await shot(L"text200-empty-light", ElementTheme::Light);
+    preview::scale_text(Root(), 0.5);
+    audio.PreviewTextScale(0);
+    // Lay out at normal size before the workspace switch, which remembers the title bar actions' width.
+    Root().UpdateLayout();
+
+    resize(760);
+    co_await RenderAccountPreviews(folder);
+
+    // Simulated high contrast last, as for the account dialog: it stays on Root.
+    resize(720);
+    ShowWorkspace(true);
+    SimulateHighContrast(Root());
+    Root().RequestedTheme(ElementTheme::Dark);
+    co_await shot(L"contrast-empty", ElementTheme::Light);
+    audio.ShowSampleJobs();
+    co_await shot(L"contrast-queue", ElementTheme::Light);
+    // Last: moving focus through everything scrolls the settings panel.
+    preview::write_tab_order(Root(), folder / L"tab-order.txt");
     Application::Current().Exit();
 }
 

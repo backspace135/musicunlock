@@ -4,8 +4,12 @@
 
 #include <functional>
 #include <map>
+#include <set>
+
+#include <winrt/Windows.UI.ViewManagement.h>
 
 #include "JobItem.h"
+#include "Motion.h"
 #include "musicunlock/queue.h"
 
 namespace winrt::MusicUnlock::implementation {
@@ -18,6 +22,18 @@ struct UnlockView : UnlockViewT<UnlockView> {
     void UsePreviewData();
     /// Fills the queue with the same sample jobs as the macOS preview renderer.
     void ShowSampleJobs();
+    /// Keyboard focus on the first row and the pointer over the second (focus and hover visuals).
+    void PreviewKeyboard();
+    /// Opens the context menu of a row.
+    void PreviewRowMenu(uint32_t index);
+    void PreviewDropTarget(bool shown) { ShowDropTarget(shown); }
+    /// Stands in for the system text size (TextScaleFactor) while previews simulate large text; 0 ends it.
+    void PreviewTextScale(double scale) {
+        preview_text_scale_ = scale;
+        ApplyTextScale();
+    }
+    /// "关于音匣与开源许可", not yet shown.
+    Microsoft::UI::Xaml::Controls::ContentDialog AboutDialog();
 
     /// System picker for files, or folders that are imported recursively (Ctrl+O / Ctrl+Shift+O).
     void ChooseFiles(bool folders);
@@ -45,6 +61,9 @@ struct UnlockView : UnlockViewT<UnlockView> {
     void OnOpenOutput(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     fire_and_forget OnAbout(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
 
+    /// Sets the implicit animations again; the system animation setting may have changed (window activation).
+    void ApplyMotion();
+
     // Control overrides: the whole workspace is the drop target.
     void OnDragOver(Microsoft::UI::Xaml::DragEventArgs const& args);
     void OnDragLeave(Microsoft::UI::Xaml::DragEventArgs const&);
@@ -52,13 +71,18 @@ struct UnlockView : UnlockViewT<UnlockView> {
 
     void OnFilterChanged(Microsoft::UI::Xaml::Controls::SelectorBar const&,
                          Microsoft::UI::Xaml::Controls::SelectorBarSelectionChangedEventArgs const&);
-    void OnNoticeClosed(Microsoft::UI::Xaml::Controls::InfoBar const&,
-                        Microsoft::UI::Xaml::Controls::InfoBarClosedEventArgs const&);
+    void OnNoticeClosing(Microsoft::UI::Xaml::Controls::InfoBar const&,
+                         Microsoft::UI::Xaml::Controls::InfoBarClosingEventArgs const& args);
     void OnClearCompleted(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnClearQueue(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnShowAll(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnRemoveJob(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
+    void OnRevealSource(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnRevealOutput(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
+    void OnContainerContentChanging(Microsoft::UI::Xaml::Controls::ListViewBase const&,
+                                    Microsoft::UI::Xaml::Controls::ContainerContentChangingEventArgs const& args);
+    void OnJobListKeyDown(IInspectable const&, Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args);
+    void OnQueueHeaderSizeChanged(IInspectable const&, Microsoft::UI::Xaml::SizeChangedEventArgs const&);
 
     /// "查找这首歌的歌词": the window switches to the lyrics workspace and searches for the title.
     void OnFindLyricsRequested(std::function<void(std::string)> handler) { find_lyrics_ = std::move(handler); }
@@ -68,6 +92,14 @@ private:
     void Refresh();
     void SyncItems();
     void ShowNotice(std::string text);
+    void ShowDropTarget(bool shown);
+    void ApplyTextScale();
+    void FitQueueHeader();
+    /// Speaks `text` through Narrator without moving focus (failures, notices).
+    void Announce(hstring const& text);
+    /// Animates the state glyph of a realized row.
+    void PopState(MusicUnlock::JobItem const& item, bool bounce);
+    bool RemoveJob(uint64_t id);
     void SetOutputDirectory(std::filesystem::path directory);
     HWND OwnerWindow() const;
     fire_and_forget ReceiveDrop(Microsoft::UI::Xaml::DragEventArgs args);
@@ -85,6 +117,13 @@ private:
         single_threaded_observable_vector<IInspectable>();
     std::map<uint64_t, com_ptr<JobItem>> item_cache_;
     std::function<void(std::string)> find_lyrics_;
+    std::set<uint64_t> entering_;  // rows inserted since the last layout; they settle in once realized
+    hstring status_title_;
+    motion::Loop drift_;
+    motion::Loop hop_;
+    Windows::UI::ViewManagement::UISettings ui_settings_;
+    Windows::UI::ViewManagement::UISettings::TextScaleFactorChanged_revoker text_scale_changed_;
+    double preview_text_scale_ = 0;
 };
 
 }  // namespace winrt::MusicUnlock::implementation

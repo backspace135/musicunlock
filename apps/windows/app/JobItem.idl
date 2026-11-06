@@ -1,7 +1,8 @@
 namespace MusicUnlock
 {
     // One queue row, a read-only snapshot of a core mu::AudioJob for x:Bind. Created from C++ only.
-    runtimeclass JobItem : Microsoft.UI.Xaml.Data.INotifyPropertyChanged
+    // ToString is what Narrator reads for the row: title, source, format, state and the failure reason.
+    runtimeclass JobItem : Microsoft.UI.Xaml.Data.INotifyPropertyChanged, Windows.Foundation.IStringable
     {
         UInt64 Id { get; };
         String Title { get; };

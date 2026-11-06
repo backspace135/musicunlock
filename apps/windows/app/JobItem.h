@@ -31,6 +31,8 @@ struct JobItem : JobItemT<JobItem> {
     Microsoft::UI::Xaml::Media::ImageSource Cover() const { return cover_; }
     hstring RemoveLabel() const;
     hstring RevealLabel() const;
+    /// IStringable: the row's name for Narrator (ListView reads the item's ToString).
+    hstring ToString() const { return to_hstring(job_.spoken_summary()); }
 
     event_token PropertyChanged(Microsoft::UI::Xaml::Data::PropertyChangedEventHandler const& handler) {
         return property_changed_.add(handler);

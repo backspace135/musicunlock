@@ -64,6 +64,11 @@ TEST(serial_batch_stop_retry_and_filters) {
     CHECK_EQ(queue.visible(mu::QueueFilter::waiting).size(), std::size_t{1}, "waiting filter");
     CHECK_EQ(queue.visible(mu::QueueFilter::done).size(), std::size_t{1}, "done filter");
     CHECK_EQ(queue.visible(mu::QueueFilter::failed).front()->id, ids[1], "failed filter");
+    CHECK_EQ(queue.find(ids[0])->spoken_summary(), std::string("标签标题，网易云 · 1 字节，NCM，已完成，输出 FLAC"),
+             "spoken done row");
+    CHECK_EQ(queue.find(ids[1])->spoken_summary(),
+             std::string("b，网易云 · 1 字节，NCM，未完成：此文件未内嵌解密密钥，目前无法离线转换"), "spoken failed row");
+    CHECK_EQ(queue.find(ids[2])->spoken_summary(), std::string("c，网易云 · 1 字节，NCM，待转换"), "spoken waiting row");
 
     CHECK(queue.retry_failed());
     CHECK_EQ(queue.count(mu::JobState::waiting), std::size_t{2}, "retry resets failed");
