@@ -1,3 +1,5 @@
+import CommonCrypto
+import CryptoKit
 import Foundation
 
 public struct MusicSearchPage: Sendable {
@@ -6,9 +8,13 @@ public struct MusicSearchPage: Sendable {
     public var hasMore = false
 }
 
+/// A NetEase QR login, made the way the official Windows client does it: eapi requests that identify as the
+/// PC client, with the same device id in every request and in the code's chainId. A bare web-style request
+/// still gets 801, but NetEase refuses the login after the phone scans it (code 8821).
 public struct MusicQRCode: Sendable {
     public let key: String
-    public let url: URL
+    public let url: URL  // the QR code's content
+    public let device: String  // random per code, sent with each status query
 }
 
 public struct MusicQRStatus: Sendable {
@@ -33,7 +39,6 @@ public actor MusicAPI {
     }
 
     private func request(_ url: URL, provider: MusicProvider, cookie: String, body: [String: Any]? = nil) async throws -> ([String: Any], [HTTPCookie]) {
-        try Task.checkCancellation()
         var request = URLRequest(url: url)
         request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15", forHTTPHeaderField: "User-Agent")
         request.setValue(provider.home.absoluteString, forHTTPHeaderField: "Referer")
@@ -44,6 +49,12 @@ public actor MusicAPI {
             request.setValue("application/json; charset=utf-8", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONSerialization.data(withJSONObject: body)
         }
+        return try await send(request, provider: provider)
+    }
+
+    private func send(_ request: URLRequest, provider: MusicProvider) async throws -> ([String: Any], [HTTPCookie]) {
+        try Task.checkCancellation()
+        let url = request.url!
         let (data, response) = try await session.data(for: request)
         try Task.checkCancellation()
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
@@ -80,6 +91,59 @@ public actor MusicAPI {
             throw LyricError.message((result.0["message"] as? String ?? result.0["msg"] as? String) ?? "网易云音乐请求失败（\(code)），请稍后重试。")
         }
         return result
+    }
+
+    /// An eapi request as NetEase's Windows client sends it: the client identity goes both into the cookies and
+    /// into the encrypted payload's `header`. Responses stay plain JSON (`e_r` false).
+    private func neteasePC(_ path: String, _ payload: [String: Any], device: String) async throws -> ([String: Any], [HTTPCookie]) {
+        let now = Int(Date().timeIntervalSince1970 * 1000)
+        let header: [String: String] = [
+            "os": "pc", "appver": Self.pcAppVersion, "osver": "Microsoft-Windows-10-Professional-build-19045-64bit",
+            "deviceId": device, "versioncode": "140", "buildver": String(now / 1000), "resolution": "1920x1080",
+            "__csrf": "", "channel": "netease", "requestId": "\(now)_" + String(format: "%04d", now % 1000),
+        ]
+        var body = payload
+        body["header"] = header
+        body["e_r"] = false
+        let text = String(decoding: try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys, .withoutEscapingSlashes]), as: UTF8.self)
+        var request = URLRequest(url: URL(string: "https://interfacepc.music.163.com/eapi/" + path.dropFirst(5))!)
+        request.httpMethod = "POST"
+        request.setValue("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 NeteaseMusicDesktop/\(Self.pcAppVersion) Safari/537.36",
+                         forHTTPHeaderField: "User-Agent")
+        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        let unreserved = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+        request.setValue(header.sorted { $0.key < $1.key }.map { name, value in
+            name.addingPercentEncoding(withAllowedCharacters: unreserved)! + "=" + value.addingPercentEncoding(withAllowedCharacters: unreserved)!
+        }.joined(separator: "; "), forHTTPHeaderField: "Cookie")
+        request.httpBody = Data(("params=" + (try Self.eapiParams(path: path, payload: text))).utf8)
+        let result = try await send(request, provider: .netease)
+        let code = Self.number(result.0["code"])
+        guard code == 200 || (800...803).contains(code) else {
+            throw LyricError.message((result.0["message"] as? String ?? result.0["msg"] as? String) ?? "网易云音乐请求失败（\(code)），请稍后重试。")
+        }
+        return result
+    }
+
+    static let pcAppVersion = "3.1.17.204416"
+
+    /// The eapi `params` form value: AES-128-ECB over "<path>-36cd479b6b5-<json>-36cd479b6b5-<md5>", upper-case hex.
+    static func eapiParams(path: String, payload: String) throws -> String {
+        let digest = Insecure.MD5.hash(data: Data("nobody\(path)use\(payload)md5forencrypt".utf8)).map { String(format: "%02x", $0) }.joined()
+        let plain = Array("\(path)-36cd479b6b5-\(payload)-36cd479b6b5-\(digest)".utf8)
+        let key = Array("e82ckenh8dichen8".utf8)
+        var output = [UInt8](repeating: 0, count: plain.count + kCCBlockSizeAES128)
+        var written = 0
+        let capacity = output.count
+        let status = output.withUnsafeMutableBytes { destination in
+            plain.withUnsafeBytes { source in
+                key.withUnsafeBytes { keyBytes in
+                    CCCrypt(CCOperation(kCCEncrypt), CCAlgorithm(kCCAlgorithmAES), CCOptions(kCCOptionECBMode | kCCOptionPKCS7Padding),
+                            keyBytes.baseAddress, key.count, nil, source.baseAddress, plain.count, destination.baseAddress, capacity, &written)
+                }
+            }
+        }
+        guard status == kCCSuccess else { throw LyricError.message("无法生成网易云音乐登录请求，请重试。") }
+        return output.prefix(written).map { String(format: "%02X", $0) }.joined()
     }
 
     private func qq(_ path: String, _ parameters: [String: String], cookie: String) async throws -> [String: Any] {
@@ -211,14 +275,19 @@ public actor MusicAPI {
     }
 
     public func createQRCode() async throws -> MusicQRCode {
-        let (json, _) = try await netease("/api/login/qrcode/unikey", ["type": "3"])
-        guard let key = json["unikey"] as? String, !key.isEmpty,
-              let url = URL(string: "https://music.163.com/login?codekey=" + key) else { throw LyricError.message("无法生成登录二维码，请重试。") }
-        return MusicQRCode(key: key, url: url)
+        let device = (0..<32).map { _ in String("0123456789ABCDEF".randomElement()!) }.joined()
+        let (json, _) = try await neteasePC("/api/login/qrcode/unikey", ["type": 3], device: device)
+        // The chainId ties the scan to this device's login; without it NetEase refuses the login after the scan.
+        var components = URLComponents(string: "https://music.163.com/login")!
+        guard let key = json["unikey"] as? String, !key.isEmpty else { throw LyricError.message("无法生成登录二维码，请重试。") }
+        components.queryItems = [URLQueryItem(name: "codekey", value: key),
+                                 URLQueryItem(name: "chainId", value: "v1_\(device)_pc_login_\(Int(Date().timeIntervalSince1970 * 1000))")]
+        guard let url = components.url else { throw LyricError.message("无法生成登录二维码，请重试。") }
+        return MusicQRCode(key: key, url: url, device: device)
     }
 
-    public func checkQRCode(key: String) async throws -> MusicQRStatus {
-        let (json, cookies) = try await netease("/api/login/qrcode/client/login", ["key": key, "type": "3"])
+    public func checkQRCode(_ code: MusicQRCode) async throws -> MusicQRStatus {
+        let (json, cookies) = try await neteasePC("/api/login/qrcode/client/login", ["key": code.key, "type": 3], device: code.device)
         return MusicQRStatus(code: Self.number(json["code"]), cookies: cookies)
     }
 

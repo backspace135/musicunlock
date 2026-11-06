@@ -59,6 +59,8 @@ CLI 转换酷狗时，可用环境变量 `MUSICUNLOCK_KGM_MASK` 指向
 
 - 公开搜索和歌词优先免登录，直接请求音乐平台；没有第三方 API 服务或本地后台服务。
 - 网易云音乐：点击“账号登录 → 登录网易云音乐”，手机扫码并确认；原生二维码失效时可切换官方登录页。
+  扫码登录照官方 Windows 客户端的方式请求（eapi 加密，带 `os=pc`、`appver`、每个二维码随机的 `deviceId` 和对应的 `chainId`）；
+  网页式的明文请求在手机扫码后会被风控拒绝（8821“请切换其他登录方式或升级新版本再试”）。
 - QQ 音乐：点击“账号登录 → 登录 QQ 音乐”，在系统 WebKit 中完成官方登录。音匣观察平台返回的有效音乐登录会话，自动保存并关闭授权窗口。
 - 会话保存在 **macOS 系统钥匙串**，官方页面自身数据保存在系统 WebKit 数据存储中。再次打开 App 自动使用有效会话，过期后重新登录即可。
 - “账号登录”菜单可重新登录或退出。退出清除钥匙串中的会话和该平台的 WebKit 登录数据。
@@ -96,14 +98,17 @@ CLI 转换酷狗时，可用环境变量 `MUSICUNLOCK_KGM_MASK` 指向
 ```sh
 swift test --build-system native
 python3 scripts/smoke-test.py
-# 可选：真实平台搜索、歌曲/专辑/歌单、歌词和二维码接口检查，不进行账号登录
-MUSICUNLOCK_LIVE_TESTS=1 swift test --build-system native --filter LyricsTests/testLiveFirstPartySearchResolveLyricsAndQR
+# 可选：真实平台搜索、歌曲/专辑/歌单和歌词接口检查，不进行账号登录
+MUSICUNLOCK_LIVE_TESTS=1 swift test --build-system native --filter LyricsTests/testLiveFirstPartySearchResolveLyrics
+# 可选：生成一个网易云二维码并查询一次状态（应为 801 等待扫码），不进行账号登录
+MUSICUNLOCK_LIVE_TESTS=1 swift test --build-system native --filter NeteaseQRTests/testLiveNeteaseQRWaitsForScan
 ```
 
 测试读取仓库 `../../tests/fixtures/qmc` 中保留的参考数据，
 验证五组 QQ 音乐样本逐字节一致，并验证 NCM、标签写入、坏文件和输出文件名冲突处理。
 App 工作流测试覆盖文件夹递归扫描、去重、转换、失败重试和偏好记忆。
 歌词测试覆盖双语字幕边界、多时间戳、逐字 LRC、时间偏移、编码与同名文件保护，
+网易云扫码登录的 eapi 请求（脚本化 URLProtocol，解密后核对路径、摘要、客户端标识和 chainId）与 801 → 802 → 803 状态，
 以及原生编辑缓存、批量导出、设置持久化和有效音乐会话识别。
 打包后的 CLI 冒烟测试在 `build/` 下创建独立临时目录验证实际导出，结束后自动清理。
 
