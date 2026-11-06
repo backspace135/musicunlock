@@ -26,7 +26,7 @@ apps/windows/
 ├── tests/         core 与歌词测试，读取 ../../tests/fixtures/qmc
 ├── third_party/   nlohmann/json 3.12.0（单头文件，MIT）
 └── scripts/       build.py：核心与命令行；smoke_cli.py：命令行冒烟测试；restore.py / build_app.py：界面；
-                   screenshot.py：界面预览与端到端转换检查
+                   screenshot.py：界面预览与端到端转换检查；remote.py：在 Windows 机器的独立工作树里构建
 ```
 
 ## 构建核心与命令行版
@@ -64,9 +64,30 @@ python scripts/screenshot.py --convert   # 另外导入并实际转换示例文�
   只引用界面用到的 Windows App SDK 组件，不用包含 AI、ML、Widgets、Search 的元包。
 - 工程是普通桌面 C++ 项目：VC 只在 “Windows Store” 应用类型里调用 XAML 编译器，所以 `MusicUnlock.vcxproj`
   自己在 MIDL 前后运行两遍 WinUI 标记编译。
-- 预览由 App 自己用 `RenderTargetBitmap` 渲染：`screenshot.py` 通过一次性计划任务在登录会话里启动
-  `desktop_shot.exe`，它新建独立桌面运行 App，结束后关闭桌面并删除计划任务，不显示也不截取用户桌面。
+- 预览由 App 自己用 `RenderTargetBitmap` 渲染：`screenshot.py` 通过一次性计划任务（用 XML 定义注册，
+  因为 `schtasks /TR` 限制命令行在 261 个字符以内）在登录会话里启动没有控制台窗口的 `desktop_shot.exe`，
+  它新建独立桌面运行 App，结束后关闭桌面并删除计划任务，不显示也不截取用户桌面。
   渲染时 `MUSICUNLOCK_DATA_DIR` 指向输出目录，设置不会写入用户的 AppData。
+
+## 在 Windows 机器上并行开发
+
+开发 Mac 上用 `remote.py` 把当前分支交给 Windows 机器（git 远程 `g16win`）构建。每个分支有自己的工作树
+`D:\project\musicunlock\.worktrees\<分支名>`，多个会话同时开发不同分支时互不干扰：
+
+```sh
+python3 apps/windows/scripts/remote.py build                  # 核心、测试与命令行冒烟测试
+python3 apps/windows/scripts/remote.py app                    # 编译界面
+python3 apps/windows/scripts/remote.py screenshot [--convert] # 编译界面并渲染预览，取回到 build/previews/
+python3 apps/windows/scripts/remote.py run -- <命令>           # 在工作树的 apps/windows 下运行任意命令
+python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 / 删除当前分支的工作树
+```
+
+- 同步时把工作区（已跟踪和未跟踪的文件，遵守 `.gitignore`）通过临时索引做成一个快照提交，推到远端的
+  `refs/heads/wt/<分支名>` 再检出，不改动本地的索引和分支；未提交的改动也会带过去。
+- 各工作树的 `build/` 互相独立；NuGet 包共用 `.worktrees\.packages`（`MUSICUNLOCK_PACKAGES_DIR`），
+  恢复时加锁，只下载一次。`nuget-imports.props` 仍写在各自的 `build/` 里，分支的包清单不同也不会冲突。
+- `screenshot.py` 的计划任务名和桌面名带有按工作树路径算出的后缀，两个工作树可以同时截图。
+- 工作树目录已加入 `.gitignore`，远端主检出也在 `.git/info/exclude` 里忽略它。
 
 ## 界面设计对应
 
