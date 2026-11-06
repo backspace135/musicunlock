@@ -5,6 +5,9 @@
 #include "UnlockView.g.cpp"
 #endif
 
+#include <cmath>
+#include <limits>
+
 #include <winrt/Microsoft.UI.Xaml.Automation.Peers.h>
 #include <winrt/Microsoft.UI.Xaml.Media.Animation.h>
 #include <winrt/Windows.ApplicationModel.DataTransfer.h>
@@ -48,6 +51,13 @@ uint64_t job_id(IInspectable const& sender) {
 
 Visibility shown(bool visible) { return visible ? Visibility::Visible : Visibility::Collapsed; }
 
+/// The format (64 px) and state (88 px) columns starting at `first`, widened for the text size.
+void size_columns(Grid const& grid, uint32_t first, double scale) {
+    const auto columns = grid.ColumnDefinitions();
+    columns.GetAt(first).Width(GridLengthHelper::FromPixels(std::round(64 * scale)));
+    columns.GetAt(first + 1).Width(GridLengthHelper::FromPixels(std::round(88 * scale)));
+}
+
 /// A named element inside a row template (template names are not reachable through FindName).
 FrameworkElement find_named(DependencyObject const& root, std::wstring_view name) {
     const int32_t count = Media::VisualTreeHelper::GetChildrenCount(root);
@@ -80,6 +90,13 @@ void UnlockView::InitializeComponent() {
     JobList().ItemsSource(items_);
     drift_ = motion::Loop::drift(Disc());
     hop_ = motion::Loop::hop(DropGlyph());
+    text_scale_changed_ = ui_settings_.TextScaleFactorChanged(
+        auto_revoke, [weak = get_weak(), queue = DispatcherQueue()](auto&&, auto&&) {
+            queue.TryEnqueue([weak] {
+                if (auto self = weak.get()) self->ApplyTextScale();
+            });
+        });
+    ApplyTextScale();
     SetOutputDirectory(saved.output_directory.value_or(shell::downloads_folder() / L"音匣输出"));
     ApplyMotion();
     Refresh();
@@ -101,6 +118,37 @@ void UnlockView::ApplyMotion() {
     JobList().ItemContainerTransitions(transitions);
     if (!motion::enabled()) drift_.stop();
     else if (queue_.jobs().empty()) drift_.start();
+}
+
+/// Settings > Accessibility > Text size: text grows by itself, the fixed list columns are widened here.
+void UnlockView::ApplyTextScale() {
+    const double scale = preview_text_scale_ > 0 ? preview_text_scale_ : ui_settings_.TextScaleFactor();
+    size_columns(ListHeader(), 1, scale);
+    for (uint32_t i = 0; i < items_.Size(); ++i) {
+        if (auto container = JobList().ContainerFromIndex(i).try_as<ListViewItem>(); container && container.ContentTemplateRoot()) {
+            if (auto row = find_named(container.ContentTemplateRoot(), L"RowColumns").try_as<Grid>()) size_columns(row, 2, scale);
+        }
+    }
+    FitQueueHeader();
+}
+
+void UnlockView::OnQueueHeaderSizeChanged(IInspectable const&, SizeChangedEventArgs const&) { FitQueueHeader(); }
+
+/// The filters sit beside the title, or on a second line when large text leaves no room for them.
+void UnlockView::FitQueueHeader() {
+    const Windows::Foundation::Size unbounded{std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
+    double needed = 0;
+    for (const FrameworkElement& element : {FrameworkElement(QueueTitle()), FrameworkElement(CountText()),
+                                            FrameworkElement(FilterBar()), FrameworkElement(MoreButton())}) {
+        if (element.Visibility() == Visibility::Collapsed) continue;
+        element.Measure(unbounded);
+        needed += element.DesiredSize().Width + QueueHeader().ColumnSpacing();
+    }
+    const bool wrap = needed > QueueHeader().ActualWidth();
+    Grid::SetRow(FilterBar(), wrap ? 1 : 0);
+    Grid::SetColumn(FilterBar(), wrap ? 0 : 3);
+    Grid::SetColumnSpan(FilterBar(), wrap ? 5 : 1);
+    QueueHeader().RowSpacing(wrap ? 10 : 0);  // an empty second row must not add space
 }
 
 void UnlockView::UsePreviewData() {
@@ -156,6 +204,7 @@ void UnlockView::Refresh() {
 
     CountText().Text(empty ? hstring() : to_hstring(std::to_string(queue_.jobs().size()) + " 个文件"));
     FilterBar().Visibility(shown(!empty));
+    FitQueueHeader();
     const hstring notice = to_hstring(notice_);
     if (!notice.empty() && (notice != Notice().Message() || Notice().Visibility() == Visibility::Collapsed)) Announce(notice);
     if (!notice.empty()) Notice().Message(notice);  // keeps the text while the banner fades out
@@ -232,6 +281,9 @@ void UnlockView::OnContainerContentChanging(ListViewBase const&, ContainerConten
     if (!root) return;
     // The row menu sits on the template root; keyboard requests (Shift+F10) come from the focused container.
     container.ContextFlyout(root.ContextFlyout());
+    if (auto row = find_named(root, L"RowColumns").try_as<Grid>()) {
+        size_columns(row, 2, preview_text_scale_ > 0 ? preview_text_scale_ : ui_settings_.TextScaleFactor());
+    }
     if (auto background = find_named(root, L"RunningBackground")) motion::crossfade(background);
     if (entering_.erase(args.Item().as<MusicUnlock::JobItem>().Id()) > 0) motion::enter(root);
 }

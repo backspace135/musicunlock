@@ -6,6 +6,8 @@
 #include <map>
 #include <set>
 
+#include <winrt/Windows.UI.ViewManagement.h>
+
 #include "JobItem.h"
 #include "Motion.h"
 #include "musicunlock/queue.h"
@@ -25,6 +27,11 @@ struct UnlockView : UnlockViewT<UnlockView> {
     /// Opens the context menu of a row.
     void PreviewRowMenu(uint32_t index);
     void PreviewDropTarget(bool shown) { ShowDropTarget(shown); }
+    /// Stands in for the system text size (TextScaleFactor) while previews simulate large text; 0 ends it.
+    void PreviewTextScale(double scale) {
+        preview_text_scale_ = scale;
+        ApplyTextScale();
+    }
     /// "关于音匣与开源许可", not yet shown.
     Microsoft::UI::Xaml::Controls::ContentDialog AboutDialog();
 
@@ -75,6 +82,7 @@ struct UnlockView : UnlockViewT<UnlockView> {
     void OnContainerContentChanging(Microsoft::UI::Xaml::Controls::ListViewBase const&,
                                     Microsoft::UI::Xaml::Controls::ContainerContentChangingEventArgs const& args);
     void OnJobListKeyDown(IInspectable const&, Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args);
+    void OnQueueHeaderSizeChanged(IInspectable const&, Microsoft::UI::Xaml::SizeChangedEventArgs const&);
 
     /// "查找这首歌的歌词": the window switches to the lyrics workspace and searches for the title.
     void OnFindLyricsRequested(std::function<void(std::string)> handler) { find_lyrics_ = std::move(handler); }
@@ -85,6 +93,8 @@ private:
     void SyncItems();
     void ShowNotice(std::string text);
     void ShowDropTarget(bool shown);
+    void ApplyTextScale();
+    void FitQueueHeader();
     /// Speaks `text` through Narrator without moving focus (failures, notices).
     void Announce(hstring const& text);
     /// Animates the state glyph of a realized row.
@@ -111,6 +121,9 @@ private:
     hstring status_title_;
     motion::Loop drift_;
     motion::Loop hop_;
+    Windows::UI::ViewManagement::UISettings ui_settings_;
+    Windows::UI::ViewManagement::UISettings::TextScaleFactorChanged_revoker text_scale_changed_;
+    double preview_text_scale_ = 0;
 };
 
 }  // namespace winrt::MusicUnlock::implementation

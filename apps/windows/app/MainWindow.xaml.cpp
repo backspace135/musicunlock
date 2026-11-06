@@ -313,10 +313,12 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
 
     // Stand-in for a system setting a render must not change: 200 % text.
     preview::scale_text(Root(), 2.0);
+    audio.PreviewTextScale(2.0);
     co_await shot(L"text200-queue-light", ElementTheme::Light);
     audio.OnClearQueue(nullptr, nullptr);
     co_await shot(L"text200-empty-light", ElementTheme::Light);
     preview::scale_text(Root(), 0.5);
+    audio.PreviewTextScale(0);
     // Lay out at normal size before the workspace switch, which remembers the title bar actions' width.
     Root().UpdateLayout();
 

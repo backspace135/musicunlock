@@ -49,7 +49,12 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <Grid MinHeight="32" ColumnSpacing="12">
+                <!-- With large text the filters move to a second line (FitQueueHeader). -->
+                <Grid x:Name="QueueHeader" MinHeight="32" ColumnSpacing="12" SizeChanged="OnQueueHeaderSizeChanged">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
@@ -57,10 +62,10 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="转换队列" Style="{StaticResource MuPageTitleStyle}" VerticalAlignment="Center" />
+                    <TextBlock x:Name="QueueTitle" Text="转换队列" Style="{StaticResource MuPageTitleStyle}" VerticalAlignment="Center" />
                     <TextBlock x:Name="CountText" Grid.Column="1" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}"
                                VerticalAlignment="Center" Margin="0,3,0,0" />
-                    <SelectorBar x:Name="FilterBar" Grid.Column="3" VerticalAlignment="Center"
+                    <SelectorBar x:Name="FilterBar" Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Left"
                                  SelectionChanged="OnFilterChanged" AutomationProperties.Name="筛选队列" />
                     <Button x:Name="MoreButton" Grid.Column="4" Style="{StaticResource MuRowButtonStyle}" Width="32" Height="32"
                             ToolTipService.ToolTip="整理队列" AutomationProperties.Name="整理队列">
@@ -88,43 +93,46 @@
                     <Grid>
                         <Rectangle Margin="8" RadiusX="14" RadiusY="14" Stroke="{ThemeResource MuSecondaryBrush}"
                                    StrokeThickness="1" StrokeDashArray="5,5" Opacity="0.35" />
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="*" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <StackPanel Grid.Row="1" HorizontalAlignment="Center">
-                                <!-- Lifts and tilts while files hover; the disc inside drifts. -->
-                                <Grid x:Name="DiscLift" Width="112" Height="112" Margin="0,0,0,12" HorizontalAlignment="Center">
-                                    <Image x:Name="Disc" Source="ms-appx:///Assets/AppIcon.png" AutomationProperties.AccessibilityView="Raw" />
-                                </Grid>
-                                <TextBlock Text="把音乐放进来" FontSize="22" FontWeight="Medium" HorizontalAlignment="Center"
-                                           Margin="0,0,0,10" />
-                                <TextBlock Text="拖入文件或整个文件夹&#x0a;恢复为普通播放器也能打开的音频" FontSize="13"
-                                           Foreground="{ThemeResource MuSecondaryBrush}" TextAlignment="Center" LineHeight="22"
-                                           HorizontalAlignment="Center" Margin="0,0,0,24" />
-                                <Button x:Name="ChooseFilesButton" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Center"
-                                        Padding="18,8" Click="OnChooseFiles" AutomationProperties.Name="选择音乐文件"
-                                        AutomationProperties.AcceleratorKey="Ctrl+O">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <FontIcon Glyph="&#xE710;" FontSize="14" />
-                                        <TextBlock Text="选择音乐文件" />
+                        <!-- Centred while it fits; scrolls when large text makes it taller than the panel. -->
+                        <ScrollViewer Margin="9" VerticalScrollBarVisibility="Auto">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <StackPanel Grid.Row="1" HorizontalAlignment="Center">
+                                    <!-- Lifts and tilts while files hover; the disc inside drifts. -->
+                                    <Grid x:Name="DiscLift" Width="112" Height="112" Margin="0,0,0,12" HorizontalAlignment="Center">
+                                        <Image x:Name="Disc" Source="ms-appx:///Assets/AppIcon.png" AutomationProperties.AccessibilityView="Raw" />
+                                    </Grid>
+                                    <TextBlock Text="把音乐放进来" FontSize="22" FontWeight="Medium" HorizontalAlignment="Center"
+                                               Margin="0,0,0,10" />
+                                    <TextBlock Text="拖入文件或整个文件夹&#x0a;恢复为普通播放器也能打开的音频" FontSize="13"
+                                               Foreground="{ThemeResource MuSecondaryBrush}" TextAlignment="Center" LineHeight="22"
+                                               HorizontalAlignment="Center" Margin="0,0,0,24" />
+                                    <Button x:Name="ChooseFilesButton" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Center"
+                                            Padding="18,8" Click="OnChooseFiles" AutomationProperties.Name="选择音乐文件"
+                                            AutomationProperties.AcceleratorKey="Ctrl+O">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon Glyph="&#xE710;" FontSize="14" />
+                                            <TextBlock Text="选择音乐文件" />
+                                        </StackPanel>
+                                    </Button>
+                                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,24,0,0">
+                                        <Border Style="{StaticResource MuChipStyle}"><TextBlock Text="NCM" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}" /></Border>
+                                        <Border Style="{StaticResource MuChipStyle}"><TextBlock Text="QMC" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}" /></Border>
+                                        <Border Style="{StaticResource MuChipStyle}"><TextBlock Text="MFLAC" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}" /></Border>
+                                        <Border Style="{StaticResource MuChipStyle}"><TextBlock Text="MGG" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}" /></Border>
                                     </StackPanel>
-                                </Button>
-                                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,24,0,0">
-                                    <Border Style="{StaticResource MuChipStyle}"><TextBlock Text="NCM" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}" /></Border>
-                                    <Border Style="{StaticResource MuChipStyle}"><TextBlock Text="QMC" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}" /></Border>
-                                    <Border Style="{StaticResource MuChipStyle}"><TextBlock Text="MFLAC" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}" /></Border>
-                                    <Border Style="{StaticResource MuChipStyle}"><TextBlock Text="MGG" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}" /></Border>
                                 </StackPanel>
-                            </StackPanel>
-                            <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,0,0,22">
-                                <FontIcon Glyph="&#xEDA2;" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}" />
-                                <TextBlock Text="仅在你的电脑上处理，不上传文件" FontSize="11" Foreground="{ThemeResource MuSecondaryBrush}" />
-                            </StackPanel>
-                        </Grid>
+                                <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center" Margin="0,0,0,13">
+                                    <FontIcon Glyph="&#xEDA2;" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}" />
+                                    <TextBlock Text="仅在你的电脑上处理，不上传文件" FontSize="11" Foreground="{ThemeResource MuSecondaryBrush}" />
+                                </StackPanel>
+                            </Grid>
+                        </ScrollViewer>
                     </Grid>
                 </Border>
 
@@ -144,7 +152,8 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <Grid Padding="16,12" ColumnSpacing="12">
+                        <!-- Format and state columns grow with the system text size (ApplyTextScale). -->
+                        <Grid x:Name="ListHeader" Padding="16,12" ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="64" />
@@ -194,7 +203,7 @@
                                         </Grid.ContextFlyout>
                                         <Border x:Name="RunningBackground" Background="{ThemeResource MuRunningRowBrush}"
                                                 Visibility="{x:Bind IsRunning, Mode=OneWay}" />
-                                        <Grid Padding="16,15" ColumnSpacing="12">
+                                        <Grid x:Name="RowColumns" Padding="16,15" ColumnSpacing="12">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
@@ -293,17 +302,32 @@
                         </StackPanel>
                         <StackPanel Spacing="10">
                             <TextBlock Text="支持的来源" Style="{StaticResource MuLabelStyle}" />
-                            <Grid>
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                 <TextBlock Text="网易云" FontSize="11" Foreground="{ThemeResource MuSecondaryBrush}" />
-                                <TextBlock Text="NCM / UC" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="1" Text="NCM / UC" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}"
+                                           TextAlignment="Right" TextWrapping="Wrap" />
                             </Grid>
-                            <Grid>
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                 <TextBlock Text="QQ 音乐" FontSize="11" Foreground="{ThemeResource MuSecondaryBrush}" />
-                                <TextBlock Text="QMC / MFLAC / MGG" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="1" Text="QMC / MFLAC / MGG" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}"
+                                           TextAlignment="Right" TextWrapping="Wrap" />
                             </Grid>
-                            <Grid>
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
                                 <TextBlock Text="更多" FontSize="11" Foreground="{ThemeResource MuSecondaryBrush}" />
-                                <TextBlock Text="KWM / KGM v3 / XM" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="1" Text="KWM / KGM v3 / XM" FontSize="10" FontWeight="Medium" Foreground="{ThemeResource MuSecondaryBrush}"
+                                           TextAlignment="Right" TextWrapping="Wrap" />
                             </Grid>
                             <TextBlock Text="新版外置密钥格式可能无法转换，结果会显示在对应文件下方。" Style="{StaticResource MuSmallCaptionStyle}" />
                         </StackPanel>
@@ -322,8 +346,9 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center" Spacing="7">
-                    <TextBlock x:Name="StatusTitle" FontSize="12" FontWeight="Medium" AutomationProperties.LiveSetting="Polite" />
-                    <TextBlock x:Name="StatusDetail" FontSize="11" Foreground="{ThemeResource MuSecondaryBrush}" />
+                    <TextBlock x:Name="StatusTitle" FontSize="12" FontWeight="Medium" TextWrapping="Wrap"
+                               AutomationProperties.LiveSetting="Polite" />
+                    <TextBlock x:Name="StatusDetail" FontSize="11" Foreground="{ThemeResource MuSecondaryBrush}" TextWrapping="Wrap" />
                     <ProgressBar x:Name="BatchProgress" Width="240" HorizontalAlignment="Left" Visibility="Collapsed"
                                  AutomationProperties.Name="转换进度" />
                 </StackPanel>
