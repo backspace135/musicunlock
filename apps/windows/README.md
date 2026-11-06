@@ -23,7 +23,7 @@ apps/windows/
 ├── cli/           musicunlock.exe，用法与 macOS CLI 相同；静态 CRT，kgm.mask 以资源内嵌
 ├── tests/         core 与歌词测试，读取 ../../tests/fixtures/qmc
 ├── third_party/   nlohmann/json 3.12.0（单头文件，MIT）
-└── scripts/       build.py：配置、编译与测试
+└── scripts/       build.py：配置、编译与测试；smoke_cli.py：命令行冒烟测试
 ```
 
 ## 构建核心与命令行版
@@ -31,7 +31,7 @@ apps/windows/
 Windows 需要 Visual Studio 2022 Build Tools（“使用 C++ 的桌面开发”，含 MSVC x64、Windows SDK 与 CMake）和 Python 3：
 
 ```sh
-python scripts/build.py              # Release，编译后运行测试
+python scripts/build.py              # Release，编译后运行核心测试和命令行冒烟测试
 python scripts/build.py --config Debug --no-test
 ```
 
@@ -43,6 +43,9 @@ musicunlock.exe D:\输出目录 D:\音乐\歌曲.ncm D:\另一个音乐目录
 ```
 
 开发 Mac 上同一命令可编译核心与测试，用于快速验证算法（需要 CMake 与 Ninja）。
+
+GitHub Actions（`.github/workflows/windows.yml`）在 windows-2022 上执行同一脚本并上传 `musicunlock.exe`；
+手动触发时额外运行联网的平台接口检查。
 
 ## 验证
 

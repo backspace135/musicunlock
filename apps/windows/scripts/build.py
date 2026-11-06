@@ -40,7 +40,7 @@ def msvc_environment(base: dict) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", default="Release", choices=["Release", "Debug"])
-    parser.add_argument("--no-test", action="store_true", help="skip ctest")
+    parser.add_argument("--no-test", action="store_true", help="skip ctest and the CLI smoke test")
     args = parser.parse_args()
 
     platform = "windows" if os.name == "nt" else "macos"
@@ -73,6 +73,8 @@ def main() -> None:
     if not args.no_test:
         ctest = str(Path(cmake).with_name("ctest" + (".exe" if platform == "windows" else "")))
         subprocess.run([ctest, "--test-dir", str(build_dir), "--output-on-failure"], env=env, check=True)
+        cli = build_dir / ("musicunlock.exe" if platform == "windows" else "musicunlock")
+        subprocess.run([sys.executable, str(ROOT / "scripts" / "smoke_cli.py"), str(cli)], env=env, check=True)
 
 
 if __name__ == "__main__":
