@@ -1,6 +1,8 @@
 #include "pch.h"
 
 #include "MainWindow.xaml.h"
+
+#include "Shell.h"
 #if __has_include("MainWindow.g.cpp")
 #include "MainWindow.g.cpp"
 #endif
@@ -48,6 +50,13 @@ void MainWindow::InitializeComponent() {
         presenter.PreferredMinimumWidth(pixels(880));
         presenter.PreferredMinimumHeight(pixels(600));
     }
+    // Ctrl+. stops a batch. VK_OEM_PERIOD has no VirtualKey name, so it cannot be written in XAML.
+    Xaml::Input::KeyboardAccelerator stop;
+    stop.Modifiers(Windows::System::VirtualKeyModifiers::Control);
+    stop.Key(static_cast<Windows::System::VirtualKey>(VK_OEM_PERIOD));
+    stop.Invoked({this, &MainWindow::OnAcceleratorInvoked});
+    Root().KeyboardAccelerators().Append(stop);
+    Audio().Import(shell::command_line_paths());
     if (auto directory = environment(L"MUSICUNLOCK_RENDER_DIR"); !directory.empty()) {
         PreviewBackdrop().Visibility(Visibility::Visible);
         get_self<UnlockView>(AudioView())->UsePreviewData();
@@ -58,7 +67,34 @@ void MainWindow::InitializeComponent() {
 void MainWindow::OnWorkspaceChanged(Controls::SelectorBar const&, Controls::SelectorBarSelectionChangedEventArgs const&) {
     const bool audio = WorkspaceBar().SelectedItem() == AudioItem();
     AudioView().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
+    AudioActions().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     LyricsPlaceholder().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
+}
+
+void MainWindow::ShowWorkspace(bool audio) { WorkspaceBar().SelectedItem(audio ? AudioItem() : LyricsItem()); }
+
+void MainWindow::OnAddFiles(IInspectable const&, RoutedEventArgs const&) { Audio().ChooseFiles(false); }
+void MainWindow::OnAddFolder(IInspectable const&, RoutedEventArgs const&) { Audio().ChooseFiles(true); }
+
+void MainWindow::OnAcceleratorInvoked(Xaml::Input::KeyboardAccelerator const& accelerator,
+                                      Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args) {
+    args.Handled(true);
+    const bool shift = (accelerator.Modifiers() & Windows::System::VirtualKeyModifiers::Shift) !=
+                       Windows::System::VirtualKeyModifiers::None;
+    switch (accelerator.Key()) {
+        case Windows::System::VirtualKey::O:
+            ShowWorkspace(true);
+            Audio().ChooseFiles(shift);
+            break;
+        case Windows::System::VirtualKey::Enter:
+            if (AudioView().Visibility() == Visibility::Visible) Audio().Start();
+            break;
+        case Windows::System::VirtualKey::Number1: ShowWorkspace(true); break;
+        case Windows::System::VirtualKey::Number2: ShowWorkspace(false); break;
+        default:  // Ctrl+.
+            Audio().Stop();
+            break;
+    }
 }
 
 fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
@@ -72,9 +108,10 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
         ElementTheme theme;
     };
     // Same set as the macOS PreviewRenderer: empty and populated queue, light and dark.
+    const Shot shots[] = {{L"empty-light", ElementTheme::Light}, {L"empty-dark", ElementTheme::Dark},
+                          {L"queue-light", ElementTheme::Light}, {L"queue-dark", ElementTheme::Dark}};
     bool samples = false;
-    for (const Shot shot : {Shot{L"empty-light", ElementTheme::Light}, Shot{L"empty-dark", ElementTheme::Dark},
-                            Shot{L"queue-light", ElementTheme::Light}, Shot{L"queue-dark", ElementTheme::Dark}}) {
+    for (const Shot shot : shots) {
         if (!samples && std::wstring_view(shot.name).starts_with(L"queue")) {
             get_self<UnlockView>(AudioView())->ShowSampleJobs();
             samples = true;

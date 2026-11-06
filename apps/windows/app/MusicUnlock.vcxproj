@@ -144,6 +144,10 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <!-- KGM / VPR key table, loaded from next to the executable. -->
+    <CopyFileToFolders Include="..\..\..\resources\kgm.mask">
+      <DestinationFolders>$(OutDir)</DestinationFolders>
+    </CopyFileToFolders>
     <Image Include="Assets\AppIcon.png">
       <DeploymentContent>true</DeploymentContent>
     </Image>

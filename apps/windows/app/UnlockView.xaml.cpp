@@ -5,7 +5,11 @@
 #include "UnlockView.g.cpp"
 #endif
 
+#include <winrt/Windows.ApplicationModel.DataTransfer.h>
+#include <winrt/Windows.Storage.h>
+
 #include "Shell.h"
+#include "detail.h"
 #include "musicunlock/text.h"
 
 namespace winrt::MusicUnlock::implementation {
@@ -14,6 +18,26 @@ using namespace Microsoft::UI::Xaml;
 using namespace Microsoft::UI::Xaml::Controls;
 
 namespace {
+
+/// kgm.mask ships next to the executable; KGM / VPR files report that it is missing otherwise.
+const mu::Bytes& kgm_mask() {
+    static const mu::Bytes mask = [] {
+        wchar_t exe[MAX_PATH];
+        const DWORD length = GetModuleFileNameW(nullptr, exe, MAX_PATH);
+        try {
+            return mu::detail::read_file(std::filesystem::path(std::wstring(exe, length)).replace_filename(L"kgm.mask"));
+        } catch (...) {
+            return mu::Bytes{};
+        }
+    }();
+    return mask;
+}
+
+/// Exception text for the row. Library messages are UTF-8; anything else falls back to a generic reason.
+std::string failure_text(const std::exception& error) {
+    const std::string_view what = error.what();
+    return mu::is_valid_utf8(what) && !what.empty() ? std::string(what) : "转换失败，文件可能已损坏或无法读取。";
+}
 
 uint64_t job_id(IInspectable const& sender) {
     return unbox_value<uint64_t>(sender.as<FrameworkElement>().Tag());
@@ -79,7 +103,7 @@ void UnlockView::Refresh() {
     FilterBar().Visibility(shown(!empty));
     Notice().Message(to_hstring(notice_));
     Notice().IsOpen(!notice_.empty());
-    ImportingPanel().Visibility(shown(importing_));
+    ImportingPanel().Visibility(shown(imports_ > 0));
 
     const bool no_matches = !empty && queue_.visible(filter_).empty();
     EmptyQueue().Visibility(shown(empty));
@@ -104,10 +128,10 @@ void UnlockView::Refresh() {
     StopButton().IsEnabled(!queue_.stop_requested());
     StopButton().Content(box_value(queue_.stop_requested() ? L"正在停止…" : L"停止转换"));
     StartButton().Visibility(shown(!running));
-    StartButton().IsEnabled(waiting > 0 && !importing_);
+    StartButton().IsEnabled(waiting > 0 && imports_ == 0);
     OutputButton().IsEnabled(!running);
     NamingBox().IsEnabled(!running);
-    ChooseFilesButton().IsEnabled(!importing_);
+    ChooseFilesButton().IsEnabled(imports_ == 0);
 }
 
 /// Patches the bound list in place so rows animate in and out instead of the whole list reloading.
@@ -159,6 +183,119 @@ void UnlockView::OnRemoveJob(IInspectable const& sender, RoutedEventArgs const&)
 
 void UnlockView::OnRevealOutput(IInspectable const& sender, RoutedEventArgs const&) {
     if (const auto* job = queue_.find(job_id(sender)); job && !job->output.empty()) shell::reveal(job->output);
+}
+
+}  // namespace winrt::MusicUnlock::implementation
+
+namespace winrt::MusicUnlock::implementation {
+
+HWND UnlockView::OwnerWindow() const {
+    return Microsoft::UI::GetWindowFromWindowId(XamlRoot().ContentIslandEnvironment().AppWindowId());
+}
+
+void UnlockView::ChooseFiles(bool folders) {
+    if (imports_ > 0) return;
+    auto paths = shell::pick_audio(OwnerWindow(), folders);
+    if (!paths.empty()) Import(std::move(paths));
+}
+
+fire_and_forget UnlockView::Import(std::vector<std::filesystem::path> paths) {
+    if (paths.empty()) co_return;
+    auto strong = get_strong();
+    apartment_context ui;
+    ++imports_;
+    Refresh();
+    co_await resume_background();
+    mu::ImportScan scan = mu::scan_import(paths);
+    co_await ui;
+    --imports_;
+    notice_ = queue_.add(scan);
+    FilterBar().SelectedItem(FilterBar().Items().GetAt(0));
+    Refresh();
+}
+
+fire_and_forget UnlockView::Start() {
+    if (queue_.running() || imports_ > 0 || queue_.count(mu::JobState::waiting) == 0) co_return;
+    auto strong = get_strong();
+    std::error_code error;
+    std::filesystem::create_directories(output_directory_, error);
+    if (!std::filesystem::is_directory(output_directory_)) {
+        ShowNotice("无法创建输出目录：" + mu::path_to_utf8(output_directory_));
+        co_return;
+    }
+    const auto directory = output_directory_;
+    const auto naming = naming_;
+    const auto ids = queue_.begin_batch();
+    notice_.clear();
+    Refresh();
+    apartment_context ui;
+    for (const auto id : ids) {
+        if (queue_.stop_requested()) break;
+        const mu::AudioJob* job = queue_.find(id);
+        if (!job) continue;  // removed while waiting
+        const auto source = job->source;
+        queue_.job_started(id);
+        Refresh();
+        co_await resume_background();
+        std::optional<mu::ConversionOutput> output;
+        std::string failure;
+        try {
+            output = mu::convert_file(source, directory, naming, kgm_mask());
+        } catch (const std::exception& reason) {
+            failure = failure_text(reason);
+        }
+        co_await ui;
+        if (output) queue_.job_succeeded(id, *output);
+        else queue_.job_failed(id, std::move(failure));
+        Refresh();
+    }
+    notice_ = queue_.end_batch();
+    Refresh();
+}
+
+void UnlockView::Stop() {
+    queue_.request_stop();
+    Refresh();
+}
+
+void UnlockView::OnChooseOutput(IInspectable const&, RoutedEventArgs const&) {
+    if (auto folder = shell::pick_folder(OwnerWindow(), output_directory_)) SetOutputDirectory(*folder);
+}
+
+void UnlockView::OnNamingChanged(IInspectable const&, SelectionChangedEventArgs const&) {
+    const int index = NamingBox().SelectedIndex();
+    if (index >= 0) naming_ = naming_policies[index];
+}
+
+void UnlockView::OnRetry(IInspectable const&, RoutedEventArgs const&) {
+    if (!queue_.retry_failed()) return;
+    FilterBar().SelectedItem(FilterBar().Items().GetAt(0));
+    Start();
+}
+
+void UnlockView::OnOpenOutput(IInspectable const&, RoutedEventArgs const&) { shell::open_folder(output_directory_); }
+
+void UnlockView::OnDragOver(DragEventArgs const& args) {
+    if (!args.DataView().Contains(Windows::ApplicationModel::DataTransfer::StandardDataFormats::StorageItems())) return;
+    args.AcceptedOperation(Windows::ApplicationModel::DataTransfer::DataPackageOperation::Copy);
+    args.DragUIOverride().Caption(L"加入转换队列");
+    DropOverlay().Visibility(Visibility::Visible);
+}
+
+void UnlockView::OnDragLeave(DragEventArgs const&) { DropOverlay().Visibility(Visibility::Collapsed); }
+
+fire_and_forget UnlockView::ReceiveDrop(DragEventArgs args) {
+    DropOverlay().Visibility(Visibility::Collapsed);
+    if (!args.DataView().Contains(Windows::ApplicationModel::DataTransfer::StandardDataFormats::StorageItems())) co_return;
+    auto strong = get_strong();
+    auto deferral = args.GetDeferral();
+    const auto items = co_await args.DataView().GetStorageItemsAsync();
+    deferral.Complete();
+    std::vector<std::filesystem::path> paths;
+    for (const auto& item : items) {
+        if (!item.Path().empty()) paths.emplace_back(std::wstring(item.Path()));
+    }
+    Import(std::move(paths));
 }
 
 }  // namespace winrt::MusicUnlock::implementation

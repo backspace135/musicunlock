@@ -1,9 +1,21 @@
 #pragma once
 // Small Win32 shell helpers for the UI: known folders and Explorer.
 
+#include <windows.h>
+
 #include <filesystem>
+#include <optional>
+#include <vector>
 
 namespace shell {
+
+/// System file dialog. Folders mode picks folders; otherwise files filtered to the supported formats.
+/// Returns nothing when cancelled.
+std::vector<std::filesystem::path> pick_audio(HWND owner, bool folders);
+/// Single folder, starting at `initial` when it exists.
+std::optional<std::filesystem::path> pick_folder(HWND owner, const std::filesystem::path& initial);
+/// Paths passed on the command line (Explorer "open with" and drag onto the exe).
+std::vector<std::filesystem::path> command_line_paths();
 
 /// The user's Downloads folder (falls back to the profile folder).
 std::filesystem::path downloads_folder();

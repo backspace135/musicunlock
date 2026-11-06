@@ -104,7 +104,7 @@
                                            Foreground="{ThemeResource MuSecondaryBrush}" TextAlignment="Center" LineHeight="22"
                                            HorizontalAlignment="Center" Margin="0,0,0,24" />
                                 <Button x:Name="ChooseFilesButton" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Center"
-                                        Padding="18,8">
+                                        Padding="18,8" Click="OnChooseFiles">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <FontIcon Glyph="&#xE710;" FontSize="14" />
                                         <TextBlock Text="选择音乐文件" />
@@ -221,7 +221,7 @@
                         <TextBlock Text="导出设置" Style="{StaticResource MuSectionTitleStyle}" />
                         <StackPanel Spacing="8">
                             <TextBlock Text="输出文件夹" Style="{StaticResource MuLabelStyle}" />
-                            <Button x:Name="OutputButton" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="12"
+                            <Button x:Name="OutputButton" Click="OnChooseOutput" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="12"
                                     Background="{ThemeResource MuSurfaceBrush}" BorderBrush="{ThemeResource MuSeparatorBrush}" CornerRadius="8">
                                 <Grid ColumnSpacing="10">
                                     <Grid.ColumnDefinitions>
@@ -242,7 +242,7 @@
                         </StackPanel>
                         <StackPanel Spacing="8">
                             <TextBlock Text="文件命名" Style="{StaticResource MuLabelStyle}" />
-                            <ComboBox x:Name="NamingBox" MinWidth="150" AutomationProperties.Name="文件命名" />
+                            <ComboBox x:Name="NamingBox" MinWidth="150" AutomationProperties.Name="文件命名" SelectionChanged="OnNamingChanged" />
                             <TextBlock Text="同名文件自动编号，源文件保持不变。" Style="{StaticResource MuSmallCaptionStyle}" />
                         </StackPanel>
                         <Rectangle Height="1" Fill="{ThemeResource MuSeparatorBrush}" />
@@ -291,15 +291,17 @@
                                  AutomationProperties.Name="转换进度" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <Button x:Name="RetryButton" Content="重试未完成" Padding="16,8" Visibility="Collapsed" />
-                    <Button x:Name="RevealButton" Padding="16,8" Visibility="Collapsed">
+                    <Button x:Name="RetryButton" Content="重试未完成" Padding="16,8" Visibility="Collapsed" Click="OnRetry" />
+                    <Button x:Name="RevealButton" Padding="16,8" Visibility="Collapsed" Click="OnOpenOutput">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE838;" FontSize="14" />
                             <TextBlock Text="打开输出目录" />
                         </StackPanel>
                     </Button>
-                    <Button x:Name="StopButton" Content="停止转换" Padding="16,8" MinWidth="120" Visibility="Collapsed" />
-                    <Button x:Name="StartButton" Style="{StaticResource AccentButtonStyle}" Padding="16,8" MinWidth="120">
+                    <Button x:Name="StopButton" Content="停止转换" Padding="16,8" MinWidth="120" Visibility="Collapsed" Click="OnStop"
+                            ToolTipService.ToolTip="停止转换（Ctrl+.）" />
+                    <Button x:Name="StartButton" Style="{StaticResource AccentButtonStyle}" Padding="16,8" MinWidth="120" Click="OnStart"
+                            ToolTipService.ToolTip="开始转换（Ctrl+Enter）">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE768;" FontSize="14" />
                             <TextBlock Text="开始转换" />
