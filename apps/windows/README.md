@@ -2,7 +2,7 @@
 
 Windows 原生版本的开发目录，与 macOS 版本在同一个 Git 仓库维护。
 
-**当前状态：解封装核心、命令行版、歌词核心与 WinUI 3 音乐解锁工作区已实现；歌词工作区与单 exe 打包开发中。**
+**当前状态：解封装核心、命令行版、歌词核心、WinUI 3 音乐解锁工作区与账号登录已实现；歌词工作区与单 exe 打包开发中。**
 
 ## 技术方向
 
@@ -12,7 +12,8 @@ Windows 原生版本的开发目录，与 macOS 版本在同一个 Git 仓库维
 - 歌词搜索、编辑与导出，优先使用原生扫码授权和 Windows 系统凭据保护。
 - 自包含分发：最终产物是单个 exe。外层小型启动器内嵌压缩后的 WinUI 3 程序目录（系统 Compression API），
   首次运行解压到 `%LOCALAPPDATA%\MusicUnlock\runtime\<版本哈希>\` 并校验，用户无需安装 .NET 或 Windows App Runtime。
-- 原生扫码能否覆盖 QQ 音乐登录需要在 Windows 上验证，不能假定浏览器授权自动提供 App 会话。
+- 网易云用原生二维码登录；QQ 音乐没有原生扫码接口，用 WebView2 打开官方登录页，读取 Cookie 后交给 core 判断会话。
+  WebView2 拿到的 QQ 会话能否直接用于歌词请求，需要用真实账号验证，不能假定浏览器授权自动提供 App 会话。
 
 ## 目录
 
@@ -58,7 +59,7 @@ GitHub Actions（`.github/workflows/windows.yml`）在 windows-2022 上执行同
 
 ```sh
 python scripts/build_app.py          # 恢复 NuGet 包并用 MSBuild 编译，产物在 build/app-release/
-python scripts/screenshot.py         # 空队列与示例队列的浅色 / 深色预览，输出到 build/previews/
+python scripts/screenshot.py         # 空队列、示例队列与账号登录对话框的预览，输出到 build/previews/
 python scripts/screenshot.py --convert   # 另外导入并实际转换示例文件，逐字节核对输出
 python scripts/stage_app.py [--zip]  # 整理分发目录 build/dist/MusicUnlock/，--zip 另外打包并报告体积
 python scripts/screenshot.py --dist [--convert]   # 用分发目录里的 App 渲染预览
@@ -71,7 +72,11 @@ python scripts/screenshot.py --dist [--convert]   # 用分发目录里的 App �
 - 预览由 App 自己用 `RenderTargetBitmap` 渲染：`screenshot.py` 通过一次性计划任务（用 XML 定义注册，
   因为 `schtasks /TR` 限制命令行在 261 个字符以内）在登录会话里启动没有控制台窗口的 `desktop_shot.exe`，
   它新建独立桌面运行 App，结束后关闭桌面并删除计划任务，不显示也不截取用户桌面。
-  渲染时 `MUSICUNLOCK_DATA_DIR` 指向输出目录，设置不会写入用户的 AppData。
+  渲染时 `MUSICUNLOCK_DATA_DIR` 指向输出目录，设置、会话和 WebView2 数据都不会写入用户的 AppData。
+- 账号登录对话框的各状态（二维码等待、已扫码、已过期、已确认，QQ 登录页，会话已保存）有浅色、深色和高对比度三套预览。
+  高对比度是系统设置，App 不能自己打开，所以预览换用 `Theme.xaml` 的 HighContrast 画刷模拟（WinUI 自带控件仍是浅色样式）；
+  对话框在窗口之外的弹出层里，预览把它叠加到窗口画面上。渲染不加载任何登录页，只启动一次 WebView2，检查运行时能从
+  App 目录加载、数据目录在 `build/previews/appdata/WebView2/` 下。
 
 ## 分发目录
 
@@ -128,6 +133,15 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
 - 工具栏换成自定义标题栏：中间是工作区切换，右侧是添加文件夹、添加文件；队列筛选用 SelectorBar。
 - 快捷键：Ctrl+O 添加文件、Ctrl+Shift+O 添加文件夹、Ctrl+Enter 开始、Ctrl+. 停止、Ctrl+1 / Ctrl+2 切换工作区。
 - 导出位置与命名方式保存在 `%LOCALAPPDATA%\MusicUnlock\settings.json`；转换中关闭窗口会先确认。
+- 歌词工作区标题栏右侧是“账号登录”，对话框分网易云音乐和 QQ 音乐两页（对应 macOS 的账号菜单和登录 Sheet）：
+  - 网易云：nayuki QR Code generator 生成矢量二维码，每 2 秒轮询一次（800 已过期、801 等待扫码、802 已扫码、803 已确认），
+    关闭对话框即停止；也可以改用官方登录页。QQ 音乐：WebView2 打开官方登录页，每秒读取一次 Cookie，
+    出现音乐会话后再读一次确认，交给 `mu::accept_session` 判断。登录页只允许 https，不允许下载、权限请求、开发者工具。
+  - 会话用 DPAPI（当前用户）加密 `mu::cookies_to_json` 的结果，存为 `%LOCALAPPDATA%\MusicUnlock\sessions\<平台>.bin`；
+    不提供手动输入 Cookie 的地方。显示“会话已保存”和 `MusicApi::account_name` 取得的账号名，有效期由平台决定。
+  - WebView2 数据每个平台一个目录：`%LOCALAPPDATA%\MusicUnlock\WebView2\<平台>`。退出登录删除会话文件和该平台的
+    整个 WebView2 目录（Cookie 与浏览数据）；登录页的浏览器进程还没退出时，稍后重试，并在下次打开登录页或启动时补删。
+  - 以上目录都跟随 `MUSICUNLOCK_DATA_DIR`。歌词请求通过 `accounts::cookie_header(平台)` 取 Cookie，没登录时为空。
 
 ## 验证
 
@@ -136,6 +150,8 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
 - 歌词测试对照 macOS 的 `LyricsTests` 移植：LRC 解析（重复时间戳、offset、逐字 LRC、YRC）、LRC / SRT / VTT / TXT 导出的
   三种排列、时间偏移与精度、拼音（系统 ICU，与 macOS 结果逐字一致）、UTF-8 / UTF-8 BOM / UTF-16 LE 与 GBK 读取、
   导出不覆盖、链接识别、Set-Cookie 与会话规则；接口请求和解析用脚本化传输层测试，无需联网。
+- 账号测试：二维码矩阵与路径数据、扫码状态对应与轮询（确认、过期、超时、无效会话、网络错误、取消）、
+  会话文件的保存、读取、过期、损坏与删除；Windows 上另外用真实 DPAPI 加解密并检查篡改后无法解开。
 - 设置 `MUSICUNLOCK_LIVE_TESTS=1` 后在 Windows 上运行测试，会通过 WinHTTP 实际请求网易云和 QQ 音乐的搜索、
   链接解析、歌词和扫码接口。
 - 与 macOS Swift CLI 对同一批 31 个样本（覆盖全部格式、封面与标签、错误文件和同名冲突）交叉比对，输出逐字节一致。
