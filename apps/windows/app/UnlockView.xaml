@@ -75,8 +75,9 @@
                     </Button>
                 </Grid>
 
-                <InfoBar x:Name="Notice" Grid.Row="1" Severity="Informational" IsOpen="False" IsClosable="True"
-                         Closed="OnNoticeClosed" />
+                <!-- Stays open; Visibility shows and hides it, so it can settle in and out (see motion::settle). -->
+                <InfoBar x:Name="Notice" Grid.Row="1" Severity="Informational" IsOpen="True" IsClosable="True"
+                         Visibility="Collapsed" Closing="OnNoticeClosing" />
 
                 <StackPanel x:Name="ImportingPanel" Grid.Row="2" Orientation="Horizontal" Spacing="8" Visibility="Collapsed">
                     <ProgressRing IsActive="True" Width="14" Height="14" />
@@ -96,8 +97,10 @@
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <StackPanel Grid.Row="1" HorizontalAlignment="Center">
-                                <Image Source="ms-appx:///Assets/AppIcon.png" Width="112" Height="112" Margin="0,0,0,12"
-                                       AutomationProperties.AccessibilityView="Raw" />
+                                <!-- Lifts and tilts while files hover; the disc inside drifts. -->
+                                <Grid x:Name="DiscLift" Width="112" Height="112" Margin="0,0,0,12" HorizontalAlignment="Center">
+                                    <Image x:Name="Disc" Source="ms-appx:///Assets/AppIcon.png" AutomationProperties.AccessibilityView="Raw" />
+                                </Grid>
                                 <TextBlock Text="把音乐放进来" FontSize="22" FontWeight="Medium" HorizontalAlignment="Center"
                                            Margin="0,0,0,10" />
                                 <TextBlock Text="拖入文件或整个文件夹&#x0a;恢复为普通播放器也能打开的音频" FontSize="13"
@@ -154,7 +157,8 @@
                         </Grid>
                         <Rectangle Grid.Row="1" Height="1" Fill="{ThemeResource MuSeparatorBrush}" />
                         <ListView x:Name="JobList" Grid.Row="2" SelectionMode="None" IsItemClickEnabled="False" Padding="0,4"
-                                  ItemContainerStyle="{StaticResource MuQueueItemStyle}" AutomationProperties.Name="转换队列">
+                                  ItemContainerStyle="{StaticResource MuQueueItemStyle}" AutomationProperties.Name="转换队列"
+                                  ContainerContentChanging="OnContainerContentChanging">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="local:JobItem">
                                     <Grid>
@@ -168,7 +172,8 @@
                                                 </MenuFlyoutItem>
                                             </MenuFlyout>
                                         </Grid.ContextFlyout>
-                                        <Border Background="{ThemeResource MuRunningRowBrush}" Visibility="{x:Bind IsRunning, Mode=OneWay}" />
+                                        <Border x:Name="RunningBackground" Background="{ThemeResource MuRunningRowBrush}"
+                                                Visibility="{x:Bind IsRunning, Mode=OneWay}" />
                                         <Grid Padding="16,15" ColumnSpacing="12">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
@@ -198,7 +203,7 @@
                                             <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="5" Margin="0,3,0,0" VerticalAlignment="Top">
                                                 <ProgressRing IsActive="{x:Bind IsRunning, Mode=OneWay}" Width="12" Height="12"
                                                               Visibility="{x:Bind IsRunning, Mode=OneWay}" />
-                                                <FontIcon Glyph="{x:Bind StateGlyph, Mode=OneWay}" FontSize="12"
+                                                <FontIcon x:Name="StateIcon" Glyph="{x:Bind StateGlyph, Mode=OneWay}" FontSize="12"
                                                           Visibility="{x:Bind ShowsStateGlyph, Mode=OneWay}" />
                                                 <TextBlock Text="{x:Bind StateLabel, Mode=OneWay}" FontSize="11" />
                                             </StackPanel>
@@ -328,7 +333,7 @@
             <Rectangle RadiusX="26" RadiusY="26" Stroke="{ThemeResource MuTextBrush}" StrokeThickness="2" StrokeDashArray="4,3"
                        Opacity="0.5" />
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
-                <FontIcon Glyph="&#xE8B5;" FontSize="38" />
+                <FontIcon x:Name="DropGlyph" Glyph="&#xE8B5;" FontSize="38" />
                 <TextBlock Text="松开即可加入转换队列" FontSize="17" FontWeight="SemiBold" HorizontalAlignment="Center" />
                 <TextBlock Text="支持文件与整个文件夹" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}" HorizontalAlignment="Center" />
             </StackPanel>

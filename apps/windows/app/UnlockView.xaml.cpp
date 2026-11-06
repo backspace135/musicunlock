@@ -5,6 +5,7 @@
 #include "UnlockView.g.cpp"
 #endif
 
+#include <winrt/Microsoft.UI.Xaml.Media.Animation.h>
 #include <winrt/Windows.ApplicationModel.DataTransfer.h>
 #include <winrt/Windows.Storage.h>
 
@@ -46,6 +47,17 @@ uint64_t job_id(IInspectable const& sender) {
 
 Visibility shown(bool visible) { return visible ? Visibility::Visible : Visibility::Collapsed; }
 
+/// A named element inside a row template (template names are not reachable through FindName).
+FrameworkElement find_named(DependencyObject const& root, std::wstring_view name) {
+    const int32_t count = Media::VisualTreeHelper::GetChildrenCount(root);
+    for (int32_t i = 0; i < count; ++i) {
+        const auto child = Media::VisualTreeHelper::GetChild(root, i);
+        if (auto element = child.try_as<FrameworkElement>(); element && element.Name() == name) return element;
+        if (auto found = find_named(child, name)) return found;
+    }
+    return nullptr;
+}
+
 constexpr mu::NamingPolicy naming_policies[] = {mu::NamingPolicy::original, mu::NamingPolicy::artist_title,
                                                 mu::NamingPolicy::title};
 
@@ -65,8 +77,29 @@ void UnlockView::InitializeComponent() {
     NamingBox().SelectedIndex(static_cast<int32_t>(std::find(std::begin(naming_policies), std::end(naming_policies), naming_) -
                                                    std::begin(naming_policies)));
     JobList().ItemsSource(items_);
+    drift_ = motion::Loop::drift(Disc());
+    hop_ = motion::Loop::hop(DropGlyph());
     SetOutputDirectory(saved.output_directory.value_or(shell::downloads_folder() / L"音匣输出"));
+    ApplyMotion();
     Refresh();
+}
+
+void UnlockView::ApplyMotion() {
+    for (const UIElement& element : {UIElement(EmptyQueue()), UIElement(EmptyFilter()), UIElement(FileList()),
+                                     UIElement(FilterBar()), UIElement(StatusDetail()), UIElement(BatchProgress()),
+                                     UIElement(RetryButton()), UIElement(RevealButton()), UIElement(StopButton()),
+                                     UIElement(StartButton())}) {
+        motion::crossfade(element);
+    }
+    motion::settle(Notice());
+    motion::settle(ImportingPanel());
+    motion::overlay(DropOverlay());
+    // Rows drop in from above (motion::enter, per row) and fade out in place as they leave.
+    Media::Animation::TransitionCollection transitions;
+    if (motion::enabled()) transitions.Append(Media::Animation::AddDeleteThemeTransition());
+    JobList().ItemContainerTransitions(transitions);
+    if (!motion::enabled()) drift_.stop();
+    else if (queue_.jobs().empty()) drift_.start();
 }
 
 void UnlockView::UsePreviewData() {
@@ -108,12 +141,15 @@ void UnlockView::Refresh() {
 
     CountText().Text(empty ? hstring() : to_hstring(std::to_string(queue_.jobs().size()) + " 个文件"));
     FilterBar().Visibility(shown(!empty));
-    Notice().Message(to_hstring(notice_));
-    Notice().IsOpen(!notice_.empty());
+    const hstring notice = to_hstring(notice_);
+    if (!notice.empty()) Notice().Message(notice);  // keeps the text while the banner fades out
+    Notice().Visibility(shown(!notice.empty()));
     ImportingPanel().Visibility(shown(imports_ > 0));
 
     const bool no_matches = !empty && queue_.visible(filter_).empty();
     EmptyQueue().Visibility(shown(empty));
+    if (empty) drift_.start();
+    else drift_.stop();
     EmptyFilter().Visibility(shown(no_matches));
     FileList().Visibility(shown(!empty && !no_matches));
     EmptyFilterText().Text(L"暂无" + to_hstring(mu::filter_label(filter_)) + L"的文件");
@@ -153,12 +189,36 @@ void UnlockView::SyncItems() {
     for (uint32_t i = 0; i < visible.size(); ++i) {
         const mu::AudioJob& job = *visible[i];
         auto& item = item_cache_[job.id];
-        if (!item) item = make_self<JobItem>(job);
-        else item->Update(job);
+        if (!item) {
+            item = make_self<JobItem>(job);
+        } else {
+            const bool state_changed = item->job().state != job.state;
+            item->Update(job);
+            if (state_changed) PopState(*item, job.state == mu::JobState::done);
+        }
         if (i < items_.Size() && items_.GetAt(i).as<MusicUnlock::JobItem>().Id() == job.id) continue;
         items_.InsertAt(i, *item);
+        entering_.insert(job.id);
     }
 }
+
+void UnlockView::OnContainerContentChanging(ListViewBase const&, ContainerContentChangingEventArgs const& args) {
+    if (args.InRecycleQueue()) return;
+    const auto container = args.ItemContainer();
+    const auto root = container.ContentTemplateRoot();
+    if (!root) return;
+    if (auto background = find_named(root, L"RunningBackground")) motion::crossfade(background);
+    if (entering_.erase(args.Item().as<MusicUnlock::JobItem>().Id()) > 0) motion::enter(root);
+}
+
+void UnlockView::PopState(MusicUnlock::JobItem const& item, bool bounce) {
+    const auto container = JobList().ContainerFromItem(item).try_as<ListViewItem>();
+    if (!container || !container.ContentTemplateRoot()) return;
+    if (auto icon = find_named(container.ContentTemplateRoot(), L"StateIcon"); icon && icon.Visibility() == Visibility::Visible) {
+        motion::pop(icon, bounce);
+    }
+}
+
 
 void UnlockView::OnFilterChanged(SelectorBar const& bar, SelectorBarSelectionChangedEventArgs const&) {
     uint32_t index = 0;
@@ -166,7 +226,12 @@ void UnlockView::OnFilterChanged(SelectorBar const& bar, SelectorBarSelectionCha
     Refresh();
 }
 
-void UnlockView::OnNoticeClosed(InfoBar const&, InfoBarClosedEventArgs const&) { notice_.clear(); }
+void UnlockView::OnNoticeClosing(InfoBar const&, InfoBarClosingEventArgs const& args) {
+    // Hide it through Visibility instead, so it fades out like any other change.
+    args.Cancel(true);
+    notice_.clear();
+    Refresh();
+}
 
 void UnlockView::OnClearCompleted(IInspectable const&, RoutedEventArgs const&) {
     queue_.clear_completed();
@@ -320,13 +385,22 @@ void UnlockView::OnDragOver(DragEventArgs const& args) {
     if (!args.DataView().Contains(Windows::ApplicationModel::DataTransfer::StandardDataFormats::StorageItems())) return;
     args.AcceptedOperation(Windows::ApplicationModel::DataTransfer::DataPackageOperation::Copy);
     args.DragUIOverride().Caption(L"加入转换队列");
-    DropOverlay().Visibility(Visibility::Visible);
+    ShowDropTarget(true);
 }
 
-void UnlockView::OnDragLeave(DragEventArgs const&) { DropOverlay().Visibility(Visibility::Collapsed); }
+void UnlockView::OnDragLeave(DragEventArgs const&) { ShowDropTarget(false); }
+
+/// The overlay covers the workspace, its icon hops, and the empty-state disc lifts and tilts.
+void UnlockView::ShowDropTarget(bool visible) {
+    if ((DropOverlay().Visibility() == Visibility::Visible) == visible) return;
+    DropOverlay().Visibility(shown(visible));
+    motion::lift(DiscLift(), visible);
+    if (visible) hop_.start();
+    else hop_.stop();
+}
 
 fire_and_forget UnlockView::ReceiveDrop(DragEventArgs args) {
-    DropOverlay().Visibility(Visibility::Collapsed);
+    ShowDropTarget(false);
     if (!args.DataView().Contains(Windows::ApplicationModel::DataTransfer::StandardDataFormats::StorageItems())) co_return;
     auto strong = get_strong();
     auto deferral = args.GetDeferral();

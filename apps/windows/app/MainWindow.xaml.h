@@ -30,6 +30,7 @@ private:
     UnlockView& Audio() { return *get_self<UnlockView>(AudioView()); }
     LyricsView& Lyrics() { return *get_self<LyricsView>(LyricsWorkspace()); }
     void ShowWorkspace(bool audio);
+    void ApplyMotion();
     /// Asks before closing while a batch runs; finished files stay either way.
     fire_and_forget ConfirmClose();
 

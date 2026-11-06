@@ -4,8 +4,10 @@
 
 #include <functional>
 #include <map>
+#include <set>
 
 #include "JobItem.h"
+#include "Motion.h"
 #include "musicunlock/queue.h"
 
 namespace winrt::MusicUnlock::implementation {
@@ -45,6 +47,9 @@ struct UnlockView : UnlockViewT<UnlockView> {
     void OnOpenOutput(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     fire_and_forget OnAbout(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
 
+    /// Sets the implicit animations again; the system animation setting may have changed (window activation).
+    void ApplyMotion();
+
     // Control overrides: the whole workspace is the drop target.
     void OnDragOver(Microsoft::UI::Xaml::DragEventArgs const& args);
     void OnDragLeave(Microsoft::UI::Xaml::DragEventArgs const&);
@@ -52,13 +57,15 @@ struct UnlockView : UnlockViewT<UnlockView> {
 
     void OnFilterChanged(Microsoft::UI::Xaml::Controls::SelectorBar const&,
                          Microsoft::UI::Xaml::Controls::SelectorBarSelectionChangedEventArgs const&);
-    void OnNoticeClosed(Microsoft::UI::Xaml::Controls::InfoBar const&,
-                        Microsoft::UI::Xaml::Controls::InfoBarClosedEventArgs const&);
+    void OnNoticeClosing(Microsoft::UI::Xaml::Controls::InfoBar const&,
+                         Microsoft::UI::Xaml::Controls::InfoBarClosingEventArgs const& args);
     void OnClearCompleted(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnClearQueue(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnShowAll(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnRemoveJob(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnRevealOutput(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
+    void OnContainerContentChanging(Microsoft::UI::Xaml::Controls::ListViewBase const&,
+                                    Microsoft::UI::Xaml::Controls::ContainerContentChangingEventArgs const& args);
 
     /// "查找这首歌的歌词": the window switches to the lyrics workspace and searches for the title.
     void OnFindLyricsRequested(std::function<void(std::string)> handler) { find_lyrics_ = std::move(handler); }
@@ -68,6 +75,10 @@ private:
     void Refresh();
     void SyncItems();
     void ShowNotice(std::string text);
+    void ShowDropTarget(bool shown);
+    /// Animates the state glyph of a realized row.
+    void PopState(MusicUnlock::JobItem const& item, bool bounce);
+
     void SetOutputDirectory(std::filesystem::path directory);
     HWND OwnerWindow() const;
     fire_and_forget ReceiveDrop(Microsoft::UI::Xaml::DragEventArgs args);
@@ -85,6 +96,9 @@ private:
         single_threaded_observable_vector<IInspectable>();
     std::map<uint64_t, com_ptr<JobItem>> item_cache_;
     std::function<void(std::string)> find_lyrics_;
+    std::set<uint64_t> entering_;  // rows inserted since the last layout; they settle in once realized
+    motion::Loop drift_;
+    motion::Loop hop_;
 };
 
 }  // namespace winrt::MusicUnlock::implementation

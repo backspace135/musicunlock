@@ -121,6 +121,7 @@
       <DependentUpon>LyricRow.idl</DependentUpon>
     </ClInclude>
     <ClInclude Include="Accounts.h" />
+    <ClInclude Include="Motion.h" />
     <ClInclude Include="Settings.h" />
     <ClInclude Include="Shell.h" />
   </ItemGroup>
@@ -150,6 +151,7 @@
       <DependentUpon>LyricRow.idl</DependentUpon>
     </ClCompile>
     <ClCompile Include="Accounts.cpp" />
+    <ClCompile Include="Motion.cpp" />
     <ClCompile Include="Settings.cpp" />
     <ClCompile Include="Shell.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />

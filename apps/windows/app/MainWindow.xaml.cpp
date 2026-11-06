@@ -4,6 +4,7 @@
 
 #include "Accounts.h"
 #include "AccountsDialog.xaml.h"
+#include "Motion.h"
 #include "Shell.h"
 #if __has_include("MainWindow.g.cpp")
 #include "MainWindow.g.cpp"
@@ -59,6 +60,9 @@ void SimulateHighContrast(FrameworkElement const& element) {
 void log_error(std::wstring_view where, hresult code, std::wstring_view message);
 
 void MainWindow::InitializeComponent() {
+    const auto render_directory = environment(L"MUSICUNLOCK_RENDER_DIR");
+    // Previews are static like the macOS renderer; the end-to-end render keeps motion to exercise it.
+    motion::suspend(!render_directory.empty() && environment(L"MUSICUNLOCK_RENDER_CONVERT").empty());
     MainWindowT::InitializeComponent();
     ExtendsContentIntoTitleBar(true);
     SetTitleBar(AppTitleBar());
@@ -90,14 +94,27 @@ void MainWindow::InitializeComponent() {
         ShowWorkspace(false);
         Lyrics().SearchForAudio(std::move(title));
     });
+    ApplyMotion();
+    // "Animation effects" may have been switched in Settings while the window was in the background.
+    Activated([this](auto&&, WindowActivatedEventArgs const& args) {
+        if (args.WindowActivationState() != WindowActivationState::Deactivated) ApplyMotion();
+    });
     Audio().Import(shell::command_line_paths());
     UpdateAccountsButton();
-    if (auto directory = environment(L"MUSICUNLOCK_RENDER_DIR"); !directory.empty()) {
+    if (!render_directory.empty()) {
         PreviewBackdrop().Visibility(Visibility::Visible);
         if (environment(L"MUSICUNLOCK_RENDER_CONVERT").empty()) Audio().UsePreviewData();
         Lyrics().UsePreviewData();
-        Root().Loaded([this, directory](auto&&, auto&&) { RenderPreviews(directory); });
+        Root().Loaded([this, render_directory](auto&&, auto&&) { RenderPreviews(render_directory); });
     }
+}
+
+void MainWindow::ApplyMotion() {
+    motion::crossfade(AudioView());
+    motion::crossfade(LyricsWorkspace());
+    motion::crossfade(AudioActions());
+    motion::crossfade(LyricsActions());
+    Audio().ApplyMotion();
 }
 
 void MainWindow::OnWorkspaceChanged(Controls::SelectorBar const&, Controls::SelectorBarSelectionChangedEventArgs const&) {
