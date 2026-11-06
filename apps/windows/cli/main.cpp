@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "musicunlock/conversion.h"
+#include "musicunlock/import.h"
 #include "musicunlock/text.h"
 
 #ifdef _WIN32
@@ -43,12 +44,6 @@ mu::Bytes bundled_mask() {
     return data ? mu::Bytes(data, data + SizeofResource(nullptr, resource)) : mu::Bytes{};
 }
 
-bool is_hidden(const fs::directory_entry& entry) {
-    const auto name = entry.path().filename().wstring();
-    if (!name.empty() && name.front() == L'.') return true;
-    const DWORD attributes = GetFileAttributesW(entry.path().c_str());
-    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_HIDDEN);
-}
 #else
 using NativeChar = char;
 
@@ -58,11 +53,6 @@ std::optional<fs::path> environment_path(const char* name) {
 }
 
 mu::Bytes bundled_mask() { return {}; }
-
-bool is_hidden(const fs::directory_entry& entry) {
-    const auto name = entry.path().filename().string();
-    return !name.empty() && name.front() == '.';
-}
 #endif
 
 mu::Bytes load_mask() {
@@ -88,6 +78,7 @@ mu::Bytes load_mask() {
     return mask;
 }
 
+/// Folders are expanded; explicit files are kept even when unsupported, so they report a failure.
 std::vector<fs::path> collect_sources(const std::vector<fs::path>& arguments) {
     std::vector<fs::path> sources;
     for (const auto& argument : arguments) {
@@ -96,19 +87,11 @@ std::vector<fs::path> collect_sources(const std::vector<fs::path>& arguments) {
             sources.push_back(argument);
             continue;
         }
-        std::vector<fs::path> found;
-        fs::recursive_directory_iterator it(argument, fs::directory_options::skip_permission_denied, error);
-        for (; !error && it != fs::recursive_directory_iterator(); it.increment(error)) {
-            if (is_hidden(*it)) {
-                if (it->is_directory(error)) it.disable_recursion_pending();
-                continue;
-            }
-            std::string ext = mu::path_to_utf8(it->path().extension());
-            if (!ext.empty()) ext.erase(0, 1);
-            if (mu::is_supported_extension(ext) && it->is_regular_file(error)) found.push_back(it->path());
-        }
-        std::sort(found.begin(), found.end());
-        sources.insert(sources.end(), found.begin(), found.end());
+        auto found = mu::find_audio_files(argument);
+        std::sort(found.begin(), found.end(), [](const mu::ImportedFile& a, const mu::ImportedFile& b) {
+            return mu::natural_less(mu::path_to_utf8(a.path), mu::path_to_utf8(b.path));
+        });
+        for (auto& file : found) sources.push_back(std::move(file.path));
     }
     return sources;
 }
