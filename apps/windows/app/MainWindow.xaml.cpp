@@ -9,6 +9,7 @@
 #include "MainWindow.g.cpp"
 #endif
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <fstream>
@@ -36,7 +37,26 @@ std::wstring environment(const wchar_t* name) {
     return value;
 }
 
+/// Preview renders: Theme.xaml's HighContrast brushes as the element's light and dark theme resources.
+void SimulateHighContrast(FrameworkElement const& element) {
+    for (auto const& merged : Application::Current().Resources().MergedDictionaries()) {
+        const auto themes = merged.ThemeDictionaries();
+        const auto key = box_value(L"HighContrast");
+        if (!themes.HasKey(key)) continue;
+        const auto contrast = themes.Lookup(key).as<ResourceDictionary>();
+        if (!contrast.HasKey(box_value(L"MuTextBrush"))) continue;
+        for (const wchar_t* theme : {L"Light", L"Dark"}) {
+            ResourceDictionary copy;
+            for (auto const& entry : contrast) copy.Insert(entry.Key(), entry.Value());
+            element.Resources().ThemeDictionaries().Insert(box_value(theme), copy);
+        }
+    }
+}
+
 }  // namespace
+
+/// Appends to MUSICUNLOCK_LOG (App.xaml.cpp).
+void log_error(std::wstring_view where, hresult code, std::wstring_view message);
 
 void MainWindow::InitializeComponent() {
     MainWindowT::InitializeComponent();
@@ -153,8 +173,6 @@ void MainWindow::OnAcceleratorInvoked(Xaml::Input::KeyboardAccelerator const& ac
 }
 
 fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
-    using namespace Windows::Graphics::Imaging;
-    using namespace Windows::Storage::Streams;
     auto strong = get_strong();
     auto dispatcher = DispatcherQueue();
     std::filesystem::create_directories(directory);
@@ -163,7 +181,8 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
         ElementTheme theme;
     };
     std::vector<Shot> shots;
-    if (auto convert = environment(L"MUSICUNLOCK_RENDER_CONVERT"); !convert.empty()) {
+    const auto convert = environment(L"MUSICUNLOCK_RENDER_CONVERT");
+    if (!convert.empty()) {
         // End-to-end: import a real folder, convert it into <folder>\输出, then capture the result.
         Audio().UseOutputDirectory(std::filesystem::path(convert) / L"输出");
         Audio().Import({std::filesystem::path(convert)});
@@ -187,24 +206,117 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
         Root().RequestedTheme(shot.theme);
         co_await resume_after(600ms);
         co_await wil::resume_foreground(dispatcher);
-        Media::Imaging::RenderTargetBitmap bitmap;
-        co_await bitmap.RenderAsync(Root());
-        const IBuffer pixels = co_await bitmap.GetPixelsAsync();
-        InMemoryRandomAccessStream stream;
-        const BitmapEncoder encoder = co_await BitmapEncoder::CreateAsync(BitmapEncoder::PngEncoderId(), stream);
-        encoder.SetPixelData(BitmapPixelFormat::Bgra8, BitmapAlphaMode::Premultiplied,
-                             static_cast<uint32_t>(bitmap.PixelWidth()), static_cast<uint32_t>(bitmap.PixelHeight()), 96, 96,
-                             array_view<const uint8_t>(pixels.data(), pixels.Length()));
-        co_await encoder.FlushAsync();
-        const auto size = static_cast<uint32_t>(stream.Size());
-        Buffer png(size);
-        stream.Seek(0);
-        co_await stream.ReadAsync(png, size, InputStreamOptions::None);
-        co_await wil::resume_foreground(dispatcher);
-        std::ofstream(std::filesystem::path(directory) / (std::wstring(shot.name) + L".png"), std::ios::binary)
-            .write(reinterpret_cast<const char*>(png.data()), png.Length());
+        co_await SavePreview(std::filesystem::path(directory) / (std::wstring(shot.name) + L".png"));
     }
+    if (convert.empty()) co_await RenderAccountPreviews(directory);
     Application::Current().Exit();
+}
+
+Windows::Foundation::IAsyncAction MainWindow::RenderAccountPreviews(std::filesystem::path directory) {
+    using Preview = AccountsDialog::Preview;
+    auto strong = get_strong();
+    auto dispatcher = DispatcherQueue();
+    // The lyrics workspace title bar with its 账号登录 button.
+    ShowWorkspace(false);
+    for (const auto [name, theme] : {std::pair{L"light", ElementTheme::Light}, std::pair{L"dark", ElementTheme::Dark}}) {
+        Root().RequestedTheme(theme);
+        co_await resume_after(400ms);
+        co_await wil::resume_foreground(dispatcher);
+        co_await SavePreview(directory / (std::wstring(L"accounts-button-") + name + L".png"));
+    }
+    auto dialog = make<AccountsDialog>();
+    auto& view = *get_self<AccountsDialog>(dialog);
+    dialog.XamlRoot(Content().XamlRoot());
+    auto showing = dialog.ShowAsync();
+    co_await resume_after(400ms);
+    co_await wil::resume_foreground(dispatcher);
+    // The QQ page itself is never loaded in renders, but WebView2 must start from the app folder with its
+    // data inside MUSICUNLOCK_DATA_DIR.
+    view.ShowPreview(Preview::official_page);
+    log_error(L"webview2", S_OK, co_await view.CheckWebView(mu::MusicProvider::qq));
+    co_await wil::resume_foreground(dispatcher);
+
+    struct State {
+        const wchar_t* name;
+        Preview preview;
+    };
+    constexpr State states[] = {{L"qr-waiting", Preview::qr_waiting},     {L"qr-scanned", Preview::qr_scanned},
+                                {L"qr-expired", Preview::qr_expired},     {L"qr-confirmed", Preview::qr_confirmed},
+                                {L"qq", Preview::official_page},          {L"signed-in", Preview::signed_in}};
+    struct Theme {
+        const wchar_t* name;
+        ElementTheme theme;
+    };
+    constexpr Theme themes[] = {{L"light", ElementTheme::Light}, {L"dark", ElementTheme::Dark}, {L"contrast", ElementTheme::Light}};
+    for (const Theme theme : themes) {
+        if (std::wstring_view(theme.name) == L"contrast") {
+            // High contrast is a system setting the app cannot switch on, so renders swap in Theme.xaml's
+            // HighContrast brushes (system window / window-text colours). WinUI's own controls keep their style.
+            for (const auto element : {Root().as<FrameworkElement>(), dialog.as<FrameworkElement>()}) {
+                SimulateHighContrast(element);
+                element.RequestedTheme(ElementTheme::Dark);
+            }
+        }
+        Root().RequestedTheme(theme.theme);
+        dialog.RequestedTheme(theme.theme);
+        for (const State state : states) {
+            view.ShowPreview(state.preview);
+            co_await resume_after(500ms);
+            co_await wil::resume_foreground(dispatcher);
+            co_await SavePreview(directory / (L"accounts-" + std::wstring(state.name) + L"-" + theme.name + L".png"));
+        }
+    }
+    dialog.Hide();
+    co_await resume_after(200ms);
+    co_await wil::resume_foreground(dispatcher);
+}
+
+Windows::Foundation::IAsyncAction MainWindow::SavePreview(std::filesystem::path file) {
+    using namespace Windows::Graphics::Imaging;
+    using namespace Windows::Storage::Streams;
+    auto strong = get_strong();
+    auto dispatcher = DispatcherQueue();
+    Media::Imaging::RenderTargetBitmap bitmap;
+    co_await bitmap.RenderAsync(Root());
+    const IBuffer base = co_await bitmap.GetPixelsAsync();
+    const int width = bitmap.PixelWidth(), height = bitmap.PixelHeight();
+    std::vector<uint8_t> pixels(base.data(), base.data() + base.Length());
+    // Dialogs live in popups outside Root: draw each over the window (premultiplied "over", as the compositor does).
+    const double scale = Root().ActualWidth() > 0 ? width / Root().ActualWidth() : 1;
+    // A ContentDialog's smoke layer is a popup of its own and goes under the dialog.
+    std::vector<UIElement> layers;
+    for (auto const& popup : Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(Root().XamlRoot())) {
+        if (const UIElement child = popup.Child()) layers.push_back(child);
+    }
+    std::stable_partition(layers.begin(), layers.end(),
+                          [](UIElement const& layer) { return !layer.try_as<Controls::ContentDialog>(); });
+    for (const UIElement& child : layers) {
+        Media::Imaging::RenderTargetBitmap layer;
+        co_await layer.RenderAsync(child);
+        const IBuffer top = co_await layer.GetPixelsAsync();
+        const auto origin = child.TransformToVisual(nullptr).TransformPoint({0, 0});
+        const int left = static_cast<int>(origin.X * scale + 0.5), up = static_cast<int>(origin.Y * scale + 0.5);
+        const int layer_width = layer.PixelWidth();
+        for (int y = std::max(0, -up); y < layer.PixelHeight() && y + up < height; ++y) {
+            for (int x = std::max(0, -left); x < layer_width && x + left < width; ++x) {
+                const uint8_t* over = top.data() + (static_cast<size_t>(y) * layer_width + x) * 4;
+                uint8_t* under = pixels.data() + (static_cast<size_t>(y + up) * width + x + left) * 4;
+                for (int c = 0; c < 4; ++c) under[c] = static_cast<uint8_t>(over[c] + under[c] * (255 - over[3]) / 255);
+            }
+        }
+    }
+    InMemoryRandomAccessStream stream;
+    const BitmapEncoder encoder = co_await BitmapEncoder::CreateAsync(BitmapEncoder::PngEncoderId(), stream);
+    encoder.SetPixelData(BitmapPixelFormat::Bgra8, BitmapAlphaMode::Premultiplied, static_cast<uint32_t>(width),
+                         static_cast<uint32_t>(height), 96, 96,
+                         array_view<const uint8_t>(pixels.data(), static_cast<uint32_t>(pixels.size())));
+    co_await encoder.FlushAsync();
+    const auto size = static_cast<uint32_t>(stream.Size());
+    Buffer png(size);
+    stream.Seek(0);
+    co_await stream.ReadAsync(png, size, InputStreamOptions::None);
+    co_await wil::resume_foreground(dispatcher);
+    std::ofstream(file, std::ios::binary).write(reinterpret_cast<const char*>(png.data()), png.Length());
 }
 
 }  // namespace winrt::MusicUnlock::implementation

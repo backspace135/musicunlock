@@ -127,6 +127,12 @@ def main() -> None:
         print(log.read_text(encoding="utf-8-sig"))
     for png in sorted(output.glob("*.png")):
         print(png)
+    if not args.convert:
+        # The account previews start WebView2 once; its data must follow MUSICUNLOCK_DATA_DIR.
+        webview = output / "appdata" / "WebView2" / "qq"
+        if not webview.is_dir() or "ready" not in (log.read_text(encoding="utf-8-sig") if log.exists() else ""):
+            sys.exit(f"WebView2 未能启动，或数据没有放在 {webview}")
+        print("WebView2 data folder:", webview)
     if args.convert:
         converted = folder / "输出" / "中文 歌曲.wav"
         if not converted.exists() or converted.read_bytes() != audio:

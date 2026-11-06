@@ -2,6 +2,8 @@
 
 #include "MainWindow.g.h"
 
+#include <filesystem>
+
 #include "UnlockView.xaml.h"
 #include "musicunlock/lyrics.h"
 
@@ -36,6 +38,10 @@ private:
 
     /// Development renders (MUSICUNLOCK_RENDER_DIR): PNGs of the window content in light and dark, then exit.
     fire_and_forget RenderPreviews(std::wstring directory);
+    /// The account dialog's states over the lyrics workspace in light, dark and simulated high contrast.
+    Windows::Foundation::IAsyncAction RenderAccountPreviews(std::filesystem::path directory);
+    /// One PNG of the window content, with open dialogs drawn over it.
+    Windows::Foundation::IAsyncAction SavePreview(std::filesystem::path file);
 };
 
 }  // namespace winrt::MusicUnlock::implementation
