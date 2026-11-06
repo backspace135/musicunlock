@@ -7,7 +7,7 @@
 | 平台 | 状态 | 技术 | 入口 |
 | --- | --- | --- | --- |
 | macOS | 已实现，0.2.0 | Swift / SwiftUI / Apple Liquid Glass | [构建与使用说明](apps/macos/README.md) |
-| Windows | 规划中，尚无可运行版本 | 计划采用 C++20 / C++/WinRT / WinUI 3 | [开发范围与技术方向](apps/windows/README.md) |
+| Windows | 开发中：解封装核心与命令行版可用 | C++20 / C++/WinRT / WinUI 3 | [构建与开发说明](apps/windows/README.md) |
 
 ## 目录结构
 
@@ -20,7 +20,7 @@ musicunlock/
 │   │   ├── assets/
 │   │   ├── scripts/
 │   │   └── Package.swift
-│   └── windows/               Windows 原生版本目录（待实现）
+│   └── windows/               Windows 原生版本：C++ 核心、CLI、测试（WinUI 3 界面开发中）
 ├── resources/                公共运行资源（KGM 数据表）
 ├── tests/fixtures/            跨平台解密测试向量
 ├── LICENSE                   项目 MIT 许可证
@@ -62,7 +62,14 @@ python3 scripts/smoke-test.py
 ## Windows 开发
 
 Windows 版与 macOS 版共用产品设计和测试参考，但使用独立的原生平台实现。
-当前仅建立目录与开发范围，不包含占位可执行文件。后续 Windows 源码、工程、测试和发布脚本放在 `apps/windows/`。
+解封装核心与命令行版 `musicunlock.exe` 已可用，与 macOS 版输出逐字节一致；WinUI 3 界面、歌词工具与单 exe 打包开发中。
+需要 Visual Studio 2022 Build Tools 与 Python 3，在 `apps/windows/` 目录运行：
+
+```sh
+python scripts/build.py
+```
+
+详见 [Windows README](apps/windows/README.md)。
 
 ## 许可证与来源
 

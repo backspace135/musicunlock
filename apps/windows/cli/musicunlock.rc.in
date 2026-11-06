@@ -1,0 +1,29 @@
+#include <windows.h>
+
+KGM_MASK RCDATA "@MU_KGM_MASK@"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "080404b0"
+    BEGIN
+      VALUE "CompanyName", "MusicUnlock contributors"
+      VALUE "FileDescription", "MusicUnlock command line"
+      VALUE "FileVersion", "@PROJECT_VERSION@"
+      VALUE "InternalName", "musicunlock"
+      VALUE "LegalCopyright", "MIT License. Decoding portions (c) 2019-2021 MengYX; see THIRD_PARTY_NOTICES.txt."
+      VALUE "OriginalFilename", "musicunlock.exe"
+      VALUE "ProductName", "MusicUnlock"
+      VALUE "ProductVersion", "@PROJECT_VERSION@"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0804, 1200
+  END
+END

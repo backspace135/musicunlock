@@ -1,0 +1,37 @@
+name: Windows
+
+on:
+  push:
+    paths:
+      - "apps/windows/**"
+      - "tests/fixtures/**"
+      - "resources/kgm.mask"
+      - ".github/workflows/windows.yml"
+  pull_request:
+    paths:
+      - "apps/windows/**"
+      - "tests/fixtures/**"
+      - "resources/kgm.mask"
+      - ".github/workflows/windows.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-and-cli:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build, run core tests and CLI smoke test (MSVC x64)
+        run: python apps/windows/scripts/build.py
+      - name: Live platform checks (manual runs only)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          MUSICUNLOCK_LIVE_TESTS: "1"
+        run: apps/windows/build/windows-release/musicunlock_core_tests.exe
+      - uses: actions/upload-artifact@v7
+        with:
+          name: musicunlock-cli-windows-x64
+          path: apps/windows/build/windows-release/musicunlock.exe
+          if-no-files-found: error

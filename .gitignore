@@ -5,6 +5,7 @@
 .opencode/
 .idea/
 .vscode/
+.cache/
 
 # Build output and dependency caches (all platforms)
 build/
