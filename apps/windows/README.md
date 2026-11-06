@@ -59,7 +59,7 @@ GitHub Actions（`.github/workflows/windows.yml`）在 windows-2022 上执行同
 
 ```sh
 python scripts/build_app.py          # 恢复 NuGet 包并用 MSBuild 编译，产物在 build/app-release/
-python scripts/screenshot.py         # 空队列、示例队列、歌词工作区（空状态、编辑区）与账号登录对话框的预览，输出到 build/previews/
+python scripts/screenshot.py         # 两个工作区、弹出层、大字体、高对比度与账号登录对话框的预览，输出到 build/previews/
 python scripts/screenshot.py --convert   # 另外导入并实际转换示例文件，逐字节核对输出
 python scripts/stage_app.py [--zip]  # 整理分发目录 build/dist/MusicUnlock/，--zip 另外打包并报告体积
 python scripts/screenshot.py --dist [--convert]   # 用分发目录里的 App 渲染预览
@@ -73,10 +73,15 @@ python scripts/screenshot.py --dist [--convert]   # 用分发目录里的 App �
   因为 `schtasks /TR` 限制命令行在 261 个字符以内）在登录会话里启动没有控制台窗口的 `desktop_shot.exe`，
   它新建独立桌面运行 App，结束后关闭桌面并删除计划任务，不显示也不截取用户桌面。
   渲染时 `MUSICUNLOCK_DATA_DIR` 指向输出目录，设置、会话和 WebView2 数据都不会写入用户的 AppData。
+- 音乐解锁工作区的预览除了空队列和示例队列（`empty-*`、`queue-*`），还有拖入覆盖层（`drop-light`）、
+  键盘焦点与悬停（`keyboard-light`）、行右键菜单、关于和关闭确认对话框（`menu-light`、`about-light`、`close-light`）、
+  200 % 文字（`text200-*`）和高对比度（`contrast-*`），以及 UI 自动化树 `a11y.txt`（讲述人读到的控件类型、名称和状态）
+  和 Tab 顺序 `tab-order.txt`。文字大小不改动机器的系统设置，由 App 模拟：每个 TextBlock 的字号乘 2，列宽按同一倍数加宽。
 - 账号登录对话框的各状态（二维码等待、已扫码、已过期、已确认，QQ 登录页，会话已保存）有浅色、深色和高对比度三套预览。
   高对比度是系统设置，App 不能自己打开，所以预览换用 `Theme.xaml` 的 HighContrast 画刷模拟（WinUI 自带控件仍是浅色样式）；
-  对话框在窗口之外的弹出层里，预览把它叠加到窗口画面上。渲染不加载任何登录页，只启动一次 WebView2，检查运行时能从
+  对话框和菜单在窗口之外的弹出层里，预览把它们叠加到窗口画面上。渲染不加载任何登录页，只启动一次 WebView2，检查运行时能从
   App 目录加载、数据目录在 `build/previews/appdata/WebView2/` 下。
+- 预览是静态的，和 macOS 的 PreviewRenderer 一样不播放动效；`--convert` 的端到端转换保留动效，顺带检查动效代码。
 
 ## 分发目录
 
@@ -130,12 +135,25 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
 底栏是格式、导出设置与导出操作；导出细项放在对话框里。
 
 - Liquid Glass 换成 Windows 系统材质：窗口用 Mica，面板是半透明表面加细描边，不用自绘模糊。
+  Windows 10 没有 Mica，退回桌面亚克力，两者都不可用时用纯色工作区背景；
+  `MUSICUNLOCK_BACKDROP=acrylic` 或 `solid` 可以在 Windows 11 上强制使用退回方案来检查。
 - 只用黑白灰：系统强调色被覆盖为墨灰（浅色 #1C1C1C、深色 #F2F2F2），主按钮、选中指示与焦点随之变灰；
   状态靠 Segoe Fluent 图标和文字区分，不靠颜色。支持高对比度主题。
 - 工具栏换成自定义标题栏：中间是工作区切换，右侧是添加文件夹、添加文件（歌词工作区是打开歌词、账号登录）；
   队列筛选和编辑区页签用 SelectorBar。
 - 快捷键：Ctrl+O 添加文件（歌词工作区里是打开歌词）、Ctrl+Shift+O 添加文件夹、Ctrl+Enter 开始、Ctrl+. 停止转换或导出、
-  Ctrl+1 / Ctrl+2 切换工作区、Ctrl+F 搜索歌词、Ctrl+S 导出当前歌词。队列行的右键菜单可以查找这首歌的歌词。
+  Ctrl+1 / Ctrl+2 切换工作区、Ctrl+F 搜索歌词、Ctrl+S 导出当前歌词。
+  队列行可以获得焦点，方向键在行间移动，Delete 移出队列；右键、Shift+F10 或菜单键打开行菜单
+  （在资源管理器中显示源文件 / 输出文件、查找这首歌的歌词、移出队列）。
+- 动效对应 DESIGN.md 的“动效”一节（`app/Motion.*`，用组合动画实现）：两个工作区之间、空状态、列表与筛选为空之间交叉淡入淡出；
+  队列行和提示条从上方轻微落下、淡入，离开时原地缩小、淡出；状态图标切换时放大淡入，完成时弹一下；
+  转换中的行底色淡入淡出；拖入时覆盖层淡入并轻微缩放，图标上下跳动，空状态的唱片缓慢浮动，拖入时抬起并倾斜；
+  行悬停是列表自带的浅色高亮。系统“动画效果”关闭（`UISettings.AnimationsEnabled`）或设置了
+  `MUSICUNLOCK_REDUCE_MOTION` 时一律不动，窗口重新激活时重新读取这个设置。
+- 讲述人：队列行的名称是整行内容（标题、来源与大小、格式、状态、失败原因，规则在核心的 `AudioJob::spoken_summary`），
+  图标按钮都有名称和快捷键，底栏状态是礼貌的实时区域，转换失败和提示条的内容会主动播报。
+- 系统文字放大：文字由系统放大，列表的格式、状态两列按 `UISettings.TextScaleFactor` 加宽，
+  放不下时筛选移到标题下一行，底栏状态换行，空状态可以滚动。
 - 导出位置与命名方式保存在 `%LOCALAPPDATA%\MusicUnlock\settings.json`，歌词导出设置在同目录的 `lyrics.json`；
   转换或导出歌词时关闭窗口会先确认。
 - 歌词请求在后台线程直连平台，可随时取消；批量导出逐首进行，可以停止，已完成的文件保留，同名不覆盖，失败原因逐首列出。
