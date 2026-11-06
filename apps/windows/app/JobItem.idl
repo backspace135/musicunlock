@@ -1,0 +1,26 @@
+namespace MusicUnlock
+{
+    // One queue row, a read-only snapshot of a core mu::AudioJob for x:Bind. Created from C++ only.
+    runtimeclass JobItem : Microsoft.UI.Xaml.Data.INotifyPropertyChanged
+    {
+        UInt64 Id { get; };
+        String Title { get; };
+        String SourceName { get; };
+        String Subtitle { get; };
+        String Format { get; };
+        String OutputFormat { get; };
+        Boolean HasOutputFormat { get; };
+        String StateLabel { get; };
+        String StateGlyph { get; };
+        Boolean IsRunning { get; };
+        Boolean ShowsStateGlyph { get; };
+        Boolean IsFailed { get; };
+        String Detail { get; };
+        Boolean HasOutput { get; };
+        Boolean CanRemove { get; };
+        Boolean HasCover { get; };
+        Microsoft.UI.Xaml.Media.ImageSource Cover { get; };
+        String RemoveLabel { get; };
+        String RevealLabel { get; };
+    }
+}

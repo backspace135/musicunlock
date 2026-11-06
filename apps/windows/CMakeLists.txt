@@ -24,11 +24,13 @@ add_library(musicunlock_core STATIC
   core/src/base64.cpp
   core/src/conversion.cpp
   core/src/file_io.cpp
+  core/src/import.cpp
   core/src/legacy.cpp
   core/src/lyrics.cpp
   core/src/music_api.cpp
   core/src/ncm.cpp
   core/src/qmc.cpp
+  core/src/queue.cpp
   core/src/session.cpp
   core/src/tags.cpp
   core/src/text.cpp
@@ -55,7 +57,7 @@ if(WIN32)
 endif()
 
 enable_testing()
-add_executable(musicunlock_core_tests tests/core_tests.cpp tests/lyrics_tests.cpp)
+add_executable(musicunlock_core_tests tests/core_tests.cpp tests/import_tests.cpp tests/lyrics_tests.cpp tests/queue_tests.cpp)
 target_link_libraries(musicunlock_core_tests PRIVATE musicunlock_core)
 target_include_directories(musicunlock_core_tests PRIVATE core/src)
 target_compile_definitions(musicunlock_core_tests PRIVATE

@@ -1,0 +1,64 @@
+<Window
+    x:Class="MusicUnlock.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:MusicUnlock"
+    Title="音匣">
+    <Grid x:Name="Root" Language="zh-CN" KeyboardAcceleratorPlacementMode="Hidden">
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Modifiers="Control" Key="O" Invoked="OnAcceleratorInvoked" />
+            <KeyboardAccelerator Modifiers="Control,Shift" Key="O" Invoked="OnAcceleratorInvoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="Enter" Invoked="OnAcceleratorInvoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="Number1" Invoked="OnAcceleratorInvoked" />
+            <KeyboardAccelerator Modifiers="Control" Key="Number2" Invoked="OnAcceleratorInvoked" />
+        </Grid.KeyboardAccelerators>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <!-- Stands in for Mica in preview renders, which only capture the XAML tree. -->
+        <Border x:Name="PreviewBackdrop" Grid.RowSpan="2" Background="{ThemeResource MuWorkspaceBrush}" Visibility="Collapsed" />
+        <!-- Mirrors the macOS toolbar: workspace switcher in the middle, file actions on the right. -->
+        <TitleBar x:Name="AppTitleBar" Title="音匣">
+            <TitleBar.IconSource>
+                <ImageIconSource ImageSource="ms-appx:///Assets/AppIcon.png" />
+            </TitleBar.IconSource>
+            <TitleBar.Content>
+                <SelectorBar x:Name="WorkspaceBar" HorizontalAlignment="Center" SelectionChanged="OnWorkspaceChanged"
+                             AutomationProperties.Name="工作区">
+                    <SelectorBarItem x:Name="AudioItem" Text="音乐解锁" IsSelected="True">
+                        <SelectorBarItem.Icon>
+                            <FontIcon Glyph="&#xE785;" />
+                        </SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                    <SelectorBarItem x:Name="LyricsItem" Text="歌词工具">
+                        <SelectorBarItem.Icon>
+                            <FontIcon Glyph="&#xE8E4;" />
+                        </SelectorBarItem.Icon>
+                    </SelectorBarItem>
+                </SelectorBar>
+            </TitleBar.Content>
+            <TitleBar.RightHeader>
+                <StackPanel x:Name="AudioActions" Orientation="Horizontal" Spacing="4" Margin="0,0,8,0">
+                    <Button Click="OnAddFolder" Background="Transparent" BorderThickness="0" Padding="10,6"
+                            ToolTipService.ToolTip="添加文件夹（Ctrl+Shift+O）" AutomationProperties.Name="添加文件夹">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE8F4;" FontSize="14" />
+                            <TextBlock Text="添加文件夹" FontSize="12" />
+                        </StackPanel>
+                    </Button>
+                    <Button Click="OnAddFiles" Background="Transparent" BorderThickness="0" Padding="10,6"
+                            ToolTipService.ToolTip="添加文件（Ctrl+O）" AutomationProperties.Name="添加文件">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE710;" FontSize="14" />
+                            <TextBlock Text="添加文件" FontSize="12" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </TitleBar.RightHeader>
+        </TitleBar>
+        <local:UnlockView x:Name="AudioView" Grid.Row="1" />
+        <TextBlock x:Name="LyricsPlaceholder" Grid.Row="1" Text="歌词工具" Visibility="Collapsed"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{ThemeResource MuSecondaryBrush}" />
+    </Grid>
+</Window>

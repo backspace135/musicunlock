@@ -25,17 +25,26 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  core-and-cli:
+  build:
     runs-on: windows-2022
     env:
       # Compile through sccache with the Actions cache; CMake reads the launcher from the environment.
       SCCACHE_GHA_ENABLED: "true"
       CMAKE_CXX_COMPILER_LAUNCHER: sccache
+      # The runner console is cp1252; the scripts print Chinese messages.
+      PYTHONUTF8: "1"
     steps:
       - uses: actions/checkout@v7
       - uses: mozilla-actions/sccache-action@v0.0.11
       - name: Build, run core tests and CLI smoke test (MSVC x64)
         run: python apps/windows/scripts/build.py
+      - name: Cache NuGet packages for the app
+        uses: actions/cache@v6
+        with:
+          path: apps/windows/build/packages
+          key: winui-packages-${{ hashFiles('apps/windows/app/packages.config') }}
+      - name: Build the WinUI 3 app (restore pinned packages, MSBuild)
+        run: python apps/windows/scripts/build_app.py
       - name: Live platform checks (manual runs only)
         if: github.event_name == 'workflow_dispatch'
         env:

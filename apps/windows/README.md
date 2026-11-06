@@ -2,7 +2,7 @@
 
 Windows 原生版本的开发目录，与 macOS 版本在同一个 Git 仓库维护。
 
-**当前状态：解封装核心、命令行版与歌词核心已实现；WinUI 3 界面与单 exe 打包开发中。**
+**当前状态：解封装核心、命令行版、歌词核心与 WinUI 3 音乐解锁工作区已实现；歌词工作区与单 exe 打包开发中。**
 
 ## 技术方向
 
@@ -21,9 +21,12 @@ apps/windows/
 ├── core/          纯 C++20 静态库：解密、标签、命名、歌词解析与导出、登录会话、网易云 / QQ 音乐接口
 │                  （Windows 用 CNG、WinHTTP、系统 ICU；Mac 开发机用 CommonCrypto、CoreFoundation）
 ├── cli/           musicunlock.exe，用法与 macOS CLI 相同；静态 CRT，kgm.mask 以资源内嵌
+├── app/           WinUI 3 界面（C++/WinRT，未打包、Windows App SDK 自包含、静态 CRT）
+├── tools/         desktop_shot.cpp：在独立桌面上运行界面预览渲染
 ├── tests/         core 与歌词测试，读取 ../../tests/fixtures/qmc
 ├── third_party/   nlohmann/json 3.12.0（单头文件，MIT）
-└── scripts/       build.py：配置、编译与测试；smoke_cli.py：命令行冒烟测试
+└── scripts/       build.py：核心与命令行；smoke_cli.py：命令行冒烟测试；restore.py / build_app.py：界面；
+                   screenshot.py：界面预览与端到端转换检查
 ```
 
 ## 构建核心与命令行版
@@ -44,8 +47,37 @@ musicunlock.exe D:\输出目录 D:\音乐\歌曲.ncm D:\另一个音乐目录
 
 开发 Mac 上同一命令可编译核心与测试，用于快速验证算法（需要 CMake 与 Ninja）。
 
-GitHub Actions（`.github/workflows/windows.yml`）在 windows-2022 上执行同一脚本并上传 `musicunlock.exe`；
+GitHub Actions（`.github/workflows/windows.yml`）在 windows-2022 上执行同一脚本、编译界面并上传 `musicunlock.exe`；
 手动触发时额外运行联网的平台接口检查。
+
+## 构建界面
+
+同样只需要 Build Tools 的 C++ 工作负载，不需要 Visual Studio IDE 或 UWP 组件：
+
+```sh
+python scripts/build_app.py          # 恢复 NuGet 包并用 MSBuild 编译，产物在 build/app-release/
+python scripts/screenshot.py         # 空队列与示例队列的浅色 / 深色预览，输出到 build/previews/
+python scripts/screenshot.py --convert   # 另外导入并实际转换示例文件，逐字节核对输出
+```
+
+- `restore.py` 按 `app/packages.config` 从 nuget.org 下载固定版本并校验 SHA-512，解压到 `build/packages/`。
+  只引用界面用到的 Windows App SDK 组件，不用包含 AI、ML、Widgets、Search 的元包。
+- 工程是普通桌面 C++ 项目：VC 只在 “Windows Store” 应用类型里调用 XAML 编译器，所以 `MusicUnlock.vcxproj`
+  自己在 MIDL 前后运行两遍 WinUI 标记编译。
+- 预览由 App 自己用 `RenderTargetBitmap` 渲染：`screenshot.py` 通过一次性计划任务在登录会话里启动
+  `desktop_shot.exe`，它新建独立桌面运行 App，结束后关闭桌面并删除计划任务，不显示也不截取用户桌面。
+  渲染时 `MUSICUNLOCK_DATA_DIR` 指向输出目录，设置不会写入用户的 AppData。
+
+## 界面设计对应
+
+布局、文案和交互沿用 [macOS 版 DESIGN.md](../macos/DESIGN.md)：左侧转换队列，右侧 268 px 导出设置，底栏显示状态与操作。
+
+- Liquid Glass 换成 Windows 系统材质：窗口用 Mica，面板是半透明表面加细描边，不用自绘模糊。
+- 只用黑白灰：系统强调色被覆盖为墨灰（浅色 #1C1C1C、深色 #F2F2F2），主按钮、选中指示与焦点随之变灰；
+  状态靠 Segoe Fluent 图标和文字区分，不靠颜色。支持高对比度主题。
+- 工具栏换成自定义标题栏：中间是工作区切换，右侧是添加文件夹、添加文件；队列筛选用 SelectorBar。
+- 快捷键：Ctrl+O 添加文件、Ctrl+Shift+O 添加文件夹、Ctrl+Enter 开始、Ctrl+. 停止、Ctrl+1 / Ctrl+2 切换工作区。
+- 导出位置与命名方式保存在 `%LOCALAPPDATA%\MusicUnlock\settings.json`；转换中关闭窗口会先确认。
 
 ## 验证
 

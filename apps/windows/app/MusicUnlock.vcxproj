@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- WinUI 3 desktop app: unpackaged, Windows App SDK self-contained, static CRT, x64 only.
+     Plain desktop project (no "Windows Store" application type), so VS Build Tools with the C++ workload
+     is enough. Packages come from scripts/restore.py; build through scripts/build_app.py. -->
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <MuPackages>$(MSBuildThisFileDirectory)..\build\packages\</MuPackages>
+  </PropertyGroup>
+  <Import Project="$(MuPackages)imports.props" Condition="Exists('$(MuPackages)imports.props')" />
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{6F1C2B7E-3D4A-4E58-9B21-0C7A5D9E8F31}</ProjectGuid>
+    <ProjectName>MusicUnlock</ProjectName>
+    <RootNamespace>MusicUnlock</RootNamespace>
+    <DefaultLanguage>zh-CN</DefaultLanguage>
+    <MinimumVisualStudioVersion>17.0</MinimumVisualStudioVersion>
+    <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.17763.0</WindowsTargetPlatformMinVersion>
+    <CppWinRTOptimized>true</CppWinRTOptimized>
+    <CppWinRTRootNamespaceAutoMerge>true</CppWinRTRootNamespaceAutoMerge>
+    <MinimalCoreWin>true</MinimalCoreWin>
+    <UseWinUI>true</UseWinUI>
+    <XamlLanguage>CppWinRT</XamlLanguage>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <WindowsPackageType>None</WindowsPackageType>
+    <AppxPackage>false</AppxPackage>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <DesktopCompatible>true</DesktopCompatible>
+    <UseDebugLibraries Condition="'$(Configuration)'=='Debug'">true</UseDebugLibraries>
+    <WholeProgramOptimization Condition="'$(Configuration)'=='Release'">true</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(MSBuildThisFileDirectory)..\build\app-$(Configuration.ToLower())\</OutDir>
+    <IntDir>$(MSBuildThisFileDirectory)..\build\app-obj\$(Configuration)\</IntDir>
+    <GeneratedFilesDir>$(IntDir)Generated Files\</GeneratedFilesDir>
+    <XamlGeneratedOutputPath>$(GeneratedFilesDir)</XamlGeneratedOutputPath>
+    <TargetName>MusicUnlock</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <WarningLevel>Level4</WarningLevel>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory);$(MSBuildThisFileDirectory)..\core\include;$(MSBuildThisFileDirectory)..\core\src;$(MSBuildThisFileDirectory)..\third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>DISABLE_XAML_GENERATED_MAIN;MICROSOFT_WINDOWSAPPSDK_SELFCONTAINED=1;NOMINMAX;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>%(AdditionalOptions) /bigobj /utf-8 /permissive- /Zc:__cplusplus</AdditionalOptions>
+      <RuntimeLibrary Condition="'$(Configuration)'=='Debug'">MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeLibrary Condition="'$(Configuration)'=='Release'">MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <AdditionalDependencies>bcrypt.lib;winhttp.lib;crypt32.lib;shlwapi.lib;shcore.lib;shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
+    <ClCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)'=='Release'">
+    <ClCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <Manifest Include="app.manifest" />
+    <ResourceCompile Include="MusicUnlock.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml" />
+    <Page Include="MainWindow.xaml" />
+    <Page Include="Theme.xaml" />
+    <Page Include="UnlockView.xaml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="App.xaml.h">
+      <DependentUpon>App.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="MainWindow.xaml.h">
+      <DependentUpon>MainWindow.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="UnlockView.xaml.h">
+      <DependentUpon>UnlockView.xaml</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="JobItem.h">
+      <DependentUpon>JobItem.idl</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="Settings.h" />
+    <ClInclude Include="Shell.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="pch.cpp">
+      <PrecompiledHeader>Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="App.xaml.cpp">
+      <DependentUpon>App.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="MainWindow.xaml.cpp">
+      <DependentUpon>MainWindow.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="UnlockView.xaml.cpp">
+      <DependentUpon>UnlockView.xaml</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="JobItem.cpp">
+      <DependentUpon>JobItem.idl</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="Settings.cpp" />
+    <ClCompile Include="Shell.cpp" />
+    <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
+  </ItemGroup>
+  <!-- The portable core, compiled with the app's settings (static CRT, no precompiled header). -->
+  <ItemGroup>
+    <ClCompile Include="..\core\src\*.cpp" Exclude="..\core\src\*_mac.cpp;..\core\src\crypto_commoncrypto.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Midl Include="MainWindow.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>MainWindow.xaml</DependentUpon>
+    </Midl>
+    <Midl Include="UnlockView.idl">
+      <SubType>Code</SubType>
+      <DependentUpon>UnlockView.xaml</DependentUpon>
+    </Midl>
+    <Midl Include="JobItem.idl" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+    <!-- KGM / VPR key table, loaded from next to the executable. -->
+    <CopyFileToFolders Include="..\..\..\resources\kgm.mask">
+      <DestinationFolders>$(OutDir)</DestinationFolders>
+    </CopyFileToFolders>
+    <!-- Licenses ship with the app; "关于音匣与开源许可" opens the notices. -->
+    <CopyFileToFolders Include="..\..\..\LICENSE;..\..\..\THIRD_PARTY_NOTICES.txt">
+      <DestinationFolders>$(OutDir)</DestinationFolders>
+    </CopyFileToFolders>
+    <Image Include="Assets\AppIcon.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Import Project="$(MuPackages)imports.targets" Condition="Exists('$(MuPackages)imports.targets')" />
+  <!-- Desktop C++ projects get no XAML build steps from VC (those come with the "Windows Store"
+       application type), so run the WinUI markup compiler around MIDL ourselves:
+       pass 1 (XAML -> .g.h and IDL inputs) before MIDL, pass 2 (type info) before C++ compilation. -->
+  <Target Name="MuXamlPass1" BeforeTargets="Midl" DependsOnTargets="MarkupCompilePass1" />
+  <Target Name="MuXamlPass2" BeforeTargets="ClCompile" DependsOnTargets="MarkupCompilePass2">
+    <ItemGroup>
+      <ClCompile Include="$(GeneratedFilesDir)XamlTypeInfo.g.cpp;$(GeneratedFilesDir)XamlTypeInfo.Impl.g.cpp" />
+      <!-- VC compiles "XamlGenerated" sources (CppWinRT's XamlMetaDataProvider.cpp) in a later step that only
+           the Windows Store targets run; pass 2 is already done here, so compile them with everything else. -->
+      <ClCompile Condition="'%(ClCompile.CompilerIteration)' == 'XamlGenerated'">
+        <CompilerIteration></CompilerIteration>
+      </ClCompile>
+    </ItemGroup>
+  </Target>
+  <Target Name="MuEnsurePackages" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(MuPackages)imports.targets')" Text="NuGet 包尚未恢复，请先运行 python scripts/restore.py" />
+  </Target>
+</Project>

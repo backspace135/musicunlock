@@ -77,7 +77,7 @@ Bytes tag_flac(const Bytes& audio, const AudioMetadata& metadata) {
             append_le32(payload, comment.size());
             append(payload, comment);
         }
-        blocks.emplace_back(4, std::move(payload));
+        blocks.emplace_back(std::uint8_t{4}, std::move(payload));
     }
     if (metadata.cover && !has_block(6)) {
         const std::string_view mime = cover_mime(*metadata.cover);
@@ -89,7 +89,7 @@ Bytes tag_flac(const Bytes& audio, const AudioMetadata& metadata) {
         picture.insert(picture.end(), 16, 0);  // width, height, depth, palette size
         append_be32(picture, metadata.cover->size());
         append(picture, *metadata.cover);
-        if (picture.size() < std::size_t{1} << 24) blocks.emplace_back(6, std::move(picture));
+        if (picture.size() < std::size_t{1} << 24) blocks.emplace_back(std::uint8_t{6}, std::move(picture));
     }
     Bytes result;
     append(result, "fLaC");
