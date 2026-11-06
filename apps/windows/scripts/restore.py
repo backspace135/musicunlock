@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""Restore the NuGet packages listed in app/packages.config into build/packages.
+"""Restore the NuGet packages listed in app/packages.config.
 
-Downloads each pinned .nupkg from nuget.org, checks its SHA-512, and extracts it to
-build/packages/<Id>.<Version>/ (the packages.config layout). Also writes build/packages/imports.props
-and imports.targets, which import every package's MSBuild files in the listed order so the
-project file never repeats version numbers. Nothing is written outside build/.
+Downloads each pinned .nupkg from nuget.org, checks its SHA-512, and extracts it to <store>/<Id>.<Version>/
+(the packages.config layout). The store is build/packages, or MUSICUNLOCK_PACKAGES_DIR when set so that
+several checkouts share one copy; a lock file serialises concurrent restores. Then writes
+build/nuget-imports.props and .targets for this checkout, importing every package's MSBuild files in
+the listed order, so the project file never repeats version numbers and branches with different
+package lists do not interfere. Nothing is written outside build/ and the store.
 """
 from pathlib import Path
 import base64
 import hashlib
 import io
+import os
 import shutil
 import sys
 import time
@@ -19,7 +22,35 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "app" / "packages.config"
-PACKAGES = ROOT / "build" / "packages"
+PACKAGES = Path(os.environ.get("MUSICUNLOCK_PACKAGES_DIR") or ROOT / "build" / "packages")
+IMPORTS = ROOT / "build" / "nuget-imports"
+
+
+class StoreLock:
+    """Exclusive lock on the package store, held while restoring."""
+
+    def __enter__(self):
+        PACKAGES.mkdir(parents=True, exist_ok=True)
+        self.file = open(PACKAGES / ".lock", "a+b")
+        if os.name == "nt":
+            import msvcrt
+            while True:
+                try:
+                    msvcrt.locking(self.file.fileno(), msvcrt.LK_NBLCK, 1)
+                    break
+                except OSError:
+                    time.sleep(0.5)
+        else:
+            import fcntl
+            fcntl.flock(self.file.fileno(), fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, *exc):
+        if os.name == "nt":
+            import msvcrt
+            self.file.seek(0)
+            msvcrt.locking(self.file.fileno(), msvcrt.LK_UNLCK, 1)
+        self.file.close()
 
 
 def download(package_id: str, version: str) -> bytes:
@@ -46,18 +77,22 @@ def restore(package_id: str, version: str, sha512: str) -> Path:
     actual = base64.b64encode(hashlib.sha512(data).digest()).decode()
     if actual != sha512:
         sys.exit(f"{package_id} {version} 的 SHA-512 不匹配，拒绝使用：{actual}")
-    shutil.rmtree(target, ignore_errors=True)
+    # Extract next to the target and swap it in, so other checkouts never see a half-written package.
+    staging = PACKAGES / f".{package_id}.{version}.partial"
+    shutil.rmtree(staging, ignore_errors=True)
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
         for entry in archive.infolist():
             # NuGet packaging metadata is not part of the package content.
             if entry.filename.startswith(("_rels/", "package/")) or entry.filename == "[Content_Types].xml":
                 continue
-            destination = (target / entry.filename).resolve()
-            if not destination.is_relative_to(target.resolve()):
+            destination = (staging / entry.filename).resolve()
+            if not destination.is_relative_to(staging.resolve()):
                 sys.exit(f"{package_id} 包含越界路径：{entry.filename}")
-            archive.extract(entry, target)
-    (target / f"{package_id}.{version}.nupkg".lower()).write_bytes(data)
-    marker.write_text(sha512)
+            archive.extract(entry, staging)
+    (staging / f"{package_id}.{version}.nupkg".lower()).write_bytes(data)
+    (staging / ".sha512").write_text(sha512)
+    shutil.rmtree(target, ignore_errors=True)
+    staging.rename(target)
     return target
 
 
@@ -77,19 +112,20 @@ def write_imports(restored: list[tuple[str, Path]]) -> None:
         for package_id, path in restored:
             file = msbuild_file(path, package_id, extension)
             if file:
-                lines.append(f'  <Import Project="$(MSBuildThisFileDirectory){file.relative_to(PACKAGES).as_posix()}" />')
+                lines.append(f'  <Import Project="{file.resolve()}" />')
         lines.append("</Project>\n")
-        (PACKAGES / f"imports{extension}").write_text("\n".join(lines), encoding="utf-8")
+        IMPORTS.parent.mkdir(parents=True, exist_ok=True)
+        IMPORTS.with_suffix(extension).write_text("\n".join(lines), encoding="utf-8")
 
 
 def main() -> None:
-    PACKAGES.mkdir(parents=True, exist_ok=True)
     restored = []
-    for package in ElementTree.parse(CONFIG).getroot().iter("package"):
-        package_id, version, sha512 = package.get("id"), package.get("version"), package.get("sha512")
-        if not sha512:
-            sys.exit(f"{package_id} 缺少 sha512 校验值")
-        restored.append((package_id, restore(package_id, version, sha512)))
+    with StoreLock():
+        for package in ElementTree.parse(CONFIG).getroot().iter("package"):
+            package_id, version, sha512 = package.get("id"), package.get("version"), package.get("sha512")
+            if not sha512:
+                sys.exit(f"{package_id} 缺少 sha512 校验值")
+            restored.append((package_id, restore(package_id, version, sha512)))
     write_imports(restored)
     print(f"{len(restored)} 个 NuGet 包已就绪：{PACKAGES}")
 
