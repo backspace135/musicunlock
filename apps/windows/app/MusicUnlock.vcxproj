@@ -122,6 +122,7 @@
     </ClInclude>
     <ClInclude Include="Accounts.h" />
     <ClInclude Include="Motion.h" />
+    <ClInclude Include="Preview.h" />
     <ClInclude Include="Settings.h" />
     <ClInclude Include="Shell.h" />
   </ItemGroup>
@@ -152,6 +153,7 @@
     </ClCompile>
     <ClCompile Include="Accounts.cpp" />
     <ClCompile Include="Motion.cpp" />
+    <ClCompile Include="Preview.cpp" />
     <ClCompile Include="Settings.cpp" />
     <ClCompile Include="Shell.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />

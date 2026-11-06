@@ -20,6 +20,13 @@ struct UnlockView : UnlockViewT<UnlockView> {
     void UsePreviewData();
     /// Fills the queue with the same sample jobs as the macOS preview renderer.
     void ShowSampleJobs();
+    /// Keyboard focus on the first row and the pointer over the second (focus and hover visuals).
+    void PreviewKeyboard();
+    /// Opens the context menu of a row.
+    void PreviewRowMenu(uint32_t index);
+    void PreviewDropTarget(bool shown) { ShowDropTarget(shown); }
+    /// "关于音匣与开源许可", not yet shown.
+    Microsoft::UI::Xaml::Controls::ContentDialog AboutDialog();
 
     /// System picker for files, or folders that are imported recursively (Ctrl+O / Ctrl+Shift+O).
     void ChooseFiles(bool folders);

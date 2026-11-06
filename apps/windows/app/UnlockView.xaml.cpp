@@ -120,6 +120,20 @@ void UnlockView::ShowSampleJobs() {
     Refresh();
 }
 
+void UnlockView::PreviewKeyboard() {
+    JobList().UpdateLayout();
+    if (auto first = JobList().ContainerFromIndex(0).try_as<Control>()) first.Focus(FocusState::Keyboard);
+    if (auto second = JobList().ContainerFromIndex(1).try_as<Control>()) VisualStateManager::GoToState(second, L"PointerOver", false);
+}
+
+void UnlockView::PreviewRowMenu(uint32_t index) {
+    if (auto row = JobList().ContainerFromIndex(index).try_as<ListViewItem>(); row && row.ContextFlyout()) {
+        Primitives::FlyoutShowOptions options;
+        options.Position(Windows::Foundation::Point{240, 40});
+        row.ContextFlyout().ShowAt(row, options);
+    }
+}
+
 void UnlockView::SetOutputDirectory(std::filesystem::path directory) {
     output_directory_ = std::move(directory);
     OutputName().Text(output_directory_.filename().c_str());
@@ -411,6 +425,10 @@ void UnlockView::OnOpenOutput(IInspectable const&, RoutedEventArgs const&) { she
 
 fire_and_forget UnlockView::OnAbout(IInspectable const&, RoutedEventArgs const&) {
     auto strong = get_strong();
+    if (co_await AboutDialog().ShowAsync() == ContentDialogResult::Primary) shell::open_bundled(L"THIRD_PARTY_NOTICES.txt");
+}
+
+ContentDialog UnlockView::AboutDialog() {
     ContentDialog dialog;
     dialog.XamlRoot(XamlRoot());
     dialog.Title(box_value(L"音匣 MusicUnlock"));
@@ -426,7 +444,7 @@ fire_and_forget UnlockView::OnAbout(IInspectable const&, RoutedEventArgs const&)
     dialog.PrimaryButtonText(L"查看开源许可");
     dialog.CloseButtonText(L"好");
     dialog.DefaultButton(ContentDialogButton::Close);
-    if (co_await dialog.ShowAsync() == ContentDialogResult::Primary) shell::open_bundled(L"THIRD_PARTY_NOTICES.txt");
+    return dialog;
 }
 
 void UnlockView::OnDragOver(DragEventArgs const& args) {
