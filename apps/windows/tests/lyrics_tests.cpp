@@ -426,6 +426,34 @@ TEST(qr_login_as_pc_client) {
     CHECK(open_eapi(mu::HttpRequest{"", "POST", {}, "params=00"}, "/api/x").empty());
 }
 
+TEST(qr_login_refusals_point_to_the_official_page) {
+    ScriptedTransport refused;
+    refused.on("qrcode/unikey", R"({"code":200,"unikey":"KEY"})");
+    refused.on("qrcode/client/login", R"({"code":8821,"message":"请切换其他登录方式或升级新版本再试"})");
+    const auto api = api_for(refused);
+    const auto ticket = api.create_qr_code();
+    std::string message;
+    try {
+        api.check_qr_code(ticket);
+    } catch (const LyricError& error) {
+        message = error.what();
+    }
+    CHECK_EQ(message,
+             std::string("网易云音乐拒绝了这次扫码登录（8821：请切换其他登录方式或升级新版本再试）。"
+                         "请点击“使用官方登录页”，在网易云音乐的网页上登录。"),
+             "8821 hint");
+
+    ScriptedTransport no_key;
+    no_key.on("qrcode/unikey", R"({"code":-462,"msg":"","data":{"verifyType":40}})");
+    message.clear();
+    try {
+        api_for(no_key).create_qr_code();
+    } catch (const LyricError& error) {
+        message = error.what();
+    }
+    CHECK(contains(message, "（-462）") && contains(message, "使用官方登录页"));
+}
+
 TEST(qr_login_and_account) {
     ScriptedTransport script;
     script.on("qrcode/unikey", R"({"code":200,"unikey":"KEY"})");

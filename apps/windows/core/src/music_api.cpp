@@ -11,6 +11,7 @@
 #include <nlohmann/json.hpp>
 
 #include "detail.h"
+#include "musicunlock/qr_login.h"
 #include "musicunlock/text.h"
 
 namespace mu {
@@ -362,7 +363,8 @@ public:
     }
 
     /// An eapi request as NetEase's Windows client sends it: the client identity goes both into the cookies
-    /// and into the encrypted payload's `header`. Responses stay plain JSON (`e_r` false).
+    /// and into the encrypted payload's `header`. Responses stay plain JSON (`e_r` false). Only QR login uses
+    /// it, so any answer but 200 or 800-803 is a refused login.
     Response netease_pc(const std::string& path, Json payload, const std::string& device) const {
         const std::int64_t now = clock_ms_();
         char request_id[8];
@@ -390,7 +392,10 @@ public:
                            {"Cookie", cookie}};
         request.body = "params=" + eapi_params(path, payload.dump());
         Response result = send(request, MusicProvider::netease);
-        check_netease(result.json);
+        if (const std::int64_t code = number(field(result.json, "code")); code != 200 && (code < 800 || code > 803)) {
+            const Json& message = first(result.json, {"message", "msg"});
+            throw LyricError(qr_refusal_message(code, message.is_string() ? message.get<std::string>() : ""));
+        }
         return result;
     }
 

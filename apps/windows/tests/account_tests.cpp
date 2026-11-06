@@ -140,7 +140,9 @@ TEST(qr_poll_endings) {
     QrScript refused;
     refused.answers = {{8821, {}}};
     result = poll(refused);
-    CHECK(result.final.state == QrLoginState::failed && result.final.message.find("8821") != std::string::npos);
+    CHECK(result.final.state == QrLoginState::failed);
+    CHECK_EQ(result.final.message, std::string("网易云音乐拒绝了这次扫码登录（8821）。请点击“使用官方登录页”，在网易云音乐的网页上登录。"),
+             "refusal points to the official page");
 
     QrScript offline;
     offline.answers = {{801, {}}};

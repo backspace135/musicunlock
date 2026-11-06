@@ -2,6 +2,7 @@
 // NetEase QR login, as in MusicLoginSheet.pollQRCode on macOS: the QR code as vector path data, what each
 // status code means, and the polling loop that ends in an accepted session.
 
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -32,6 +33,10 @@ enum class QrLoginState { loading, waiting, scanned, confirmed, expired, failed 
 QrLoginState qr_login_state(int code);
 /// The default status line for a state (macOS wording).
 std::string_view qr_login_message(QrLoginState state);
+
+/// What to show when NetEase refuses a QR login, e.g. its risk control's 8821 "请切换其他登录方式或升级新版本再试":
+/// the platform's words alone leave nothing to try, so this points to the official login page.
+std::string qr_refusal_message(std::int64_t code, std::string_view platform_message);
 
 struct QrLoginStep {
     QrLoginState state = QrLoginState::loading;

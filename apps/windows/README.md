@@ -78,7 +78,7 @@ python scripts/screenshot.py --dist [--convert]   # 用分发目录里的 App �
   键盘焦点与悬停（`keyboard-light`）、行右键菜单、关于和关闭确认对话框（`menu-light`、`about-light`、`close-light`）、
   200 % 文字（`text200-*`）和高对比度（`contrast-*`），以及 UI 自动化树 `a11y.txt`（讲述人读到的控件类型、名称和状态）
   和 Tab 顺序 `tab-order.txt`。文字大小不改动机器的系统设置，由 App 模拟：每个 TextBlock 的字号乘 2，列宽按同一倍数加宽。
-- 账号登录对话框的各状态（二维码等待、已扫码、已过期、已确认，QQ 登录页，会话已保存）有浅色、深色和高对比度三套预览。
+- 账号登录对话框的各状态（二维码等待、已扫码、已过期、已确认、被平台拒绝，QQ 登录页，会话已保存）有浅色、深色和高对比度三套预览。
   高对比度是系统设置，App 不能自己打开，所以预览换用 `Theme.xaml` 的 HighContrast 画刷模拟（WinUI 自带控件仍是浅色样式）；
   对话框和菜单在窗口之外的弹出层里，预览把它们叠加到窗口画面上。渲染不加载任何登录页，只启动一次 WebView2，检查运行时能从
   App 目录加载、数据目录在 `build/previews/appdata/WebView2/` 下。

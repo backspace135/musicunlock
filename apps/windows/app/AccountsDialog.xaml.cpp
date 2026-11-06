@@ -433,6 +433,10 @@ void AccountsDialog::ShowPreview(Preview state) {
             if (qr == QrLoginState::confirmed) message_ = "网易云音乐登录成功，会话已加密保存在这台电脑上。";
             break;
         }
+        case Preview::qr_refused:
+            SetQrCode(sample_qr_url);
+            ShowQrState(QrLoginState::failed, mu::qr_refusal_message(8821, "请切换其他登录方式或升级新版本再试"));
+            break;
         case Preview::official_page: StartWeb(); break;
         case Preview::signed_in:
             ShowSession(MusicProvider::netease);
