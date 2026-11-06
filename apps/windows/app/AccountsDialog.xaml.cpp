@@ -374,7 +374,10 @@ fire_and_forget AccountsDialog::CaptureCookies() {
     if (!message) co_return;
     message_ = *message;
     relogin_ = official_ = false;
-    Refresh();
+    // This still runs inside WebView2's GetCookiesAsync completion. Showing the session closes the login page,
+    // and closing a WebView2 from its own callback makes it crash afterwards (#21): leave the callback first.
+    co_await wil::resume_foreground(DispatcherQueue());
+    if (generation == generation_) Refresh();
 }
 
 void AccountsDialog::StopLogin() {
