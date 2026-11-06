@@ -1,7 +1,9 @@
 // Runs MusicUnlock.exe on a private desktop so preview renders never show on, or capture, the user's desktop.
 // The app renders its own XAML tree to PNG (MUSICUNLOCK_RENDER_DIR) and exits; the desktop is closed afterwards.
 //
-//   desktop_shot.exe <MusicUnlock.exe> <output directory> [folder to import and convert]
+//   desktop_shot.exe <desktop name> <MusicUnlock.exe> <output directory> [folder to import and convert]
+//
+// The desktop name is unique per checkout, so parallel worktrees never share a desktop.
 //
 // Writes <output directory>\shot.done with the app's exit code when finished. Started by scripts/screenshot.py.
 #include <windows.h>
@@ -22,10 +24,11 @@ void finish(const std::wstring& directory, const std::wstring& status) {
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
-    if (argc != 3 && argc != 4) return 2;
-    const std::wstring app = argv[1];
-    const std::wstring directory = argv[2];
-    HDESK desktop = CreateDesktopW(L"MusicUnlockShot", nullptr, nullptr, 0, GENERIC_ALL, nullptr);
+    if (argc != 4 && argc != 5) return 2;
+    const std::wstring desktop_name = argv[1];
+    const std::wstring app = argv[2];
+    const std::wstring directory = argv[3];
+    HDESK desktop = CreateDesktopW(desktop_name.c_str(), nullptr, nullptr, 0, GENERIC_ALL, nullptr);
     if (!desktop) {
         finish(directory, L"CreateDesktop failed " + std::to_wstring(GetLastError()));
         return 1;
@@ -38,13 +41,13 @@ int wmain(int argc, wchar_t** argv) {
 
     SetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_DIR", directory.c_str());
     SetEnvironmentVariableW(L"MUSICUNLOCK_LOG", (directory + L"\\app.log").c_str());
-    SetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_CONVERT", argc == 4 ? argv[3] : nullptr);
+    SetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_CONVERT", argc == 5 ? argv[4] : nullptr);
     // Keep anything the app saves inside the output folder, never in the profile.
     SetEnvironmentVariableW(L"MUSICUNLOCK_DATA_DIR", (directory + L"\\appdata").c_str());
-    wchar_t desktop_name[] = L"WinSta0\\MusicUnlockShot";
+    std::wstring startup_desktop = L"WinSta0\\" + desktop_name;
     STARTUPINFOW startup{};
     startup.cb = sizeof startup;
-    startup.lpDesktop = desktop_name;
+    startup.lpDesktop = startup_desktop.data();
     PROCESS_INFORMATION process{};
     std::wstring command = L"\"" + app + L"\"";
     const std::wstring folder = app.substr(0, app.find_last_of(L'\\'));
