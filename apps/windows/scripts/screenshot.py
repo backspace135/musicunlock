@@ -4,7 +4,8 @@
 A one-shot scheduled task (MusicUnlockShot-<checkout id>) starts tools/desktop_shot.exe in the signed-in session
 (an SSH session has no desktop compositor). The helper creates a separate desktop, runs the app there in
 render mode and closes the desktop; the user's own desktop is never shown or captured. The task is deleted
-right after the run. PNGs go to build/previews. --convert also imports and converts sample files and checks the output.
+right after the run. PNGs go to build/previews. --convert also imports and converts sample files and checks the output;
+--dist runs the staged folder from stage_app.py (build/dist/MusicUnlock) instead of build/app-release.
 """
 from pathlib import Path
 import argparse
@@ -90,12 +91,14 @@ def prepare_conversion() -> tuple[Path, bytes]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--convert", action="store_true", help="import and convert sample files, then capture")
+    parser.add_argument("--dist", action="store_true", help="run build/dist/MusicUnlock from stage_app.py")
     args = parser.parse_args()
     if os.name != "nt":
         sys.exit("只能在 Windows 上运行")
-    app = BUILD / "app-release" / "MusicUnlock.exe"
+    app = BUILD / ("dist/MusicUnlock" if args.dist else "app-release") / "MusicUnlock.exe"
     if not app.exists():
-        sys.exit("请先运行 scripts/build_app.py")
+        sys.exit("请先运行 scripts/stage_app.py" if args.dist else "请先运行 scripts/build_app.py")
+    print("app:", app)
     helper = build_helper()
     output = BUILD / "previews"
     shutil.rmtree(output, ignore_errors=True)
