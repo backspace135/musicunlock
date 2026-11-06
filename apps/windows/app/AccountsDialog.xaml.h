@@ -24,6 +24,12 @@ struct AccountsDialog : AccountsDialogT<AccountsDialog> {
     /// Preview renders: starts WebView2 on a blank page with the provider's data folder and describes the
     /// result for the log, so renders check that the runtime loads from the app folder.
     Windows::Foundation::IAsyncOperation<hstring> CheckWebView(mu::MusicProvider provider);
+    /// Login renders: leaves the preview states for the real ones. The official page is a blank page instead of
+    /// the platform's, and with `fake_qq_login` it gets fixed fake QQ Music cookies, so the login goes through the
+    /// same cookie reading, saving and page teardown as a real one without network or a real account.
+    void Live(bool fake_qq_login);
+    /// True while the saved-session panel is shown (login renders).
+    bool ShowsSession() { return SessionPanel().Visibility() == Microsoft::UI::Xaml::Visibility::Visible; }
 
     void OnProviderChanged(Microsoft::UI::Xaml::Controls::SelectorBar const&,
                            Microsoft::UI::Xaml::Controls::SelectorBarSelectionChangedEventArgs const&);
@@ -64,6 +70,8 @@ private:
     bool session_seen_ = false;
     bool capturing_ = false;
     bool preview_ = false;
+    bool live_render_ = false;  // Live(): blank official page
+    bool fake_login_ = false;   // Live(true): fake cookies for the next official page
     std::string message_;  // last login / logout result, shown in the footer
 };
 

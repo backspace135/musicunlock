@@ -9,6 +9,7 @@
 #include <chrono>
 #include <filesystem>
 #include <thread>
+#include <utility>
 
 #include <winrt/Windows.UI.Xaml.Interop.h>
 #include <wil/cppwinrt_helpers.h>
@@ -336,7 +337,17 @@ fire_and_forget AccountsDialog::StartWeb() {
         }
         if (generation != generation_) co_return;
     }
-    core.Navigate(login_page(provider));
+    if (live_render_) {
+        if (std::exchange(fake_login_, false) && provider == MusicProvider::qq) {
+            auto manager = core.CookieManager();
+            for (const auto [name, value] : {std::pair{L"qqmusic_key", L"render-test-key"}, std::pair{L"uin", L"10000"}}) {
+                manager.AddOrUpdateCookie(manager.CreateCookie(name, value, L".qq.com", L"/"));
+            }
+        }
+        core.Navigate(L"about:blank");
+    } else {
+        core.Navigate(login_page(provider));
+    }
     // WebView2 has no cookie-change event: read the jar every second while the page is open.
     cookie_timer_ = DispatcherQueue().CreateTimer();
     cookie_timer_.Interval(1s);
@@ -374,7 +385,10 @@ fire_and_forget AccountsDialog::CaptureCookies() {
     if (!message) co_return;
     message_ = *message;
     relogin_ = official_ = false;
-    Refresh();
+    // This still runs inside WebView2's GetCookiesAsync completion. Showing the session closes the login page,
+    // and closing a WebView2 from its own callback makes it crash afterwards (#21): leave the callback first.
+    co_await wil::resume_foreground(DispatcherQueue());
+    if (generation == generation_) Refresh();
 }
 
 void AccountsDialog::StopLogin() {
@@ -447,6 +461,15 @@ void AccountsDialog::ShowPreview(Preview state) {
             break;
     }
     UpdateFooter();
+}
+
+void AccountsDialog::Live(bool fake_qq_login) {
+    preview_ = false;
+    live_render_ = true;
+    fake_login_ = fake_qq_login;
+    message_.clear();
+    official_ = relogin_ = false;
+    Refresh();
 }
 
 Windows::Foundation::IAsyncOperation<hstring> AccountsDialog::CheckWebView(MusicProvider provider) {
