@@ -1,6 +1,9 @@
-// Account login tests: the NetEase QR code and its polling loop, run against a scripted transport.
+// Account login tests: the NetEase QR code and its polling loop (scripted transport), and saved sessions.
 #include <algorithm>
 #include <cstdint>
+#include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -10,8 +13,10 @@
 #include "musicunlock/music_api.h"
 #include "musicunlock/qr_login.h"
 #include "musicunlock/session.h"
+#include "musicunlock/text.h"
 #include "test_support.h"
 
+namespace fs = std::filesystem;
 using mu::QrLoginState;
 
 namespace {
@@ -155,3 +160,105 @@ TEST(qr_poll_cancels) {
     CHECK(cancelled);
     CHECK_EQ(*script.polls, 2, "no poll after cancelling");
 }
+
+namespace {
+
+/// Stand-in for DPAPI on the Mac: a tag plus XOR, so tests can see that nothing is stored in plain text.
+mu::SessionCipher test_cipher() {
+    auto flip = [](std::string text) {
+        for (char& c : text) c = static_cast<char>(c ^ 0x5A);
+        return text;
+    };
+    return {[flip](std::string_view plain) { return "SEAL" + flip(std::string(plain)); },
+            [flip](std::string_view sealed) -> std::optional<std::string> {
+                if (!sealed.starts_with("SEAL")) return std::nullopt;
+                return flip(std::string(sealed.substr(4)));
+            }};
+}
+
+fs::path fresh(const char* name) {
+    const fs::path folder = mu::utf8_to_path(MU_TEST_SCRATCH) / name;
+    fs::remove_all(folder);
+    return folder;
+}
+
+std::string read(const fs::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+}
+
+mu::Cookie cookie(std::string name, std::string value, std::string domain, std::optional<std::int64_t> expires = {}) {
+    mu::Cookie cookie;
+    cookie.name = std::move(name);
+    cookie.value = std::move(value);
+    cookie.domain = std::move(domain);
+    cookie.expires = expires;
+    return cookie;
+}
+
+void check_store(const mu::SessionCipher& cipher, const char* folder) {
+    const std::int64_t now = 1'800'000'000;
+    const fs::path directory = fresh(folder) / mu::utf8_to_path("会话");
+    const mu::SessionStore store(directory, cipher);
+    CHECK(store.file(mu::MusicProvider::netease) == directory / "netease.bin");
+    CHECK(store.file(mu::MusicProvider::qq) == directory / "qq.bin");
+    CHECK(!store.load(mu::MusicProvider::netease, now));
+
+    const std::vector<mu::Cookie> netease = {cookie("MUSIC_U", "secret-value", ".music.163.com", now + 3600),
+                                             cookie("__csrf", "c", ".music.163.com")};
+    store.save(mu::MusicProvider::netease, netease);
+    CHECK(read(store.file(mu::MusicProvider::netease)).find("secret-value") == std::string::npos);
+    CHECK(!fs::exists(directory / "netease.bin.tmp"));
+    CHECK(store.load(mu::MusicProvider::netease, now) == netease);
+    CHECK(!store.load(mu::MusicProvider::qq, now));
+    // Expiry is decided when loading: an expired MUSIC_U is no session, though the file stays until logout.
+    CHECK(!store.load(mu::MusicProvider::netease, now + 3600));
+    CHECK(fs::exists(store.file(mu::MusicProvider::netease)));
+
+    // Saving again replaces the session; cookies of another platform are dropped when loading.
+    const std::vector<mu::Cookie> qq = {cookie("qm_keyst", "k", ".y.qq.com"), cookie("uin", "1", ".qq.com"),
+                                        cookie("MUSIC_U", "x", ".music.163.com")};
+    store.save(mu::MusicProvider::qq, {qq[0]});
+    CHECK(!store.load(mu::MusicProvider::qq, now));
+    store.save(mu::MusicProvider::qq, qq);
+    const auto loaded = store.load(mu::MusicProvider::qq, now);
+    CHECK(loaded && loaded->size() == 2);
+
+    // A damaged file is no session.
+    std::ofstream(store.file(mu::MusicProvider::qq), std::ios::binary | std::ios::trunc) << "garbage";
+    CHECK(!store.load(mu::MusicProvider::qq, now));
+
+    CHECK(store.remove(mu::MusicProvider::netease));
+    CHECK(!fs::exists(store.file(mu::MusicProvider::netease)));
+    CHECK(!store.load(mu::MusicProvider::netease, now));
+    CHECK(store.remove(mu::MusicProvider::netease));
+}
+
+}  // namespace
+
+TEST(session_store_round_trip) { check_store(test_cipher(), "sessions"); }
+
+TEST(session_store_reports_write_failures) {
+    const fs::path blocked = fresh("sessions-blocked");
+    fs::create_directories(blocked);
+    std::ofstream(blocked / "sessions") << "a file where the folder should be";
+    const mu::SessionStore store(blocked / "sessions", test_cipher());
+    CHECK_THROWS_AS(store.save(mu::MusicProvider::netease, {cookie("MUSIC_U", "v", ".music.163.com")}), mu::LyricError,
+                    "folder is a file");
+}
+
+#ifdef _WIN32
+TEST(dpapi_session_cipher) {
+    const auto cipher = mu::user_session_cipher();
+    const std::string plain = R"([{"name":"MUSIC_U","value":"秘密"}])";
+    const std::string sealed = cipher.seal(plain);
+    CHECK(sealed.find("MUSIC_U") == std::string::npos);
+    CHECK_EQ(cipher.open(sealed), std::optional<std::string>(plain), "round trip");
+    std::string tampered = sealed;
+    tampered[tampered.size() / 2] = static_cast<char>(tampered[tampered.size() / 2] ^ 1);
+    CHECK(!cipher.open(tampered));
+    CHECK(!cipher.open("not a dpapi blob"));
+    CHECK(!cipher.open(""));
+    check_store(cipher, "sessions-dpapi");
+}
+#endif
