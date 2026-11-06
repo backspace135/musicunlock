@@ -1,6 +1,8 @@
 // Lyrics workspace rules and wording, mirroring LyricsModel.swift on macOS. Requests run against a
-// scripted transport; no network.
+// scripted transport; set MUSICUNLOCK_LIVE_TESTS=1 on Windows to also search and export for real.
+#include <cstdlib>
 #include <filesystem>
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -355,5 +357,52 @@ TEST(run_search_resolves_links_or_searches) {
     CHECK(resolved.songs.size() == 1 && resolved.songs[0].song_id == "186016");
     CHECK_EQ(urls.size(), std::size_t{2}, "one request each");
 }
+
+#ifdef _WIN32
+TEST(live_workspace_search_links_and_export) {
+    const char* flag = std::getenv("MUSICUNLOCK_LIVE_TESTS");
+    if (!flag || std::string(flag) != "1") {
+        std::cout << "  skipped: set MUSICUNLOCK_LIVE_TESTS=1 to check the real platforms\n";
+        return;
+    }
+    const fs::path directory = mu::utf8_to_path(MU_TEST_SCRATCH) / "lyric-live";
+    fs::remove_all(directory);
+    const mu::MusicApi api(mu::make_system_transport());
+    for (auto provider : mu::all_providers) {
+        const bool netease = provider == mu::MusicProvider::netease;
+        mu::LyricWorkspace workspace;
+        workspace.set_output_directory(directory);
+        workspace.set_provider(provider);
+        workspace.set_query("晴天 周杰伦");
+        const auto search = *workspace.search();
+        const auto lyrics = workspace.search_finished(search, mu::run_search(api, search, ""));
+        CHECK(lyrics && workspace.songs().size() > 1);
+        if (!lyrics) continue;
+        workspace.lyrics_loaded(*lyrics, api.lyrics(lyrics->song, ""));
+        CHECK(workspace.line_count() > 10);
+
+        // Exports match the core renderer byte for byte.
+        auto options = workspace.options();
+        options.format = mu::LyricFormat::srt;
+        workspace.set_options(options);
+        const auto batch = *workspace.export_current();
+        const auto outcome = mu::export_song(api, batch.jobs[0], batch.options, batch.directory, "");
+        workspace.export_succeeded(batch.jobs[0], outcome);
+        workspace.end_export();
+        CHECK(outcome.file && outcome.file->extension() == ".srt");
+        if (outcome.file) {
+            const auto text = mu::render_lyrics(workspace.document(), options, lyrics->song.duration_ms);
+            CHECK(mu::detail::read_file(*outcome.file) == mu::encode_text(options.encoding, text));
+        }
+
+        workspace.set_query(netease ? "https://music.163.com/song?id=186016" : "https://y.qq.com/n/ryqq/songDetail/0039MnYb0qxYhV");
+        const auto link = *workspace.search();
+        CHECK(link.link && link.provider == provider);
+        workspace.search_finished(link, mu::run_search(api, link, ""));
+        CHECK(workspace.songs().size() == 1 && workspace.songs()[0].title == "晴天");
+    }
+    fs::remove_all(directory);
+}
+#endif
 
 }  // namespace
