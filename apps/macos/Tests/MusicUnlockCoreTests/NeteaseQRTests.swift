@@ -147,6 +147,27 @@ final class NeteaseQRTests: XCTestCase {
         XCTAssertEqual(devices, [code.device, code.device, code.device])
     }
 
+    func testQRRefusalsPointToTheOfficialPage() async throws {
+        ScriptedProtocol.reset([("qrcode/unikey", [.init(body: #"{"code":200,"unikey":"KEY"}"#)]),
+                                ("qrcode/client/login", [.init(body: #"{"code":8821,"message":"请切换其他登录方式或升级新版本再试"}"#)])])
+        let api = MusicAPI(session: ScriptedProtocol.session)
+        let code = try await api.createQRCode()
+        do {
+            _ = try await api.checkQRCode(code)
+            XCTFail("8821 must throw")
+        } catch {
+            XCTAssertEqual(error.localizedDescription,
+                           "网易云音乐拒绝了这次扫码登录（8821：请切换其他登录方式或升级新版本再试）。请点击“使用官方登录页”，在网易云音乐的网页上登录。")
+        }
+        ScriptedProtocol.reset([("qrcode/unikey", [.init(body: #"{"code":-462,"msg":"","data":{"verifyType":40}}"#)])])
+        do {
+            _ = try await MusicAPI(session: ScriptedProtocol.session).createQRCode()
+            XCTFail("-462 must throw")
+        } catch {
+            XCTAssertTrue(error.localizedDescription.contains("（-462）") && error.localizedDescription.contains("使用官方登录页"))
+        }
+    }
+
     func testLiveNeteaseQRWaitsForScan() async throws {
         guard ProcessInfo.processInfo.environment["MUSICUNLOCK_LIVE_TESTS"] == "1" else { throw XCTSkip("设置 MUSICUNLOCK_LIVE_TESTS=1 验证实际平台接口") }
         // Two requests: a fresh key and one status query. Nobody logs in.

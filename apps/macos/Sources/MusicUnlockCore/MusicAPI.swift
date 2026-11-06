@@ -94,7 +94,8 @@ public actor MusicAPI {
     }
 
     /// An eapi request as NetEase's Windows client sends it: the client identity goes both into the cookies and
-    /// into the encrypted payload's `header`. Responses stay plain JSON (`e_r` false).
+    /// into the encrypted payload's `header`. Responses stay plain JSON (`e_r` false). Only QR login uses it, so
+    /// any answer but 200 or 800-803 is a refused login.
     private func neteasePC(_ path: String, _ payload: [String: Any], device: String) async throws -> ([String: Any], [HTTPCookie]) {
         let now = Int(Date().timeIntervalSince1970 * 1000)
         let header: [String: String] = [
@@ -119,7 +120,7 @@ public actor MusicAPI {
         let result = try await send(request, provider: .netease)
         let code = Self.number(result.0["code"])
         guard code == 200 || (800...803).contains(code) else {
-            throw LyricError.message((result.0["message"] as? String ?? result.0["msg"] as? String) ?? "网易云音乐请求失败（\(code)），请稍后重试。")
+            throw LyricError.message(Self.qrRefusalMessage(code: code, platformMessage: result.0["message"] as? String ?? result.0["msg"] as? String ?? ""))
         }
         return result
     }
@@ -144,6 +145,13 @@ public actor MusicAPI {
         }
         guard status == kCCSuccess else { throw LyricError.message("无法生成网易云音乐登录请求，请重试。") }
         return output.prefix(written).map { String(format: "%02X", $0) }.joined()
+    }
+
+    /// What to show when NetEase refuses a QR login, e.g. its risk control's 8821 "请切换其他登录方式或升级新版本再试":
+    /// the platform's words alone leave nothing to try, so this points to the official login page.
+    public static func qrRefusalMessage(code: Int, platformMessage: String) -> String {
+        let reason = platformMessage.isEmpty ? String(code) : "\(code)：\(platformMessage)"
+        return "网易云音乐拒绝了这次扫码登录（\(reason)）。请点击“使用官方登录页”，在网易云音乐的网页上登录。"
     }
 
     private func qq(_ path: String, _ parameters: [String: String], cookie: String) async throws -> [String: Any] {
@@ -274,6 +282,7 @@ public actor MusicAPI {
         return LyricDocument(original: text("lyric"), translation: text("trans"), romanization: text("roma"))
     }
 
+    /// Both throw LyricError with a hint towards the official login page when NetEase refuses the login.
     public func createQRCode() async throws -> MusicQRCode {
         let device = (0..<32).map { _ in String("0123456789ABCDEF".randomElement()!) }.joined()
         let (json, _) = try await neteasePC("/api/login/qrcode/unikey", ["type": 3], device: device)
