@@ -206,6 +206,7 @@ void LyricsView::Refresh() {
 
     Notice().Message(to_hstring(workspace_.notice()));
     Notice().IsOpen(!workspace_.notice().empty());
+    Notice().Visibility(shown(!workspace_.notice().empty()));
 
     const bool nothing = workspace_.songs().empty() && workspace_.collections().empty();
     ResultsTitle().Text(to_hstring(workspace_.results_title()));
@@ -359,7 +360,10 @@ void LyricsView::OnCancelSearch(IInspectable const&, RoutedEventArgs const&) {
     Refresh();
 }
 
-void LyricsView::OnNoticeClosed(InfoBar const&, InfoBarClosedEventArgs const&) { workspace_.dismiss_notice(); }
+void LyricsView::OnNoticeClosed(InfoBar const&, InfoBarClosedEventArgs const&) {
+    workspace_.dismiss_notice();
+    Notice().Visibility(Visibility::Collapsed);
+}
 
 void LyricsView::OnSelectAll(IInspectable const&, RoutedEventArgs const&) {
     workspace_.select_all();

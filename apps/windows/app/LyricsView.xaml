@@ -31,7 +31,8 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid Padding="{StaticResource MuPagePadding}" RowSpacing="16">
+        <!-- 16 px between the search bar, the notice (collapsed without one) and the panels. -->
+        <Grid Padding="{StaticResource MuPagePadding}">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -39,7 +40,7 @@
             </Grid.RowDefinitions>
 
             <!-- Search bar -->
-            <StackPanel Spacing="12">
+            <StackPanel Spacing="12" Margin="0,0,0,16">
                 <Grid MinHeight="28">
                     <TextBlock Text="歌词工作台" Style="{StaticResource MuPageTitleStyle}" VerticalAlignment="Center" />
                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -78,7 +79,8 @@
                 </Grid>
             </StackPanel>
 
-            <InfoBar x:Name="Notice" Grid.Row="1" Severity="Informational" IsOpen="False" IsClosable="True" Closed="OnNoticeClosed" />
+            <InfoBar x:Name="Notice" Grid.Row="1" Margin="0,0,0,16" Severity="Informational" IsOpen="False" IsClosable="True"
+                     Visibility="Collapsed" Closed="OnNoticeClosed" />
 
             <Grid Grid.Row="2" ColumnSpacing="18">
                 <Grid.ColumnDefinitions>
