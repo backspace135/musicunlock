@@ -6,6 +6,7 @@
 #include <optional>
 
 #include "musicunlock/conversion.h"
+#include "musicunlock/lyrics.h"
 
 namespace settings {
 
@@ -14,9 +15,17 @@ struct Export {
     mu::NamingPolicy naming = mu::NamingPolicy::original;
 };
 
+/// Lyrics workspace export settings, kept in lyrics.json next to settings.json.
+struct Lyrics {
+    mu::LyricOptions options;
+    std::optional<std::filesystem::path> output_directory;
+};
+
 std::filesystem::path data_directory();
 Export load();
 /// Best effort: a read-only or missing profile folder must not interrupt the user.
 void save(const Export& value);
+Lyrics load_lyrics();
+void save_lyrics(const Lyrics& value);
 
 }  // namespace settings
