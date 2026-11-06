@@ -342,6 +342,19 @@ TEST(qq_requests_and_parsing) {
     CHECK_THROWS_AS(api_for(garbage).search("x", mu::MusicProvider::qq, mu::SearchKind::album, 1, ""), LyricError, "not json");
 }
 
+TEST(md5_reference_vectors) {
+    // RFC 1321 appendix A.5, plus inputs around the 56- and 64-byte padding boundaries.
+    CHECK_EQ(mu::detail::md5_hex(""), std::string("d41d8cd98f00b204e9800998ecf8427e"), "empty");
+    CHECK_EQ(mu::detail::md5_hex("abc"), std::string("900150983cd24fb0d6963f7d28e17f72"), "abc");
+    CHECK_EQ(mu::detail::md5_hex("message digest"), std::string("f96b697d7cb7938d525a2f31aaf161d0"), "message digest");
+    CHECK_EQ(mu::detail::md5_hex("12345678901234567890123456789012345678901234567890123456789012345678901234567890"),
+             std::string("57edf4a22be3c955ac49da2e2107b67a"), "80 digits");
+    CHECK_EQ(mu::detail::md5_hex(std::string(55, 'a')), std::string("ef1772b6dff9a122358552954ad0df65"), "55 bytes");
+    CHECK_EQ(mu::detail::md5_hex(std::string(56, 'a')), std::string("3b0c8ac703f828b04c6c197006d17218"), "56 bytes");
+    CHECK_EQ(mu::detail::md5_hex(std::string(64, 'a')), std::string("014842d480b571495a4a0363793f7367"), "64 bytes");
+    CHECK_EQ(mu::detail::md5_hex("网易云"), std::string("1a17aec70bd7d64faafb3f894b1491ee"), "utf-8");
+}
+
 TEST(qr_login_and_account) {
     ScriptedTransport script;
     script.on("qrcode/unikey", R"({"code":200,"unikey":"KEY"})");
