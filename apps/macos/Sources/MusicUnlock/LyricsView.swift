@@ -7,6 +7,8 @@ struct LyricsView: View {
     @ObservedObject var accounts: MusicAccounts
     @State private var editor = LyricEditorTab.original
     @FocusState private var searchFocused: Bool
+    @Namespace private var glass
+    @Namespace private var selection
 
     var body: some View {
         VStack(spacing: 16) {
@@ -21,7 +23,8 @@ struct LyricsView: View {
                     } label: { Image(systemName: "xmark") }
                     .buttonStyle(.plain).accessibilityLabel("关闭提示")
                 }.foregroundStyle(Theme.secondary).padding(12)
-                    .background(Theme.accent.opacity(0.07), in: RoundedRectangle(cornerRadius: 8))
+                    .liquidSurface(radius: 12, tint: Theme.accent.opacity(0.08))
+                    .transition(.settle)
             }
             HStack(alignment: .top, spacing: 18) {
                 results.frame(width: 300)
@@ -30,7 +33,8 @@ struct LyricsView: View {
             footer
         }
         .padding(24).padding(.top, -4)
-        .background(Theme.background).foregroundStyle(Theme.text).tint(Theme.accent)
+        .foregroundStyle(Theme.text).tint(Theme.accent)
+        .motion(.smooth(duration: 0.35), value: model.notice ?? accounts.message)
         .frame(minWidth: 880, minHeight: 600)
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
@@ -66,6 +70,7 @@ struct LyricsView: View {
                 Spacer()
                 Label(accounts.signedIn.contains(model.provider) ? "登录会话已保存" : "公开内容可免登录读取", systemImage: accounts.signedIn.contains(model.provider) ? "checkmark.shield" : "network")
                     .font(.system(size: 11)).foregroundStyle(Theme.secondary)
+                    .contentTransition(.symbolEffect(.replace))
             }
             HStack(spacing: 10) {
                 Picker("音乐来源", selection: $model.provider) {
@@ -78,13 +83,18 @@ struct LyricsView: View {
                     .textFieldStyle(.roundedBorder).focused($searchFocused)
                     .onSubmit { model.search() }.disabled(model.exporting)
                     .accessibilityLabel("歌词搜索关键词或音乐链接")
-                if model.searching {
-                    Button("取消", action: model.cancelSearch).liquidButton()
-                } else {
-                    Button(action: { model.search() }) { Label("搜索", systemImage: "magnifyingglass") }
-                        .liquidButton(prominent: true).disabled(model.exporting || model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                GlassCluster {
+                    if model.searching {
+                        Button(action: model.cancelSearch) { Label("取消", systemImage: "xmark") }
+                            .liquidButton().glassEffectID("search", in: glass)
+                    } else {
+                        Button(action: { model.search() }) { Label("搜索", systemImage: "magnifyingglass") }
+                            .liquidButton(prominent: true).disabled(model.exporting || model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            .glassEffectID("search", in: glass)
+                    }
                 }
             }.controlSize(.large)
+            .motion(.spring(duration: 0.4, bounce: 0.2), value: model.searching)
         }
     }
 
@@ -95,6 +105,7 @@ struct LyricsView: View {
                     Text(model.collectionTitle ?? "搜索结果").font(.system(size: 13, weight: .semibold)).lineLimit(1)
                     Text(model.songs.isEmpty ? "支持网易云音乐与 QQ 音乐" : "\(model.songs.count) 首歌曲，已选 \(model.checked.count) 首")
                         .font(.system(size: 11)).foregroundStyle(Theme.secondary)
+                        .contentTransition(.numericText())
                 }
                 Spacer(minLength: 4)
                 if !model.songs.isEmpty {
@@ -106,14 +117,17 @@ struct LyricsView: View {
             if model.searching && model.songs.isEmpty && model.collections.isEmpty {
                 VStack(spacing: 12) { ProgressView(); Text("正在读取\(model.provider.title)…").font(.system(size: 12)) }
                     .frame(maxWidth: .infinity, maxHeight: .infinity).foregroundStyle(Theme.secondary)
+                    .transition(.blurReplace)
             } else if model.songs.isEmpty && model.collections.isEmpty {
                 VStack(spacing: 14) {
                     Image(systemName: "text.magnifyingglass").font(.system(size: 34, weight: .light))
+                        .symbolEffect(.wiggle, value: searchFocused)
                     Text("先找到你想要的歌").font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.text)
                     Text("输入名称搜索，或粘贴完整链接。\n歌单与专辑可以批量提取歌词。")
                         .font(.system(size: 12)).multilineTextAlignment(.center).lineSpacing(4)
                     Button("打开本地歌词", action: model.importLyrics).buttonStyle(.link)
                 }.foregroundStyle(Theme.secondary).padding(20).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.blurReplace)
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -129,20 +143,28 @@ struct LyricsView: View {
                                     Image(systemName: "chevron.right").font(.system(size: 10)).foregroundStyle(Theme.secondary)
                                 }.padding(14).contentShape(Rectangle())
                             }.buttonStyle(.plain).disabled(model.exporting)
+                            .hoverHighlight(radius: 10).padding(.horizontal, 6)
+                            .transition(.settle)
                             Divider().padding(.leading, 54)
                         }
-                        ForEach(model.songs) { song in songRow(song) }
+                        ForEach(model.songs) { song in songRow(song).transition(.settle) }
                         if model.hasMore {
                             Button("加载更多", action: { model.search(more: true) })
                                 .padding(16).disabled(model.searching || model.exporting)
                         }
                     }
+                    .padding(.vertical, 4)
+                    .motion(.spring(duration: 0.35, bounce: 0.2), value: model.selected?.id)
+                    .motion(.smooth(duration: 0.35), value: model.songs.map(\.id))
                 }
+                .scrollEdgeEffectStyle(.soft, for: .top)
+                .transition(.blurReplace)
             }
         }
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.separator))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .liquidSurface(radius: 20)
+        .motion(.smooth(duration: 0.35), value: model.songs.isEmpty && model.collections.isEmpty)
+        .motion(.smooth(duration: 0.3), value: model.searching)
     }
 
     private func songRow(_ song: LyricSong) -> some View {
@@ -161,11 +183,19 @@ struct LyricsView: View {
                 }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
             }.buttonStyle(.plain).disabled(model.exporting)
         }
-        .padding(.horizontal, 14).padding(.vertical, 13)
-        .background(model.selected?.id == song.id ? Theme.accent.opacity(0.09) : .clear)
-        .overlay(alignment: .leading) {
-            if model.selected?.id == song.id { RoundedRectangle(cornerRadius: 2).fill(Theme.accent).frame(width: 3).padding(.vertical, 12) }
+        .padding(.horizontal, 10).padding(.vertical, 13)
+        .hoverHighlight(radius: 10)
+        // A single highlight slides between rows rather than blinking on and off.
+        .background {
+            if model.selected?.id == song.id {
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 10).fill(Theme.accent.opacity(0.11))
+                    Capsule().fill(Theme.accent).frame(width: 3).padding(.vertical, 12).padding(.leading, 3)
+                }
+                .matchedGeometryEffect(id: "selection", in: selection)
+            }
         }
+        .padding(.horizontal, 6)
         .contextMenu {
             Button("查看歌词") { model.select(song) }.disabled(model.exporting)
             Button(model.checked.contains(song.id) ? "取消选择" : "加入批量导出") { model.toggle(song) }.disabled(model.exporting)
@@ -181,8 +211,11 @@ struct LyricsView: View {
                         Text([song.artist, song.album].filter { !$0.isEmpty }.joined(separator: " / "))
                             .font(.system(size: 12)).foregroundStyle(Theme.secondary).lineLimit(2).textSelection(.enabled)
                     }
+                    .id(song.id).transition(.blurReplace)
                     Spacer()
-                    Button { model.retryLyrics() } label: { Image(systemName: "arrow.clockwise") }
+                    Button { model.retryLyrics() } label: {
+                        Image(systemName: "arrow.clockwise").symbolEffect(.rotate, isActive: model.loadingLyrics)
+                    }
                         .buttonStyle(.borderless).help("重新获取歌词，会替换当前编辑")
                         .accessibilityLabel("重新获取歌词").disabled(model.loadingLyrics || model.exporting || song.songID.hasPrefix("local:"))
                 }.padding(18)
@@ -195,6 +228,7 @@ struct LyricsView: View {
                 if model.loadingLyrics {
                     VStack(spacing: 12) { ProgressView(); Text("正在获取歌词…").font(.system(size: 12)) }
                         .frame(maxWidth: .infinity, maxHeight: .infinity).foregroundStyle(Theme.secondary)
+                        .transition(.blurReplace)
                 } else if editor == .preview {
                     if let error = model.previewError {
                         VStack(alignment: .leading, spacing: 12) {
@@ -202,17 +236,21 @@ struct LyricsView: View {
                             Text(error).font(.system(size: 13)).foregroundStyle(Theme.secondary)
                             Button("调整设置") { model.showSettings = true }
                         }.padding(24).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .transition(.opacity)
                     } else {
                         ScrollView([.vertical, .horizontal]) {
                             Text(model.preview).font(.system(size: 12, design: .monospaced)).lineSpacing(5).textSelection(.enabled)
                                 .frame(maxWidth: .infinity, alignment: .topLeading).padding(18)
                         }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .transition(.opacity)
                     }
                 } else {
                     TextEditor(text: editorBinding)
                         .font(.system(size: 13, design: .monospaced)).lineSpacing(5)
                         .scrollContentBackground(.hidden).padding(12)
                         .disabled(model.exporting).accessibilityLabel("编辑\(editor.rawValue)歌词，支持 LRC 时间戳")
+                        .id("\(song.id)-\(editor.rawValue)")
+                        .transition(.opacity.combined(with: .offset(y: 6)))
                 }
                 Divider()
                 HStack(spacing: 10) {
@@ -221,10 +259,12 @@ struct LyricsView: View {
                     Spacer()
                     Text("\(LyricParser.parse(model.document.original).count) 行")
                         .font(.system(size: 11)).foregroundStyle(Theme.secondary).monospacedDigit()
+                        .contentTransition(.numericText())
                 }.padding(14)
             } else {
                 VStack(spacing: 16) {
                     Image(systemName: "text.alignleft").font(.system(size: 42, weight: .ultraLight)).foregroundStyle(Theme.accent)
+                        .symbolEffect(.breathe.pulse, options: .repeat(.continuous))
                     Text("让歌词跟上音乐").font(.system(size: 22, weight: .medium))
                     Text("选一首歌，查看原文、译文与罗马音。\n也能把歌词变成视频用的字幕。")
                         .font(.system(size: 13)).foregroundStyle(Theme.secondary).lineSpacing(5).multilineTextAlignment(.center)
@@ -233,11 +273,14 @@ struct LyricsView: View {
                         Label("SRT / VTT 字幕", systemImage: "captions.bubble")
                     }.font(.system(size: 11)).foregroundStyle(Theme.secondary).padding(.top, 8)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.blurReplace)
             }
         }
-        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.separator))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .liquidSurface(radius: 20)
+        .motion(.smooth(duration: 0.35), value: model.selected?.id)
+        .motion(.smooth(duration: 0.25), value: editor)
+        .motion(.smooth(duration: 0.3), value: model.loadingLyrics)
     }
 
     private var editorBinding: Binding<String> {
@@ -265,38 +308,55 @@ struct LyricsView: View {
                     ScrollView { Text(model.failures.joined(separator: "\n")).font(.system(size: 11)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }
                         .frame(maxHeight: 80).padding(.top, 6)
                 }.font(.system(size: 12)).foregroundStyle(Theme.error)
+                .transition(.settle)
             }
             HStack(spacing: 12) {
                 if model.exporting {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("正在导出 \(model.progress) / \(model.exportTotal)").font(.system(size: 12)).monospacedDigit()
+                            .contentTransition(.numericText(value: Double(model.progress)))
                         ProgressView(value: Double(model.progress), total: Double(max(1, model.exportTotal)))
-                    }.frame(width: 190)
+                    }.frame(width: 190).transition(.blurReplace)
                 } else {
                     Picker("导出格式", selection: $model.options.format) {
                         ForEach(LyricFormat.allCases) { format in Text(format.rawValue).tag(format) }
                     }.labelsHidden().frame(width: 78)
                     Button { model.showSettings = true } label: { Label("导出设置", systemImage: "slider.horizontal.3") }.liquidButton()
+                        .transition(.blurReplace)
                 }
                 Spacer(minLength: 0)
-                if model.exporting {
-                    Button("停止导出", action: model.stopExport).liquidButton()
-                } else {
+                if !model.exporting {
                     Menu {
                         Button("复制歌词", action: model.copyPreview).disabled(model.preview.isEmpty)
                         Button("打开输出文件夹", action: model.revealOutput)
                         Button("更改输出文件夹", action: model.chooseOutput)
                     } label: { Image(systemName: "ellipsis.circle") }
                         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("更多歌词操作").accessibilityLabel("更多歌词操作")
-                    if !model.checked.isEmpty {
-                        Button("导出所选 \(model.checked.count) 首", action: model.exportChecked).liquidButton()
+                        .transition(.opacity)
+                }
+                GlassCluster {
+                    if model.exporting {
+                        Button("停止导出", action: model.stopExport).liquidButton()
+                            .glassEffectID("primary", in: glass)
+                    } else {
+                        if !model.checked.isEmpty {
+                            Button("导出所选 \(model.checked.count) 首", action: model.exportChecked).liquidButton()
+                                .contentTransition(.numericText(value: Double(model.checked.count)))
+                                .glassEffectID("batch", in: glass)
+                        }
+                        Button(action: model.exportCurrent) { Label("导出当前歌词", systemImage: "square.and.arrow.down") }
+                            .liquidButton(prominent: true).disabled(model.selected == nil || model.loadingLyrics || model.previewError != nil)
+                            .glassEffectID("primary", in: glass)
                     }
-                    Button(action: model.exportCurrent) { Label("导出当前歌词", systemImage: "square.and.arrow.down") }
-                        .liquidButton(prominent: true).disabled(model.selected == nil || model.loadingLyrics || model.previewError != nil)
                 }
             }.controlSize(.large)
         }
-        .padding(16).liquidSurface(radius: 18)
+        .padding(16).liquidSurface(radius: 22)
+        .motion(.spring(duration: 0.45, bounce: 0.2), value: model.exporting)
+        .motion(.spring(duration: 0.45, bounce: 0.2), value: model.checked.isEmpty)
+        .motion(.smooth(duration: 0.3), value: model.checked.count)
+        .motion(.smooth(duration: 0.3), value: model.progress)
+        .motion(.smooth(duration: 0.35), value: model.failures.count)
     }
 }
 

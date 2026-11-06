@@ -17,10 +17,17 @@ struct WorkspaceView: View {
                     model.workspace = .lyrics
                     lyrics.searchForAudio(job)
                 })
+                .transition(.blurReplace)
             } else {
                 LyricsView(model: lyrics, accounts: lyrics.accounts)
+                    .transition(.blurReplace)
             }
         }
+        // One shared backdrop, so switching workspaces does not flash the colour field.
+        .background { AmbientBackground().ignoresSafeArea() }
+        // Let the colour field run under the titlebar so the toolbar glass has something to refract.
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+        .motion(.smooth(duration: 0.4), value: model.workspace)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 Picker("工作区", selection: $model.workspace) {
