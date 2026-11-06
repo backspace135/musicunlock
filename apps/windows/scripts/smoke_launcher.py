@@ -3,10 +3,11 @@
 
     python scripts/smoke_launcher.py build/windows-release
 
-Packs a small folder whose MusicUnlock.exe is launcher_probe.exe (it records its path, working folder and
-arguments), copies only the packed exe into an empty folder and runs it: first start, warm start, arguments
-passed through, repair after tampering, concurrent starts, removal of old versions unless in use, and the error
-messages. MUSICUNLOCK_RUNTIME_DIR keeps every extraction under build/tmp; nothing goes to %LOCALAPPDATA%.
+Packs a small folder whose MusicUnlock.exe is launcher_probe.exe (it records its path, working folder, the
+launcher path it was given and its arguments), copies only the packed exe into an empty folder and runs it: first
+start, warm start, arguments and the launcher path passed on, repair after tampering, concurrent starts, removal
+of old versions unless in use, and the error messages. MUSICUNLOCK_RUNTIME_DIR keeps every extraction under
+build/tmp; nothing goes to %LOCALAPPDATA%.
 """
 from pathlib import Path
 import os
@@ -53,8 +54,10 @@ class Run:
         self.probe = WORK / f"{tag}.probe"
         for path in (self.log, self.probe):
             path.unlink(missing_ok=True)
+        # A stale MUSICUNLOCK_LAUNCHER_PATH from the environment must be replaced by the launcher's own path.
         env = dict(os.environ, MUSICUNLOCK_RUNTIME_DIR=str(root), MUSICUNLOCK_LAUNCHER_LOG=str(self.log),
-                   MUSICUNLOCK_PROBE_OUT=str(self.probe), MUSICUNLOCK_PROBE_HOLD_MS=str(hold_ms))
+                   MUSICUNLOCK_PROBE_OUT=str(self.probe), MUSICUNLOCK_PROBE_HOLD_MS=str(hold_ms),
+                   MUSICUNLOCK_LAUNCHER_PATH=r"C:\stale\MusicUnlock.exe")
         self.process = subprocess.Popen([str(exe), *args], env=env, cwd=WORK)
         if wait:
             self.wait()
@@ -112,11 +115,13 @@ def main() -> None:
     folder = versions[0]
     check(Path(lines[0]) == folder / "MusicUnlock.exe", "started the extracted app", lines[0])
     check(Path(lines[1]) == WORK, "kept the working folder", lines[1])
-    check(lines[2:] == args, "arguments passed through", repr(lines[2:]))
+    # The app pins and relaunches the single exe, not the extracted copy (app/Taskbar.cpp).
+    check(Path(lines[2]) == v1.exe, "told the app the single exe's path", lines[2])
+    check(lines[3:] == args, "arguments passed through", repr(lines[3:]))
     check(same_files(folder, v1.files), "extracted files match the app folder")
     warm = Run(v1.exe, root, "warm")
     warm.expect("reused")
-    check(warm.lines()[2:] == [], "no arguments")
+    check(warm.lines()[3:] == [], "no arguments")
     print(f"first start {first.launch_ms():.0f} ms, warm start {warm.launch_ms():.0f} ms (stand-in app)")
 
     # Tampered, deleted and planted files are repaired on the next start.

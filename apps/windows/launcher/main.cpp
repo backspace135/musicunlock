@@ -3,6 +3,8 @@
 // the app with the same command line and exits.
 //
 // MUSICUNLOCK_RUNTIME_DIR  extract under this folder instead of %LOCALAPPDATA%\MusicUnlock\runtime
+// MUSICUNLOCK_LAUNCHER_PATH set for the app to this exe's full path, so its taskbar button pins and relaunches
+//                          the single exe instead of the extracted copy (app/Taskbar.cpp)
 // MUSICUNLOCK_LAUNCHER_LOG diagnostics for tests and measurements: append timings and errors to this file,
 //                          show no dialog, wait for the app and return its exit code
 #include <windows.h>
@@ -59,6 +61,17 @@ std::span<const std::uint8_t> embedded_payload() {
     return {static_cast<const std::uint8_t*>(data), SizeofResource(nullptr, resource)};
 }
 
+/// This executable's full path, however long.
+std::wstring own_path() {
+    std::wstring path(MAX_PATH, L'\0');
+    for (;;) {
+        const DWORD length = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
+        if (length == 0) return {};
+        if (length < path.size()) return path.substr(0, length);
+        path.resize(path.size() * 2);
+    }
+}
+
 PROCESS_INFORMATION start_app(const std::filesystem::path& exe) {
     STARTUPINFOW own{};
     GetStartupInfoW(&own);
@@ -77,6 +90,8 @@ PROCESS_INFORMATION start_app(const std::filesystem::path& exe) {
         command += L' ';
         command += arguments;
     }
+    // Only the launcher sets this (it replaces any inherited value); the app started directly sees none.
+    SetEnvironmentVariableW(L"MUSICUNLOCK_LAUNCHER_PATH", own_path().c_str());
     PROCESS_INFORMATION process{};
     if (!CreateProcessW(exe.c_str(), command.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &startup, &process)) {
         throw Error{Problem::launch, GetLastError(), exe};
