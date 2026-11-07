@@ -3,6 +3,9 @@ agp = "9.5.1"
 kotlin = "2.4.21"
 compileSdk = "37"
 minSdk = "26"
+# Installed with sdkmanager into the Android SDK; scripts/build.py reads these too.
+ndk = "30.0.16248370"
+cmake = "4.1.2"
 activityCompose = "1.13.0"
 composeBom = "2026.09.00"
 
