@@ -858,13 +858,14 @@ release 版没有这个入口（`app/src/release/` 里是空实现）。
 **构建和运行**（在仓库根目录）：
 
 ```sh
-python3 apps/android/scripts/build.py
-adb -s emulator-5554 install -r apps/android/build/app/outputs/apk/debug/app-debug.apk
-adb -s emulator-5554 shell am start -n io.github.backspace135.musicunlock/.MainActivity
+python3 apps/android/scripts/build.py                     # 编 APK，跑主机上的核心测试
+python3 apps/android/scripts/device.py install            # 编当前分支的 debug 版，装到设备上并启动
+python3 apps/android/scripts/device.py screenshot <名字>   # 截图存到 build/screenshots/<名字>.png
 ```
 
-`adb` 一律用 `-s` 指定设备。单元测试：在 `apps/android` 下设置好 `JAVA_HOME` 和 `ANDROID_HOME` 后运行
-`./gradlew :app:testDebugUnitTest`。
+`device.py` 会给每个分支装单独的一份（例如 `android/unlock` 装成“音匣 (unlock)”），连着多台设备时用
+`device.py --serial <序列号> install` 指定，详见 README 的“在设备上安装和调试”。自己直接用 `adb` 时一律加 `-s`。
+单元测试：在 `apps/android` 下设置好 `JAVA_HOME` 和 `ANDROID_HOME` 后运行 `./gradlew :app:testDebugUnitTest`（CI 也会跑）。
 
 **#30 的验收记录**（模拟器 `mu-ui`，Pixel 7 外形，Android 37 arm64，宿主 GPU）：
 
