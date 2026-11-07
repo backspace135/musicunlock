@@ -219,11 +219,9 @@ struct LyricsView: View {
                         .buttonStyle(.borderless).help("重新获取歌词，会替换当前编辑")
                         .accessibilityLabel("重新获取歌词").disabled(model.loadingLyrics || model.exporting || song.songID.hasPrefix("local:"))
                 }.padding(18)
-                HStack {
-                    Picker("歌词编辑区域", selection: $editor) {
-                        ForEach(LyricEditorTab.allCases) { tab in Text(tab.rawValue).tag(tab) }
-                    }.pickerStyle(.segmented).labelsHidden()
-                }.padding(.horizontal, 18).padding(.bottom, 14)
+                GlassSwitch(title: "歌词编辑区域", selection: $editor, options: LyricEditorTab.allCases,
+                            label: \.rawValue, onGlass: true, fill: true)
+                    .padding(.horizontal, 18).padding(.bottom, 14)
                 Divider()
                 if model.loadingLyrics {
                     VStack(spacing: 12) { ProgressView(); Text("正在获取歌词…").font(.system(size: 12)) }

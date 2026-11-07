@@ -39,7 +39,8 @@ SF Symbols 提供一致的图标语言，原生控件保持焦点反馈与键盘
 通过 Chrome DevTools MCP 阅读 [Applying Liquid Glass to custom views](https://developer.apple.com/documentation/swiftui/applying-liquid-glass-to-custom-views)。
 
 - 添加文件、添加文件夹放在系统工具栏，由系统提供玻璃；主转换按钮使用 `.glassProminent`，次要按钮使用不着色的 `.glass`。
-- 队列筛选使用原生分段控件，选中态由系统绘制。自绘玻璃胶囊会盖住选中文字，已弃用。
+- 队列筛选和歌词编辑区标签同样用 `GlassSwitch`（文字段，宽度随文字）。早先自绘的玻璃胶囊盖在文字上导致选中文字发灰，
+  现在透镜在文字后面，选中项加粗。编辑区本身是玻璃卡片，所以那里改用 iOS 静止态那种浅色轨道 + 白色药丸，不叠玻璃。
 - 工具栏的工作区切换是自绘的 `GlassSwitch`：玻璃轨道里一颗玻璃透镜放在图标**后面**（不会盖住图标），
   切换时弹簧滑过去，途中用 `keyframeAnimator` 横向拉长、落位时回弹；按下时透镜放大，按住可拖动切换。
   该工具栏项隐藏系统共享胶囊（`sharedBackgroundVisibility(.hidden)`），避免玻璃叠玻璃。

@@ -178,12 +178,8 @@ struct ContentView: View {
         .liquidSurface(radius: 20)
     }
 
-    /// Native segmented control: the system draws the selection, so the label stays legible on glass.
     private var queueFilters: some View {
-        Picker("筛选队列", selection: $model.filter) {
-            ForEach(QueueFilter.allCases) { item in Text(item.rawValue).tag(item) }
-        }
-        .pickerStyle(.segmented).labelsHidden().fixedSize()
+        GlassSwitch(title: "筛选队列", selection: $model.filter, options: QueueFilter.allCases, label: \.rawValue)
     }
 
     private var inspector: some View {
