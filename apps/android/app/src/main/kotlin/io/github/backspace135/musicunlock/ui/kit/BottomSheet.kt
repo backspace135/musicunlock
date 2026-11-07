@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -84,6 +85,7 @@ fun MuBottomSheet(
         if (visible) {
             present = true
         } else if (present) {
+            state.stop()
             state.animateTo(state.height, 0f)
             present = false
             state.reset()
@@ -96,6 +98,9 @@ fun MuBottomSheet(
             if (sheetShouldDismiss(state.offset, velocity, state.height, MuMotion.sheetProjection)) {
                 state.animateTo(state.height, velocity)
                 currentDismiss()
+                // Give the caller's `visible = false` time to arrive; if it does, the hide above cancels this.
+                withFrameNanos {}
+                withFrameNanos {}
                 // The caller kept the sheet: come back up.
                 if (currentVisible) state.animateTo(0f, 0f)
             } else {
