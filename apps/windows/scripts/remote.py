@@ -154,7 +154,7 @@ def main() -> None:
     android_build.add_argument("argv", nargs=argparse.REMAINDER)
     commands.add_parser("android-install", help="sync, then install this branch's debug build on the phone")
     android_shot = commands.add_parser("android-screenshot", help="screenshot the phone into build/screenshots/")
-    android_shot.add_argument("name")
+    android_shot.add_argument("shot", metavar="name")  # not "name": that is the worktree option
     android_device = commands.add_parser("android-device", help="sync, then run a device.py command")
     android_device.add_argument("argv", nargs=argparse.REMAINDER)
     commands.add_parser("list", help="list worktrees on the Windows machine")
@@ -188,7 +188,7 @@ def main() -> None:
             if not extra:
                 sys.exit("请在 -- 后面给出 device.py 的命令")
             sys.exit(remote.run_android("device.py", *extra))
-        name = args.name.removesuffix(".png")
+        name = args.shot.removesuffix(".png")
         code = remote.run_android("device.py", "screenshot", name)
         if code == 0:
             print(f"截图已取回：{remote.fetch(f'build/screenshots/{name}.png', ROOT / 'build' / 'screenshots' / f'{name}.png')}")
