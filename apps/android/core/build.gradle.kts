@@ -2,6 +2,14 @@ plugins {
     alias(libs.plugins.android.library)
 }
 
+androidComponents {
+    onVariants { variant ->
+        // The instrumented tests decode the shared fixtures (tests/fixtures/qmc), as the core tests do.
+        variant.androidTest?.sources?.assets?.addStaticSourceDirectory(
+            rootProject.layout.projectDirectory.dir("../../tests/fixtures").asFile.path)
+    }
+}
+
 android {
     namespace = "io.github.backspace135.musicunlock.core"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -37,8 +45,11 @@ android {
 }
 
 dependencies {
+    // Part of the API: suspend functions and Flow.
+    api(libs.kotlinx.coroutines.android)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.kotlinx.coroutines.test)
 }

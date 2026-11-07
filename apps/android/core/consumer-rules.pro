@@ -20,3 +20,4 @@
     java.lang.String mandarinToLatin(java.lang.String);
     java.lang.String gb18030ToUtf8(byte[]);
 }
+

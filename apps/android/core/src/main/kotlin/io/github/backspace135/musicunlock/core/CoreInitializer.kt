@@ -7,11 +7,13 @@ import android.net.Uri
 
 /**
  * Hands the application context to [MusicUnlockCore] when the process starts, before `Application.onCreate`,
- * so no feature has to remember an init call. Declared in this module's manifest; it serves no data.
+ * so no feature has to remember an init call, and clears what earlier runs left in the cache. Declared in this
+ * module's manifest; it serves no data.
  */
 internal class CoreInitializer : ContentProvider() {
     override fun onCreate(): Boolean {
         MusicUnlockCore.attach(checkNotNull(context))
+        Thread(CacheFolders::deleteEarlierRuns, "musicunlock-cache-cleanup").start()
         return true
     }
 

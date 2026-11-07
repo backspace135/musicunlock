@@ -19,6 +19,7 @@ if(ANDROID)
   # The JNI bridge. The whole core goes into the library, so linking it (with the NDK's --no-undefined) proves
   # every symbol resolves on Android; the bridge supplies the platform text conversion the core leaves out.
   add_library(musicunlock SHARED
+    audio_jni.cpp
     jni_support.cpp
     lyrics_jni.cpp
     musicunlock_jni.cpp
