@@ -2,28 +2,31 @@
 
 Android 原生版本的开发目录，与 macOS、Windows 版本在同一个 Git 仓库维护。
 
-**当前状态：App 只有一个显示“音匣”的占位页面；`:core` 用 NDK 把 `shared/core` 编进 `libmusicunlock.so`，并用 JNI
-把核心封装成 Kotlin API（见下文“架构”和“调用核心”）。**
+**当前状态：界面基础、组件和应用外壳已完成，两个工作区和账号页还是假数据的占位页面；`:core` 用 NDK 把 `shared/core`
+编进 `libmusicunlock.so`，并用 JNI 把核心封装成 Kotlin API（见下文“架构”和“调用核心”）。**
 
 ## 技术方向
 
 - Kotlin + Jetpack Compose；业务逻辑放在 `shared/core`（C++，与 Windows 共用），Kotlin 只做界面和平台实现。
 - minSdk 26，compileSdk / targetSdk 37，只打 arm64-v8a。
 - 只用黑白灰，状态靠图标和文字区分，不靠颜色。
+- 界面的 token、动效参数、页面和文件约定、每个组件的用法见 [DESIGN.md](DESIGN.md)，写页面前先读。
 
 ## 目录
 
 ```text
 apps/android/
 ├── app/           应用模块（io.github.backspace135.musicunlock），Compose 界面
+│   └── src/debug/ 只在 debug 版里的组件演示与调参页
 ├── core/          Android 库模块：shared/core 的 JNI 桥接、Kotlin 封装和平台实现
 │   ├── src/main/cpp/     CMake 工程：add_subdirectory 引入 shared/core，产出 libmusicunlock.so 和核心测试；*_jni.cpp 是桥接
 │   ├── src/main/kotlin/  Kotlin API，包名 io.github.backspace135.musicunlock.core
 │   ├── src/androidTest/  instrumented tests（在模拟器上跑）
 │   └── consumer-rules.pro  R8 保留清单：C++ 按名字调用的 Kotlin 类和方法
 ├── gradle/        Gradle wrapper 与版本目录 libs.versions.toml（NDK、CMake 的版本也写在这里）
-└── scripts/       build.py：编译 APK、跑核心测试；device.py：装到设备和调试；setup_toolchain.py：安装工具链；
-                   android_env.py：三者共用的环境设置
+├── scripts/       build.py：编译 APK、跑核心测试；device.py：装到设备和调试；setup_toolchain.py：安装工具链；
+│                  android_env.py：三者共用的环境设置
+└── DESIGN.md      界面设计与组件用法
 ```
 
 ## 架构
@@ -370,6 +373,15 @@ python3 apps/windows/scripts/remote.py remove                      # 用完删�
 Java 能处理这么长的路径，git 默认处理不了，所以删除工作树要用
 `git -c core.longpaths=true worktree remove --force <工作树>`（`remote.py remove` 已经这样做），不需要改系统的
 长路径设置。
+
+## 单元测试
+
+界面的纯逻辑（页面栈、底部弹窗吸附）有 JVM 单元测试：
+
+```sh
+cd apps/android
+JAVA_HOME=~/jdk/jdk-21.0.11+10/Contents/Home ANDROID_HOME=~/Library/Android/sdk ./gradlew :app:testDebugUnitTest
+```
 
 ## 核心测试
 
