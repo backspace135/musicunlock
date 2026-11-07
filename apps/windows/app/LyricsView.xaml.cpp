@@ -76,6 +76,10 @@ void LyricsView::InitializeComponent() {
     ShowTab(mu::LyricTab::original);
     ResultList().ItemsSource(rows_);
     motion::scroll_edge(ResultList());
+    // The highlight follows the scroll by hand, since it lives outside the list.
+    ResultList().LayoutUpdated([weak = get_weak()](auto&&, auto&&) {
+        if (auto self = weak.get()) self->MoveSelectionHighlight();
+    });
     const auto saved = settings::load_lyrics();
     workspace_.set_options(saved.options);
     workspace_.set_output_directory(saved.output_directory.value_or(shell::downloads_folder() / L"音匣输出" / L"歌词"));
@@ -243,6 +247,7 @@ void LyricsView::Refresh() {
     LoadMoreButton().Visibility(shown(workspace_.has_more()));
     LoadMoreButton().IsEnabled(!searching && !exporting);
     SyncRows();
+    MoveSelectionHighlight();
     RefreshEditor();
     RefreshFooter();
 }
@@ -319,6 +324,17 @@ void LyricsView::ShowTab(mu::LyricTab tab) {
     syncing_ = true;
     EditorTabs().SelectedItem(EditorTabs().Items().GetAt(static_cast<uint32_t>(index_of(mu::all_lyric_tabs, tab))));
     syncing_ = false;
+}
+
+void LyricsView::MoveSelectionHighlight() {
+    UIElement row{nullptr};
+    for (uint32_t i = 0; i < rows_.Size(); ++i) {
+        if (!rows_.GetAt(i).as<MusicUnlock::LyricRow>().IsSelected()) continue;
+        row = ResultList().ContainerFromIndex(i).try_as<UIElement>();
+        break;
+    }
+    motion::describe(L"选中高亮");
+    motion::move_highlight(SelectionHighlight(), row);
 }
 
 void LyricsView::RefreshEditor() {

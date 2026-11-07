@@ -70,6 +70,8 @@ private:
     void Refresh();
     void RefreshEditor();
     void RefreshFooter();
+    /// Slides the single selection highlight onto the selected song, or hides it when nothing is selected.
+    void MoveSelectionHighlight();
     void SyncRows();
     void ShowTab(mu::LyricTab tab);
 

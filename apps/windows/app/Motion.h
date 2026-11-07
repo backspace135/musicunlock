@@ -71,6 +71,10 @@ void dip(xaml::UIElement const& element);
 /// settles at `from_scale` and 35 percent opacity, which is how an expired QR code recedes.
 void fade_scale(xaml::UIElement const& element, bool appear, spring::Spring spring, float from_scale = 1.f);
 
+/// Slides one highlight onto the selected row and keeps it there while the list scrolls. The highlight is a
+/// sibling of the list, so its offset is the row's position in that shared parent. Pass a null row to hide it.
+void move_highlight(xaml::UIElement const& highlight, xaml::UIElement const& row);
+
 /// The "keep original quality" mark while a conversion runs: its bars light up one after another, and go back to
 /// rest together when it stops. Call it with the same bars each time; starting again does nothing.
 class Wave {

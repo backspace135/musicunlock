@@ -139,16 +139,20 @@
                                              Click="OnOpenLocal" />
                         </StackPanel>
 
-                        <ListView x:Name="ResultList" Grid.Row="2" SelectionMode="None" IsItemClickEnabled="True" Padding="0,4"
+                        <Grid Grid.Row="2">
+                        <!-- One highlight for the whole list. It slides between songs instead of each row
+                             fading its own in and out; scrolling moves it by hand (see MoveSelectionHighlight). -->
+                        <Border x:Name="SelectionHighlight" CornerRadius="10" Background="{ThemeResource MuChipBrush}"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Top" IsHitTestVisible="False" Opacity="0">
+                            <Rectangle Width="3" RadiusX="1.5" RadiusY="1.5" Margin="3,12" HorizontalAlignment="Left"
+                                       Fill="{ThemeResource MuTextBrush}" />
+                        </Border>
+                        <ListView x:Name="ResultList" SelectionMode="None" IsItemClickEnabled="True" Padding="0,4"
                                   ItemClick="OnResultClicked" ItemContainerStyle="{StaticResource MuResultItemStyle}"
                                   AutomationProperties.Name="歌词搜索结果" Visibility="Collapsed">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="local:LyricRow">
                                     <Grid>
-                                        <!-- The selected song: a faint tint and an ink bar, like the macOS highlight. -->
-                                        <Border CornerRadius="10" Background="{ThemeResource MuChipBrush}" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
-                                        <Rectangle Width="3" RadiusX="1.5" RadiusY="1.5" Margin="3,12" HorizontalAlignment="Left"
-                                                   Fill="{ThemeResource MuTextBrush}" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
                                         <Grid Padding="10,13" ColumnSpacing="6" Visibility="{x:Bind IsSong}">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
@@ -206,6 +210,7 @@
                                         Click="OnLoadMore" />
                             </ListView.Footer>
                         </ListView>
+                        </Grid>
                     </Grid>
                 </Border>
 

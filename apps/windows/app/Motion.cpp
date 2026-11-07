@@ -407,6 +407,36 @@ void replace(UIElement const& outgoing, UIElement const& incoming) {
     incoming.StartAnimation(fade(c, 0.f, 1.f, swap));
 }
 
+void move_highlight(UIElement const& highlight, UIElement const& row) {
+    ElementCompositionPreview::SetIsTranslationEnabled(highlight, true);
+    if (!row) {
+        highlight.Opacity(0);
+        return;
+    }
+    const auto place = row.TransformToVisual(nullptr).TransformPoint({0, 0});
+    const auto origin = highlight.TransformToVisual(nullptr).TransformPoint({0, 0});
+    const float x = place.X - origin.X;
+    const float y = place.Y - origin.Y + highlight.Translation().y;
+    const float height = row.ActualSize().y;
+    auto frame = highlight.as<winrt::Microsoft::UI::Xaml::FrameworkElement>();
+    if (!enabled() || highlight.Opacity() == 0) {
+        highlight.Translation({x, y, 0});
+        frame.Height(height);
+        highlight.Opacity(1);
+        return;
+    }
+    auto c = compositor();
+    highlight.StartAnimation(vector(c, L"Translation", highlight.Translation(), {x, y, 0}, glass_motion::selection));
+    auto grow = c.CreateScalarKeyFrameAnimation();
+    grow.Target(L"Size.Y");
+    sample(grow, glass_motion::selection, highlight.ActualSize().y, height);
+    record(L"Size.Y", L"row height", spring_label(glass_motion::selection).c_str(), milliseconds(grow.Duration()));
+    // The visual scales its height; the element follows so the next measurement starts from the settled size.
+    frame.Height(height);
+    highlight.StartAnimation(grow);
+    highlight.Opacity(1);
+}
+
 void fade_scale(UIElement const& element, bool appear, spring::Spring spring, float from_scale) {
     pivot_properties(element);
     const float scale = appear ? 1.f : from_scale;
