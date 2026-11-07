@@ -18,6 +18,8 @@ struct LyricsView : LyricsViewT<LyricsView> {
     void UsePreviewData();
     /// Fills the results and editor with the same sample songs as the macOS preview renderer.
     void ShowSampleSongs();
+    /// Motion capture: selects one of the sample songs so the highlight slides to it.
+    void SelectSample(int index);
 
     /// "查找这首歌的歌词" from the audio queue: searches songs by the track's title.
     void SearchForAudio(std::string title) { Search(workspace_.search_for_audio(std::move(title))); }
@@ -70,6 +72,8 @@ private:
     void Refresh();
     void RefreshEditor();
     void RefreshFooter();
+    /// Slides the single selection highlight onto the selected song, or hides it when nothing is selected.
+    void MoveSelectionHighlight();
     void SyncRows();
     void ShowTab(mu::LyricTab tab);
 
@@ -91,7 +95,10 @@ private:
     mu::CancelToken lyrics_cancel_;
     mu::CancelToken export_cancel_;
     mu::LyricTab tab_ = mu::LyricTab::original;
-    std::string shown_song_;  // the song the editor tabs were last reset for
+    std::string shown_song_;   // the song the editor tabs were last reset for
+    std::size_t shown_songs_ = 0;  // result count last drawn, so the search icon bounces only when it changes
+    bool shown_signed_in_ = false;  // the session icon last drawn, so it only swaps when the login changes
+    bool shown_exporting_ = false;  // whether an export was on screen, so its icon dips at both ends
     bool persist_ = true;     // preview renders never touch the saved settings
     bool syncing_ = false;    // controls are being updated from the model
     Windows::Foundation::Collections::IObservableVector<IInspectable> rows_ =

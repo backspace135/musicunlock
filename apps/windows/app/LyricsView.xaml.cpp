@@ -10,6 +10,7 @@
 
 #include <winrt/Windows.ApplicationModel.DataTransfer.h>
 
+#include "Motion.h"
 #include "Accounts.h"
 #include "Settings.h"
 #include "Shell.h"
@@ -74,10 +75,20 @@ void LyricsView::InitializeComponent() {
     for (auto layout : lyric_layouts) LayoutOption().Items().Append(box_value(to_hstring(mu::layout_label(layout))));
     ShowTab(mu::LyricTab::original);
     ResultList().ItemsSource(rows_);
+    motion::scroll_edge(ResultList());
+    // The highlight follows the scroll by hand, since it lives outside the list.
+    ResultList().LayoutUpdated([weak = get_weak()](auto&&, auto&&) {
+        if (auto self = weak.get()) self->MoveSelectionHighlight();
+    });
     const auto saved = settings::load_lyrics();
     workspace_.set_options(saved.options);
     workspace_.set_output_directory(saved.output_directory.value_or(shell::downloads_folder() / L"音匣输出" / L"歌词"));
     Refresh();
+}
+
+void LyricsView::SelectSample(int index) {
+    if (index < 0 || index >= static_cast<int>(workspace_.songs().size())) return;
+    LoadLyrics(workspace_.select(workspace_.songs()[index].id()));
 }
 
 void LyricsView::UsePreviewData() {
@@ -179,6 +190,8 @@ void LyricsView::ReadOptions() {
 
 fire_and_forget LyricsView::OnShowSettings(IInspectable const&, RoutedEventArgs const&) {
     auto strong = get_strong();
+    motion::describe(L"导出设置");
+    motion::bounce(ExportSettingsIcon());
     SyncOptions();
     SettingsDialog().XamlRoot(XamlRoot());
     try {
@@ -186,6 +199,9 @@ fire_and_forget LyricsView::OnShowSettings(IInspectable const&, RoutedEventArgs 
     } catch (hresult_error const&) {
         // Another dialog is already open.
     }
+    // Closing the dialog bounces the icon again, the same as opening it.
+    motion::describe(L"导出设置");
+    motion::bounce(ExportSettingsIcon());
 }
 
 void LyricsView::Refresh() {
@@ -202,14 +218,24 @@ void LyricsView::Refresh() {
     CancelSearchButton().Visibility(shown(searching));
     SearchActions().Update();
     const bool signed_in = accounts::signed_in(workspace_.provider());
-    SessionGlyph().Glyph(signed_in ? L"\xEA18" : L"\xE774");  // Shield / Globe
+    if (signed_in != shown_signed_in_) {
+        shown_signed_in_ = signed_in;
+        motion::describe(L"登录状态");
+        motion::replace(signed_in ? SessionSignedOut() : SessionSignedIn(), signed_in ? SessionSignedIn() : SessionSignedOut());
+    }
     SessionText().Text(signed_in ? L"登录会话已保存" : L"公开内容可免登录读取");
 
-    Notice().Message(to_hstring(workspace_.notice()));
-    Notice().IsOpen(!workspace_.notice().empty());
-    Notice().Visibility(shown(!workspace_.notice().empty()));
+    const hstring notice = to_hstring(workspace_.notice());
+    Notice().Message(notice);
+    Notice().IsOpen(!notice.empty());
+    Notice().Visibility(shown(!notice.empty()));
 
     const bool nothing = workspace_.songs().empty() && workspace_.collections().empty();
+    if (workspace_.songs().size() != shown_songs_) {
+        shown_songs_ = workspace_.songs().size();
+        motion::describe(L"搜索");
+        motion::bounce(SearchIcon());
+    }
     ResultsTitle().Text(to_hstring(workspace_.results_title()));
     ResultsSubtitle().Text(to_hstring(workspace_.results_subtitle()));
     SelectAllButton().Visibility(shown(!workspace_.songs().empty()));
@@ -222,6 +248,7 @@ void LyricsView::Refresh() {
     LoadMoreButton().Visibility(shown(workspace_.has_more()));
     LoadMoreButton().IsEnabled(!searching && !exporting);
     SyncRows();
+    MoveSelectionHighlight();
     RefreshEditor();
     RefreshFooter();
 }
@@ -255,6 +282,11 @@ void LyricsView::RefreshFooter() {
     ExportCurrentButton().Visibility(shown(!exporting));
     ExportCurrentButton().IsEnabled(workspace_.can_export_current());
     ExportActions().Update();
+    if (exporting != shown_exporting_) {
+        shown_exporting_ = exporting;
+        motion::describe(L"导出当前歌词");
+        motion::dip(ExportCurrentIcon());
+    }
 }
 
 /// Patches the bound list in place so rows keep their containers (and focus) across updates.
@@ -293,6 +325,19 @@ void LyricsView::ShowTab(mu::LyricTab tab) {
     syncing_ = true;
     EditorTabs().SelectedItem(EditorTabs().Items().GetAt(static_cast<uint32_t>(index_of(mu::all_lyric_tabs, tab))));
     syncing_ = false;
+}
+
+void LyricsView::MoveSelectionHighlight() {
+    UIElement row{nullptr};
+    for (uint32_t i = 0; i < rows_.Size(); ++i) {
+        if (!rows_.GetAt(i).as<MusicUnlock::LyricRow>().IsSelected()) continue;
+        row = ResultList().ContainerFromIndex(i).try_as<UIElement>();
+        break;
+    }
+    // A row that has only just been realized has no position yet; the next layout pass places the highlight.
+    if (row && row.ActualSize().y == 0) return;
+    motion::describe(L"选中高亮");
+    motion::move_highlight(SelectionHighlight(), row);
 }
 
 void LyricsView::RefreshEditor() {

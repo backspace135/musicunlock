@@ -46,7 +46,12 @@
                 <Grid MinHeight="28">
                     <TextBlock Text="歌词工作台" Style="{StaticResource MuPageTitleStyle}" VerticalAlignment="Center" />
                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <FontIcon x:Name="SessionGlyph" Glyph="&#xE774;" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}" />
+                        <Grid>
+                            <!-- Signed out on top; signing in swaps it for the shield underneath. -->
+                            <FontIcon x:Name="SessionSignedIn" Glyph="&#xEA18;" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}"
+                                      Opacity="0" IsHitTestVisible="False" />
+                            <FontIcon x:Name="SessionSignedOut" Glyph="&#xE774;" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}" />
+                        </Grid>
                         <TextBlock x:Name="SessionText" Text="公开内容可免登录读取" FontSize="11" Foreground="{ThemeResource MuSecondaryBrush}" />
                     </StackPanel>
                 </Grid>
@@ -68,7 +73,7 @@
                         <Button x:Name="SearchButton" Style="{StaticResource MuProminentButtonStyle}" MinWidth="96" Click="OnSearch"
                                 local:Press.Scale="0.96" local:Press.Glass="0.06">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE721;" FontSize="13" />
+                                <FontIcon x:Name="SearchIcon" Glyph="&#xE721;" FontSize="13" />
                                 <TextBlock Text="搜索" />
                             </StackPanel>
                         </Button>
@@ -134,16 +139,20 @@
                                              Click="OnOpenLocal" />
                         </StackPanel>
 
-                        <ListView x:Name="ResultList" Grid.Row="2" SelectionMode="None" IsItemClickEnabled="True" Padding="0,4"
+                        <Grid Grid.Row="2">
+                        <!-- One highlight for the whole list. It slides between songs instead of each row
+                             fading its own in and out; scrolling moves it by hand (see MoveSelectionHighlight). -->
+                        <Border x:Name="SelectionHighlight" CornerRadius="10" Background="{ThemeResource MuChipBrush}"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Top" IsHitTestVisible="False" Opacity="0">
+                            <Rectangle Width="3" RadiusX="1.5" RadiusY="1.5" Margin="3,12" HorizontalAlignment="Left"
+                                       Fill="{ThemeResource MuTextBrush}" />
+                        </Border>
+                        <ListView x:Name="ResultList" SelectionMode="None" IsItemClickEnabled="True" Padding="0,4"
                                   ItemClick="OnResultClicked" ItemContainerStyle="{StaticResource MuResultItemStyle}"
                                   AutomationProperties.Name="歌词搜索结果" Visibility="Collapsed">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="local:LyricRow">
                                     <Grid>
-                                        <!-- The selected song: a faint tint and an ink bar, like the macOS highlight. -->
-                                        <Border CornerRadius="10" Background="{ThemeResource MuChipBrush}" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
-                                        <Rectangle Width="3" RadiusX="1.5" RadiusY="1.5" Margin="3,12" HorizontalAlignment="Left"
-                                                   Fill="{ThemeResource MuTextBrush}" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
                                         <Grid Padding="10,13" ColumnSpacing="6" Visibility="{x:Bind IsSong}">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
@@ -201,6 +210,7 @@
                                         Click="OnLoadMore" />
                             </ListView.Footer>
                         </ListView>
+                        </Grid>
                     </Grid>
                 </Border>
 
@@ -330,10 +340,11 @@
                     <StackPanel x:Name="FormatPanel" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                         <ComboBox x:Name="FormatBox" MinWidth="92" AutomationProperties.Name="导出格式" SelectionChanged="OnFormatChanged" />
                         <local:GlassSurface Kind="Control" Radius="-1" local:Press.Scale="0.96" local:Press.Glass="0.06">
-                            <Button Background="Transparent" BorderThickness="0" Style="{StaticResource MuCapsuleButtonStyle}"
-                                    Foreground="{ThemeResource MuTextBrush}" Click="OnShowSettings" AutomationProperties.Name="导出设置">
+                            <Button x:Name="ExportSettingsButton" Background="Transparent" BorderThickness="0"
+                                    Style="{StaticResource MuCapsuleButtonStyle}" Foreground="{ThemeResource MuTextBrush}"
+                                    Click="OnShowSettings" AutomationProperties.Name="导出设置">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon Glyph="&#xE713;" FontSize="13" />
+                                    <FontIcon x:Name="ExportSettingsIcon" Glyph="&#xE713;" FontSize="13" />
                                     <TextBlock Text="导出设置" />
                                 </StackPanel>
                             </Button>
@@ -377,7 +388,7 @@
                                 Click="OnExportCurrent" ToolTipService.ToolTip="导出当前歌词（Ctrl+S）"
                                 local:Press.Scale="0.96" local:Press.Glass="0.06">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE896;" FontSize="13" />
+                                <FontIcon x:Name="ExportCurrentIcon" Glyph="&#xE896;" FontSize="13" />
                                 <TextBlock Text="导出当前歌词" />
                             </StackPanel>
                         </Button>

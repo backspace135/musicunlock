@@ -240,12 +240,12 @@
                                                 <TextBlock Text="{x:Bind StateLabel, Mode=OneWay}" FontSize="11" />
                                             </StackPanel>
                                             <Grid Grid.Column="4" VerticalAlignment="Top">
-                                                <Button Style="{StaticResource MuRowButtonStyle}" Tag="{x:Bind Id}" Click="OnRevealOutput"
+                                                <Button x:Name="RevealButton" Style="{StaticResource MuRowButtonStyle}" Tag="{x:Bind Id}" Click="OnRevealOutput"
                                                         Visibility="{x:Bind HasOutput, Mode=OneWay}" ToolTipService.ToolTip="在资源管理器中显示"
                                                         AutomationProperties.Name="{x:Bind RevealLabel, Mode=OneWay}">
                                                     <FontIcon Glyph="&#xE838;" FontSize="13" />
                                                 </Button>
-                                                <Button Style="{StaticResource MuRowButtonStyle}" Tag="{x:Bind Id}" Click="OnRemoveJob"
+                                                <Button x:Name="RemoveButton" Style="{StaticResource MuRowButtonStyle}" Tag="{x:Bind Id}" Click="OnRemoveJob"
                                                         Visibility="{x:Bind CanRemove, Mode=OneWay}" IsEnabled="{x:Bind ShowsStateGlyph, Mode=OneWay}"
                                                         ToolTipService.ToolTip="移出队列" AutomationProperties.Name="{x:Bind RemoveLabel, Mode=OneWay}">
                                                     <FontIcon Glyph="&#xE711;" FontSize="12" />
@@ -277,7 +277,7 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <FontIcon Glyph="&#xE8B7;" FontSize="20" VerticalAlignment="Center" />
+                                    <FontIcon x:Name="OutputIcon" Glyph="&#xE8B7;" FontSize="20" VerticalAlignment="Center" />
                                     <StackPanel Grid.Column="1" Spacing="3">
                                         <TextBlock x:Name="OutputName" FontSize="12" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
                                         <TextBlock x:Name="OutputParent" FontSize="11" Foreground="{ThemeResource MuSecondaryBrush}"
@@ -296,7 +296,19 @@
                         <Rectangle Height="1" Fill="{ThemeResource MuSeparatorBrush}" />
                         <StackPanel Spacing="10">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE8D6;" FontSize="14" />
+                                <!-- Segoe has no layered waveform, so four bars stand in for it and light up in turn
+                                     while a conversion runs. -->
+                                <Grid Width="16" Height="14">
+                                    <FontIcon x:Name="QualityIcon" Glyph="&#xE8D6;" FontSize="14" HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                                    <StackPanel x:Name="QualityWave" Orientation="Horizontal" Spacing="2" Visibility="Collapsed"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Rectangle x:Name="WaveBar1" Width="2" Height="6" Fill="{ThemeResource MuTextBrush}" VerticalAlignment="Center" />
+                                        <Rectangle x:Name="WaveBar2" Width="2" Height="10" Fill="{ThemeResource MuTextBrush}" VerticalAlignment="Center" />
+                                        <Rectangle x:Name="WaveBar3" Width="2" Height="14" Fill="{ThemeResource MuTextBrush}" VerticalAlignment="Center" />
+                                        <Rectangle x:Name="WaveBar4" Width="2" Height="8" Fill="{ThemeResource MuTextBrush}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Grid>
                                 <TextBlock Text="保留原始音质" FontSize="13" FontWeight="Medium" />
                             </StackPanel>
                             <TextBlock Text="解除文件封装，保留原有编码。输出可能是 FLAC、MP3、OGG 或 M4A，不进行有损转码。"
@@ -385,7 +397,7 @@
                             ToolTipService.ToolTip="开始转换（Ctrl+Enter）" AutomationProperties.Name="开始转换"
                             AutomationProperties.AcceleratorKey="Ctrl+Enter" local:Press.Scale="0.96" local:Press.Glass="0.06">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon Glyph="&#xE768;" FontSize="13" />
+                            <FontIcon x:Name="StartIcon" Glyph="&#xE768;" FontSize="13" />
                             <TextBlock Text="开始转换" />
                         </StackPanel>
                     </Button>

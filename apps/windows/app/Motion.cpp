@@ -2,7 +2,10 @@
 
 #include "Motion.h"
 
+#include "GlassMotion.h"
+
 #include <map>
+#include <vector>
 
 #include <winrt/Microsoft.UI.Xaml.Hosting.h>
 #include <winrt/Windows.Foundation.Numerics.h>
@@ -36,53 +39,63 @@ void record(const wchar_t* target, const wchar_t* change, const wchar_t* curve, 
     fclose(file);
 }
 
-const wchar_t* curve_name(CompositionEasingFunction const& easing) {
-    const auto cubic = easing.try_as<CubicBezierEasingFunction>();
-    if (!cubic) return L"linear";
-    const auto control = cubic.ControlPoint2();
-    if (control.x < 0.1f) return L"smooth";
-    if (control.y > 1.1f || cubic.ControlPoint1().y > 1.1f) return L"springy";
-    return L"ease-in-out";
+/// SwiftUI springs the existing motion maps onto. glass_motion's table covers the shared controls; these are the
+/// ones ContentView.swift and LyricsView.swift pass to .motion() directly.
+constexpr spring::Spring smooth_35{0.35, 1};     // .smooth(duration: 0.35): banners, status text
+constexpr spring::Spring snappy{0.5, 0.85};      // .snappy: rows appearing
+constexpr spring::Spring spring_40{0.4, 0.75};   // .spring(duration: 0.4, bounce: 0.25): a state glyph
+constexpr spring::Spring spring_35{0.35, 0.75};  // .spring(duration: 0.35, bounce: 0.25): the drop overlay
+
+std::wstring spring_label(spring::Spring value) {
+    wchar_t text[64];
+    swprintf_s(text, L"spring %.2f/%.2f", value.response, value.damping);
+    return text;
 }
 
-/// macOS .smooth: quick start, long gentle stop, no overshoot.
-CompositionEasingFunction smooth(Compositor const& c) { return c.CreateCubicBezierEasingFunction({0.2f, 0.f}, {0.f, 1.f}); }
-/// macOS .spring with a little bounce: overshoots slightly before settling.
-CompositionEasingFunction springy(Compositor const& c) {
-    return c.CreateCubicBezierEasingFunction({0.34f, 1.4f}, {0.64f, 1.f});
-}
-CompositionEasingFunction ease_in_out(Compositor const& c) {
-    return c.CreateCubicBezierEasingFunction({0.45f, 0.f}, {0.55f, 1.f});
+/// Samples `spring` from `from` to `to`. The first keyframe is the value at the call, so replacing a running
+/// animation continues from wherever it was. glass_motion's helpers only cover the case of starting at 0.
+template <typename Animation, typename Value>
+void sample(Animation const& animation, spring::Spring spring, Value from, Value to) {
+    const auto frames = spring::keyframes(spring);
+    animation.InsertKeyFrame(0.f, from);
+    for (const auto& [progress, position] : frames) {
+        if (progress <= 0.f) continue;
+        animation.InsertKeyFrame(progress, from + (to - from) * static_cast<float>(position));
+    }
+    animation.Duration(std::chrono::duration_cast<winrt::Windows::Foundation::TimeSpan>(
+        std::chrono::duration<double>(spring::settle_time(spring))));
 }
 
-ScalarKeyFrameAnimation fade(Compositor const& c, float from, float to, winrt::Windows::Foundation::TimeSpan duration) {
+/// .easeOut(duration:): the cubic (0, 0, 0.58, 1). The icon bounce dips on it before the spring brings it back.
+CubicBezierEasingFunction ease_out(Compositor const& c) { return c.CreateCubicBezierEasingFunction({0.f, 0.f}, {0.58f, 1.f}); }
+
+int milliseconds(winrt::Windows::Foundation::TimeSpan duration) {
+    return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
+}
+
+std::wstring components(float3 value) {
+    wchar_t text[64];
+    swprintf_s(text, L"%.2f,%.2f", value.x, value.y);
+    return text;
+}
+
+ScalarKeyFrameAnimation fade(Compositor const& c, float from, float to, spring::Spring spring) {
     auto animation = c.CreateScalarKeyFrameAnimation();
     animation.Target(L"Opacity");
-    animation.InsertKeyFrame(0.f, from);
-    animation.InsertKeyFrame(1.f, to, smooth(c));
-    animation.Duration(duration);
+    sample(animation, spring, from, to);
     if (capturing) animation.Comment(described.c_str());
-    record(L"Opacity",
-           (std::to_wstring(static_cast<int>(from)) + L" -> " + std::to_wstring(static_cast<int>(to))).c_str(), L"smooth",
-           static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()));
+    record(L"Opacity", (std::to_wstring(static_cast<int>(from)) + L" -> " + std::to_wstring(static_cast<int>(to))).c_str(),
+           spring_label(spring).c_str(), milliseconds(animation.Duration()));
     return animation;
 }
 
-Vector3KeyFrameAnimation vector(Compositor const& c, const wchar_t* target, float3 from, float3 to,
-                                winrt::Windows::Foundation::TimeSpan duration, CompositionEasingFunction const& easing) {
+Vector3KeyFrameAnimation vector(Compositor const& c, const wchar_t* target, float3 from, float3 to, spring::Spring spring) {
     auto animation = c.CreateVector3KeyFrameAnimation();
     animation.Target(target);
-    animation.InsertKeyFrame(0.f, from);
-    animation.InsertKeyFrame(1.f, to, easing);
-    animation.Duration(duration);
-    auto component = [](float3 value) {
-        wchar_t text[64];
-        swprintf_s(text, L"%.2f,%.2f", value.x, value.y);
-        return std::wstring(text);
-    };
+    sample(animation, spring, from, to);
     if (capturing) animation.Comment(described.c_str());
-    record(target, (component(from) + L" -> " + component(to)).c_str(), curve_name(easing),
-           static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count()));
+    record(target, (components(from) + L" -> " + components(to)).c_str(), spring_label(spring).c_str(),
+           milliseconds(animation.Duration()));
     return animation;
 }
 
@@ -171,13 +184,115 @@ void changed(UIElement const& element) {
 
 void describe(std::wstring element) { described = std::move(element); }
 
-void crossfade(UIElement const& element) {
+void crossfade(UIElement const& element) { crossfade(element, smooth_35); }
+
+void crossfade(UIElement const& element, spring::Spring spring) {
     if (!enabled()) return set_implicit(element, nullptr, nullptr);
     auto c = compositor();
     pivot(element, false);
-    set_implicit(element,
-                 group(c, {fade(c, 0.f, 1.f, 350ms), vector(c, L"Scale", uniform(0.98f), uniform(1.f), 350ms, smooth(c))}),
-                 group(c, {fade(c, 1.f, 0.f, 200ms), vector(c, L"Scale", uniform(1.f), uniform(0.98f), 200ms, smooth(c))}));
+    // Workspaces, empty states and lists crossfade. macOS uses .smooth(duration: 0.35) for these; the title-bar
+    // action groups pass the workspace spring so they travel with the switch.
+    set_implicit(element, group(c, {fade(c, 0.f, 1.f, spring), vector(c, L"Scale", uniform(0.98f), uniform(1.f), spring)}),
+                 group(c, {fade(c, 1.f, 0.f, spring), vector(c, L"Scale", uniform(1.f), uniform(0.98f), spring)}));
+}
+
+void workspace(UIElement const& outgoing, UIElement const& incoming, bool toward_lyrics) {
+    // Music unlock owns the left side and lyrics the right, matching the switch. A workspace leaves toward its own
+    // side and arrives from it. No blur: WinUI 3 has no Gaussian blur effect for a live XAML subtree.
+    auto place = [](UIElement const& element, float from_x, float to_x, float from_scale, float to_scale, float from_opacity,
+                    float to_opacity) {
+        auto visual = ElementCompositionPreview::GetElementVisual(element);
+        auto c = visual.Compositor();
+        auto centre = c.CreateExpressionAnimation(L"Vector3(this.Target.Size.X / 2, this.Target.Size.Y / 2, 0)");
+        visual.StartAnimation(L"CenterPoint", centre);
+        if (!enabled()) {
+            visual.Offset({to_x, 0, 0});
+            visual.Scale(uniform(to_scale));
+            visual.Opacity(to_opacity);
+            return;
+        }
+        auto offset = c.CreateVector3KeyFrameAnimation();
+        offset.Target(L"Offset");
+        sample(offset, glass_motion::workspace, float3{from_x, 0, 0}, float3{to_x, 0, 0});
+        auto scale = c.CreateVector3KeyFrameAnimation();
+        scale.Target(L"Scale");
+        sample(scale, glass_motion::workspace, uniform(from_scale), uniform(to_scale));
+        auto opacity = c.CreateScalarKeyFrameAnimation();
+        opacity.Target(L"Opacity");
+        sample(opacity, glass_motion::workspace, from_opacity, to_opacity);
+        record(L"Offset", (std::to_wstring(static_cast<int>(from_x)) + L" -> " + std::to_wstring(static_cast<int>(to_x))).c_str(),
+               spring_label(glass_motion::workspace).c_str(), milliseconds(offset.Duration()));
+        visual.StartAnimation(L"Offset", offset);
+        visual.StartAnimation(L"Scale", scale);
+        visual.StartAnimation(L"Opacity", opacity);
+    };
+    const float leaving = toward_lyrics ? -40.f : 40.f;
+    const float arriving = toward_lyrics ? 40.f : -40.f;
+    place(outgoing, 0.f, leaving, 1.f, 0.98f, 1.f, 0.f);
+    place(incoming, arriving, 0.f, 0.98f, 1.f, 0.f, 1.f);
+}
+
+winrt::Microsoft::UI::Xaml::Controls::ScrollViewer list_viewer(winrt::Microsoft::UI::Xaml::Controls::ListView const& list) {
+    using namespace winrt::Microsoft::UI::Xaml;
+    using namespace winrt::Microsoft::UI::Xaml::Controls;
+    ScrollViewer viewer{nullptr};
+    std::vector<DependencyObject> pending{list};
+    while (!pending.empty() && !viewer) {
+        auto from = pending.back();
+        pending.pop_back();
+        const int count = Media::VisualTreeHelper::GetChildrenCount(from);
+        for (int i = 0; i < count && !viewer; ++i) {
+            auto child = Media::VisualTreeHelper::GetChild(from, i);
+            if (auto found = child.try_as<ScrollViewer>()) viewer = found;
+            else pending.push_back(child);
+        }
+    }
+    return viewer;
+}
+
+void scroll_edge(winrt::Microsoft::UI::Xaml::Controls::ListView const& list) {
+    using namespace winrt::Microsoft::UI::Xaml;
+    using namespace winrt::Microsoft::UI::Xaml::Controls;
+    // The list's own ScrollViewer reports the offset. The manipulation property set would have been the direct way,
+    // but WinUI 3 leaves its Translation at zero however far the list scrolls. The viewer only exists once the list
+    // has loaded, so attach then.
+    auto viewer = list_viewer(list);
+    if (!viewer) {
+        auto token = std::make_shared<winrt::event_token>();
+        *token = list.LayoutUpdated([list, token](auto&&, auto&&) {
+            if (!list_viewer(list)) return;
+            list.LayoutUpdated(*token);
+            scroll_edge(list);
+        });
+        return;
+    }
+    auto apply = [list, viewer](auto&&, auto&&) {
+        if (!enabled()) return;
+        const double viewport = viewer.ViewportHeight();
+        for (uint32_t i = 0; i < list.Items().Size(); ++i) {
+            auto container = list.ContainerFromIndex(i).try_as<UIElement>();
+            if (!container) continue;
+            auto visual = ElementCompositionPreview::GetElementVisual(container);
+            const double height = container.ActualSize().y;
+            if (height <= 0) continue;
+            // The row's position in the viewport, not its layout position: ActualOffset ignores the scroll, and the
+            // manipulation property set that would have carried it stays at zero under WinUI 3.
+            const auto top = container.TransformToVisual(viewer).TransformPoint({0, 0}).Y;
+            const double above = std::max(0.0, -static_cast<double>(top));
+            const double below = std::max(0.0, top + height - viewport);
+            const double clipped = std::min(1.0, std::max(above, below) / height);
+            // Past the top edge the row shrinks toward its bottom edge, and the other way round.
+            visual.CenterPoint({container.ActualSize().x / 2, above > below ? static_cast<float>(height) : 0.f, 0.f});
+            const float scale = static_cast<float>(1.0 - clipped * 0.04);
+            visual.Scale({scale, scale, 1.f});
+            visual.Opacity(static_cast<float>(1.0 - clipped * 0.6));
+        }
+        record(L"Opacity", L"1 -> 0.4 at the edges", L"scroll", 0);
+    };
+    viewer.ViewChanged(apply);
+    // A resize moves the edges over the rows without a scroll, so it has to settle them too.
+    viewer.SizeChanged([apply](auto&&, auto&&) { apply(nullptr, nullptr); });
+    apply(nullptr, nullptr);
 }
 
 void settle(UIElement const& element) {
@@ -185,45 +300,217 @@ void settle(UIElement const& element) {
     auto c = compositor();
     ElementCompositionPreview::SetIsTranslationEnabled(element, true);
     pivot(element, true);
+    // Banners settle. macOS .smooth(duration: 0.35): in from 8 px above, out by shrinking in place.
     set_implicit(element,
-                 group(c, {fade(c, 0.f, 1.f, 300ms), vector(c, L"Translation", {0, -8, 0}, {0, 0, 0}, 300ms, smooth(c)),
-                           vector(c, L"Scale", uniform(0.98f), uniform(1.f), 300ms, smooth(c))}),
-                 group(c, {fade(c, 1.f, 0.f, 200ms), vector(c, L"Scale", uniform(1.f), uniform(0.98f), 200ms, smooth(c))}));
+                 group(c, {fade(c, 0.f, 1.f, smooth_35), vector(c, L"Translation", {0, -8, 0}, {0, 0, 0}, smooth_35),
+                           vector(c, L"Scale", uniform(0.98f), uniform(1.f), smooth_35)}),
+                 group(c, {fade(c, 1.f, 0.f, smooth_35), vector(c, L"Scale", uniform(1.f), uniform(0.98f), smooth_35)}));
 }
 
 void overlay(UIElement const& element) {
     if (!enabled()) return set_implicit(element, nullptr, nullptr);
     auto c = compositor();
     pivot(element, false);
+    // The drop overlay. macOS .spring(duration: 0.35, bounce: 0.25): in from 103 %, back out the same way.
     set_implicit(element,
-                 group(c, {fade(c, 0.f, 1.f, 250ms), vector(c, L"Scale", uniform(1.03f), uniform(1.f), 350ms, springy(c))}),
-                 group(c, {fade(c, 1.f, 0.f, 200ms), vector(c, L"Scale", uniform(1.f), uniform(1.03f), 200ms, smooth(c))}));
+                 group(c, {fade(c, 0.f, 1.f, spring_35), vector(c, L"Scale", uniform(1.03f), uniform(1.f), spring_35)}),
+                 group(c, {fade(c, 1.f, 0.f, spring_35), vector(c, L"Scale", uniform(1.f), uniform(1.03f), spring_35)}));
 }
 
 void enter(UIElement const& element) {
     if (!enabled()) return;
     auto c = compositor();
-    element.StartAnimation(fade(c, 0.f, 1.f, 300ms));
-    element.StartAnimation(vector(c, L"Translation", {0, -8, 0}, {0, 0, 0}, 300ms, smooth(c)));
+    // A queue row that just appeared. macOS .snappy, which is response 0.5, damping 0.85.
+    element.StartAnimation(fade(c, 0.f, 1.f, snappy));
+    element.StartAnimation(vector(c, L"Translation", {0, -8, 0}, {0, 0, 0}, snappy));
 }
 
 void pop(UIElement const& element, bool bounce) {
     if (!enabled()) return;
     auto c = compositor();
     pivot_properties(element);
+    // A state glyph. macOS .spring(duration: 0.4, bounce: 0.25). A finished job passes through 1.08 on the way, which
+    // is the extra bounce; the spring then settles it back to 1.
     auto scale = c.CreateVector3KeyFrameAnimation();
     scale.Target(L"Scale");
-    scale.InsertKeyFrame(0.f, uniform(0.6f));
     if (bounce) {
-        scale.InsertKeyFrame(0.55f, uniform(1.2f), smooth(c));
-        scale.InsertKeyFrame(1.f, uniform(1.f), ease_in_out(c));
+        const auto frames = spring::keyframes(spring_40);
+        const auto halfway = frames[frames.size() / 2].first;
+        scale.InsertKeyFrame(0.f, uniform(0.6f));
+        scale.InsertKeyFrame(halfway, uniform(1.08f));
+        for (const auto& [progress, position] : frames) {
+            if (progress <= halfway) continue;
+            const float rest = static_cast<float>((position - frames[frames.size() / 2].second) /
+                                                   (1.0 - frames[frames.size() / 2].second));
+            scale.InsertKeyFrame(progress, uniform(1.08f) + (uniform(1.f) - uniform(1.08f)) * rest);
+        }
+        scale.Duration(std::chrono::duration_cast<winrt::Windows::Foundation::TimeSpan>(
+            std::chrono::duration<double>(spring::settle_time(spring_40))));
     } else {
-        scale.InsertKeyFrame(1.f, uniform(1.f), smooth(c));
+        sample(scale, spring_40, uniform(0.6f), uniform(1.f));
     }
-    scale.Duration(bounce ? 400ms : 250ms);
-    record(L"Scale", bounce ? L"0.6 -> 1.2 -> 1" : L"0.6 -> 1", bounce ? L"smooth, ease-in-out" : L"smooth", bounce ? 400 : 250);
+    record(L"Scale", bounce ? L"0.6 -> 1.08 -> 1" : L"0.6 -> 1", spring_label(spring_40).c_str(),
+           milliseconds(scale.Duration()));
     element.StartAnimation(scale);
-    element.StartAnimation(fade(c, 0.f, 1.f, 150ms));
+    element.StartAnimation(fade(c, 0.f, 1.f, spring_40));
+}
+
+void bounce(UIElement const& element) {
+    pivot_properties(element);
+    if (!enabled()) {
+        element.Scale(uniform(1.f));
+        return;
+    }
+    // .easeOut(duration: 0.08) down to 82 %, then .spring(response: 0.35, dampingFraction: 0.45) back to 1.
+    auto c = compositor();
+    constexpr spring::Spring rebound{0.35, 0.45};
+    auto scale = c.CreateVector3KeyFrameAnimation();
+    scale.Target(L"Scale");
+    scale.InsertKeyFrame(0.f, uniform(1.f));
+    const float dip_at = static_cast<float>(0.08 / (0.08 + spring::settle_time(rebound)));
+    scale.InsertKeyFrame(dip_at, uniform(0.82f), ease_out(c));
+    const auto frames = spring::keyframes(rebound);
+    for (const auto& [progress, position] : frames) {
+        if (progress <= 0.f) continue;
+        const float at = dip_at + (1.f - dip_at) * progress;
+        scale.InsertKeyFrame(at, uniform(0.82f) + (uniform(1.f) - uniform(0.82f)) * static_cast<float>(position));
+    }
+    scale.Duration(std::chrono::milliseconds(80) +
+                   std::chrono::duration_cast<winrt::Windows::Foundation::TimeSpan>(
+                       std::chrono::duration<double>(spring::settle_time(rebound))));
+    record(L"Scale", L"1 -> 0.82 -> 1", L"ease-out, spring 0.35/0.45", milliseconds(scale.Duration()));
+    element.StartAnimation(scale);
+}
+
+void replace(UIElement const& outgoing, UIElement const& incoming) {
+    pivot_properties(outgoing);
+    pivot_properties(incoming);
+    if (!enabled()) {
+        outgoing.Opacity(0);
+        outgoing.Scale(uniform(0.6f));
+        incoming.Opacity(1);
+        incoming.Scale(uniform(1.f));
+        return;
+    }
+    auto c = compositor();
+    constexpr spring::Spring swap{0.25, 1};
+    auto shrink = c.CreateVector3KeyFrameAnimation();
+    shrink.Target(L"Scale");
+    sample(shrink, swap, outgoing.Scale(), uniform(0.6f));
+    auto grow = c.CreateVector3KeyFrameAnimation();
+    grow.Target(L"Scale");
+    sample(grow, swap, uniform(0.6f), uniform(1.f));
+    record(L"Scale", L"1 -> 0.6, 0.6 -> 1", spring_label(swap).c_str(), milliseconds(shrink.Duration()));
+    outgoing.StartAnimation(shrink);
+    outgoing.StartAnimation(fade(c, static_cast<float>(outgoing.Opacity()), 0.f, swap));
+    incoming.StartAnimation(grow);
+    incoming.StartAnimation(fade(c, 0.f, 1.f, swap));
+}
+
+void move_highlight(UIElement const& highlight, UIElement const& row) {
+    ElementCompositionPreview::SetIsTranslationEnabled(highlight, true);
+    if (!row) {
+        highlight.Opacity(0);
+        return;
+    }
+    // Layout offsets, not TransformToVisual: a hidden highlight reports no transform, and the animated
+    // translation would otherwise be counted twice.
+    const float x = row.ActualOffset().x - highlight.ActualOffset().x;
+    const float y = row.ActualOffset().y - highlight.ActualOffset().y;
+    // Height follows the row directly. Animating Size crashes a highlight that has only just been realized,
+    // and the rows differ by a line at most, so the slide is what reads.
+    highlight.as<winrt::Microsoft::UI::Xaml::FrameworkElement>().Height(row.ActualSize().y);
+    if (!enabled() || highlight.Opacity() == 0) {
+        highlight.Translation({x, y, 0});
+        highlight.Opacity(1);
+        return;
+    }
+    auto c = compositor();
+    highlight.StartAnimation(vector(c, L"Translation", highlight.Translation(), {x, y, 0}, glass_motion::selection));
+    highlight.Opacity(1);
+}
+
+void fade_scale(UIElement const& element, bool appear, spring::Spring spring, float from_scale) {
+    pivot_properties(element);
+    const float scale = appear ? 1.f : from_scale;
+    const float opacity = appear ? 1.f : 0.35f;
+    if (!enabled()) {
+        element.Scale(uniform(scale));
+        element.Opacity(opacity);
+        return;
+    }
+    auto c = compositor();
+    element.StartAnimation(vector(c, L"Scale", element.Scale(), uniform(scale), spring));
+    element.StartAnimation(fade(c, static_cast<float>(element.Opacity()), opacity, spring));
+}
+
+void dip(UIElement const& element) {
+    ElementCompositionPreview::SetIsTranslationEnabled(element, true);
+    if (!enabled()) {
+        element.Translation({0, 0, 0});
+        return;
+    }
+    // Down 3 px and straight back. .spring(response: 0.3, dampingFraction: 0.6) gives one small bounce.
+    constexpr spring::Spring drop{0.3, 0.6};
+    auto c = compositor();
+    auto animation = c.CreateVector3KeyFrameAnimation();
+    animation.Target(L"Translation");
+    const auto frames = spring::keyframes(drop);
+    animation.InsertKeyFrame(0.f, {0, 0, 0});
+    animation.InsertKeyFrame(0.5f, {0, 3, 0});
+    for (const auto& [progress, position] : frames) {
+        if (progress < 0.5f) continue;
+        animation.InsertKeyFrame(progress, float3{0, 3, 0} * static_cast<float>(1.0 - position));
+    }
+    animation.Duration(std::chrono::duration_cast<winrt::Windows::Foundation::TimeSpan>(
+        std::chrono::duration<double>(spring::settle_time(drop))));
+    record(L"Translation", L"0 -> 0,3 -> 0", spring_label(drop).c_str(), milliseconds(animation.Duration()));
+    element.StartAnimation(animation);
+}
+
+Wave::Wave(std::initializer_list<UIElement> bars) {
+    for (const auto& bar : bars) bars_.emplace_back(bar);
+}
+
+void Wave::light(int index) {
+    auto c = compositor();
+    constexpr spring::Spring pulse{0.3, 1};
+    for (int i = 0; i < static_cast<int>(bars_.size()); ++i) {
+        auto bar = bars_[i].get();
+        if (!bar) continue;
+        // The bar whose turn it is comes up to full; the others sink to a dim rest. No curve when motion is off.
+        const float opacity = i == index ? 1.f : 0.35f;
+        if (!enabled()) {
+            bar.Opacity(opacity);
+            continue;
+        }
+        bar.StartAnimation(fade(c, static_cast<float>(bar.Opacity()), opacity, pulse));
+    }
+}
+
+void Wave::start() {
+    if (running_ || bars_.empty()) return;
+    running_ = true;
+    if (!enabled()) return;
+    index_ = 0;
+    light(index_);
+    timer_ = winrt::Microsoft::UI::Xaml::DispatcherTimer();
+    timer_.Interval(std::chrono::milliseconds(160));
+    timer_.Tick([this](auto&&, auto&&) {
+        index_ = (index_ + 1) % static_cast<int>(bars_.size());
+        light(index_);
+    });
+    timer_.Start();
+    record(L"Opacity", L"bars 0.35 -> 1 in turn", L"spring 0.30/1.00", 160);
+}
+
+void Wave::stop() {
+    if (!running_) return;
+    running_ = false;
+    if (timer_) timer_.Stop();
+    timer_ = nullptr;
+    for (const auto& bar : bars_)
+        if (auto element = bar.get()) element.Opacity(1);
 }
 
 void lift(UIElement const& element, bool lifted) {
@@ -236,12 +523,12 @@ void lift(UIElement const& element, bool lifted) {
         return;
     }
     auto c = compositor();
-    element.StartAnimation(vector(c, L"Scale", element.Scale(), scale, 400ms, springy(c)));
+    // The empty-state disc lifting as files hover. macOS .spring(duration: 0.35, bounce: 0.25).
+    element.StartAnimation(vector(c, L"Scale", element.Scale(), scale, spring_35));
     auto rotate = c.CreateScalarKeyFrameAnimation();
     rotate.Target(L"Rotation");
-    rotate.InsertKeyFrame(0.f, element.Rotation());
-    rotate.InsertKeyFrame(1.f, rotation, springy(c));
-    rotate.Duration(400ms);
+    sample(rotate, spring_35, element.Rotation(), rotation);
+    record(L"Rotation", lifted ? L"0 -> -6" : L"-6 -> 0", spring_label(spring_35).c_str(), milliseconds(rotate.Duration()));
     element.StartAnimation(rotate);
     // The animated values stay after the animations end; keep the properties in step.
     element.Scale(scale);
@@ -252,9 +539,10 @@ Loop Loop::hop(UIElement const& element) {
     auto c = compositor();
     auto animation = c.CreateVector3KeyFrameAnimation();
     animation.Target(L"Translation");
+    // A repeating hop has no single spring; the rise uses .smooth and the fall eases back.
     animation.InsertKeyFrame(0.f, {0, 0, 0});
-    animation.InsertKeyFrame(0.3f, {0, -7, 0}, smooth(c));
-    animation.InsertKeyFrame(0.6f, {0, 0, 0}, ease_in_out(c));
+    animation.InsertKeyFrame(0.3f, {0, -7, 0}, c.CreateCubicBezierEasingFunction({0.2f, 0.f}, {0.f, 1.f}));
+    animation.InsertKeyFrame(0.6f, {0, 0, 0}, c.CreateCubicBezierEasingFunction({0.45f, 0.f}, {0.55f, 1.f}));
     animation.InsertKeyFrame(1.f, {0, 0, 0});
     animation.Duration(900ms);
     record(L"Translation", L"0,0 -> 0,-7 -> 0,0", L"smooth, ease-in-out", 900);
@@ -267,8 +555,9 @@ Loop Loop::drift(UIElement const& element) {
     auto animation = c.CreateVector3KeyFrameAnimation();
     animation.Target(L"Translation");
     animation.InsertKeyFrame(0.f, {0, 3, 0});
-    animation.InsertKeyFrame(0.5f, {0, -5, 0}, ease_in_out(c));
-    animation.InsertKeyFrame(1.f, {0, 3, 0}, ease_in_out(c));
+    auto drift_ease = c.CreateCubicBezierEasingFunction({0.45f, 0.f}, {0.55f, 1.f});
+    animation.InsertKeyFrame(0.5f, {0, -5, 0}, drift_ease);
+    animation.InsertKeyFrame(1.f, {0, 3, 0}, drift_ease);
     animation.Duration(5600ms);  // 2.8 s each way, as on macOS
     record(L"Translation", L"0,3 -> 0,-5 -> 0,3", L"ease-in-out", 5600);
     animation.IterationBehavior(AnimationIterationBehavior::Forever);

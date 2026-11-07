@@ -53,7 +53,7 @@
                             <Button Click="OnAddFiles" Background="Transparent" BorderThickness="0" Width="36" Height="30" Padding="0"
                                     ToolTipService.ToolTip="添加文件（Ctrl+O）" AutomationProperties.Name="添加文件"
                                     AutomationProperties.AcceleratorKey="Ctrl+O" local:Press.Scale="0.96">
-                                <FontIcon Glyph="&#xE710;" FontSize="13" Foreground="{ThemeResource MuTextBrush}" />
+                                <FontIcon x:Name="AddFilesIcon" Glyph="&#xE710;" FontSize="13" Foreground="{ThemeResource MuTextBrush}" />
                             </Button>
                         </StackPanel>
                     </local:GlassSurface>
@@ -69,7 +69,13 @@
                             <Button x:Name="AccountsButton" Click="OnAccounts" Background="Transparent" BorderThickness="0"
                                     Width="36" Height="30" Padding="0" ToolTipService.ToolTip="官方登录后自动保存会话，无需手动获取 Cookie"
                                     AutomationProperties.Name="账号登录" local:Press.Scale="0.96">
-                                <FontIcon x:Name="AccountsIcon" Glyph="&#xE77B;" FontSize="13" Foreground="{ThemeResource MuTextBrush}" />
+                                <Grid>
+                                    <!-- Signed out on top; a saved session swaps it for the solid contact underneath. -->
+                                    <FontIcon x:Name="AccountsSignedIn" Glyph="&#xEA8C;" FontSize="13"
+                                              Foreground="{ThemeResource MuTextBrush}" Opacity="0" IsHitTestVisible="False" />
+                                    <FontIcon x:Name="AccountsSignedOut" Glyph="&#xE77B;" FontSize="13"
+                                              Foreground="{ThemeResource MuTextBrush}" />
+                                </Grid>
                             </Button>
                         </StackPanel>
                     </local:GlassSurface>
