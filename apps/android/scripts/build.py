@@ -109,6 +109,7 @@ def main() -> None:
     parser.add_argument("--no-test", action="store_true", help="skip the core tests on the host")
     parser.add_argument("--device", action="store_true", help="also run the core tests on an arm64 emulator")
     parser.add_argument("--serial", help="emulator for --device (default: ANDROID_SERIAL or the only one running)")
+    parser.add_argument("--info", action="store_true", help="run Gradle with --info (shows the paths it uses)")
     parser.add_argument("--suffix", help="debug only: install as io.github.backspace135.musicunlock.<suffix>, "
                         "named 音匣 (<suffix>), next to other branches' builds")
     args = parser.parse_args()
@@ -122,7 +123,8 @@ def main() -> None:
     # Choose the emulator before the long build, so a wrong serial fails fast.
     serial = emulator_serial(env, args.serial) if args.device else None
 
-    gradle(env, f":app:assemble{args.config.capitalize()}", *suffix_property(args.suffix))
+    gradle(env, f":app:assemble{args.config.capitalize()}", *suffix_property(args.suffix),
+           *(["--info"] if args.info else []))
     outputs = BUILD / "app" / "outputs" / "apk" / args.config
     apk = outputs / ("app-debug.apk" if args.config == "debug" else "app-release-unsigned.apk")
     if not apk.is_file():
