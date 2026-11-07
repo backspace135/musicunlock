@@ -71,9 +71,13 @@ dependencies {
     // Part of the API: suspend functions and Flow.
     api(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.core)
+    // The app's HTTP transport for the core (OkHttpTransport is public API).
+    api(libs.okhttp)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.okhttp.mockwebserver)
+    androidTestImplementation(libs.okhttp.tls)
 }

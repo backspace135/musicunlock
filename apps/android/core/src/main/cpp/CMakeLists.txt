@@ -19,11 +19,14 @@ if(ANDROID)
   # The JNI bridge. The whole core goes into the library, so linking it (with the NDK's --no-undefined) proves
   # every symbol resolves on Android; the bridge supplies the platform text conversion the core leaves out.
   add_library(musicunlock SHARED
+    api_jni.cpp
     audio_jni.cpp
     jni_support.cpp
     lyrics_jni.cpp
     musicunlock_jni.cpp
     platform_text_jni.cpp
+    session_jni.cpp
+    workspace_jni.cpp
   )
   target_include_directories(musicunlock PRIVATE "${MU_REPO_ROOT}/shared/core/src")
   target_include_directories(musicunlock SYSTEM PRIVATE "${MU_REPO_ROOT}/shared/core/third_party")

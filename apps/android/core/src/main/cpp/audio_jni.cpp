@@ -124,6 +124,27 @@ jobjectArray supported_extensions(JNIEnv* env, jclass) {
     });
 }
 
+jobjectArray qq_extensions(JNIEnv* env, jclass) {
+    return guarded(env, [&] {
+        const auto& extensions = mu::qq_extensions();
+        jobjectArray array = env->NewObjectArray(static_cast<jsize>(extensions.size()), classes().string, nullptr);
+        jsize index = 0;
+        for (const auto& ext : extensions) {
+            jstring text = string(env, ext);
+            env->SetObjectArrayElement(array, index++, text);
+            env->DeleteLocalRef(text);
+        }
+        return array;
+    });
+}
+
+jstring sniff_audio(JNIEnv* env, jclass, jbyteArray header) {
+    return guarded(env, [&]() -> jstring {
+        const auto ext = mu::sniff_audio(bytes(env, header));
+        return ext ? string(env, *ext) : nullptr;
+    });
+}
+
 jboolean is_supported_extension(JNIEnv* env, jclass, jstring ext) {
     return guarded(env, [&] { return static_cast<jboolean>(mu::is_supported_extension(utf8(env, ext))); });
 }
@@ -359,6 +380,8 @@ jobject convert_descriptor(JNIEnv* env, jclass, jint fd, jstring source_name, js
 
 const JNINativeMethod format_methods[] = {
     NATIVE("nativeSupportedExtensions", "()[Ljava/lang/String;", supported_extensions),
+    NATIVE("nativeQqExtensions", "()[Ljava/lang/String;", qq_extensions),
+    NATIVE("nativeSniffAudio", "([B)Ljava/lang/String;", sniff_audio),
     NATIVE("nativeIsSupportedExtension", "(Ljava/lang/String;)Z", is_supported_extension),
     NATIVE("nativeIsSupportedFileName", "(Ljava/lang/String;)Z", is_supported_file_name),
     NATIVE("nativePlatformFor", "(Ljava/lang/String;)Ljava/lang/String;", platform_for),

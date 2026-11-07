@@ -12,6 +12,12 @@ object AudioFormats {
     /** Lowercase extensions the core converts ("ncm", "qmcflac", "mflac", "kgm", ...). */
     val supportedExtensions: Set<String> by lazy { nativeSupportedExtensions().toSet() }
 
+    /** The QQ Music formats among them ("qmcflac", "mflac", "mgg"...). */
+    val qqExtensions: Set<String> by lazy { nativeQqExtensions().toSet() }
+
+    /** The plain audio format of the first bytes of a file ("flac", "mp3", "ogg", "m4a"...), or null. */
+    fun sniffAudio(header: ByteArray): String? = nativeSniffAudio(header)
+
     /** Case-insensitive, without the dot: `isSupportedExtension("NCM")` is true. */
     fun isSupportedExtension(extension: String): Boolean = nativeIsSupportedExtension(extension)
 
@@ -59,6 +65,8 @@ object AudioFormats {
         nativeFilterIncludes(filter.ordinal, state.ordinal)
 
     @JvmStatic private external fun nativeSupportedExtensions(): Array<String>
+    @JvmStatic private external fun nativeQqExtensions(): Array<String>
+    @JvmStatic private external fun nativeSniffAudio(header: ByteArray): String?
     @JvmStatic private external fun nativeIsSupportedExtension(extension: String): Boolean
     @JvmStatic private external fun nativeIsSupportedFileName(name: String): Boolean
     @JvmStatic private external fun nativePlatformFor(extension: String): String
