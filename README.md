@@ -20,7 +20,9 @@ musicunlock/
 │   │   ├── assets/
 │   │   ├── scripts/
 │   │   └── Package.swift
-│   └── windows/               Windows 原生版本：C++ 核心、CLI、测试（WinUI 3 界面开发中）
+│   └── windows/               Windows 原生版本：WinUI 3 界面、CLI、单 exe 启动器
+├── shared/
+│   └── core/                  多平台共用的 C++ 核心：源码、测试、第三方库
 ├── resources/                公共运行资源（KGM 数据表）
 ├── tests/fixtures/            跨平台解密测试向量
 ├── LICENSE                   项目 MIT 许可证
@@ -28,6 +30,7 @@ musicunlock/
 └── README.md
 ```
 
+`shared/` 下是多个平台共用的代码，目前是 C++ 核心（Windows 版在用，Android 版也将共用它）。
 平台源码、测试和打包脚本归各自目录管理。构建产物写入对应平台的 `build/`，不提交到 Git。
 解密逻辑已移植为原生 Swift 实现。仓库不保留上游参考源码，仅保留必需数据和测试向量；克隆后即可构建 macOS 版。
 
