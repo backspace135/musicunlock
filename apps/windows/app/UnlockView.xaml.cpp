@@ -331,6 +331,14 @@ void UnlockView::OnContainerContentChanging(ListViewBase const&, ContainerConten
     }
     if (auto background = find_named(root, L"RunningBackground")) motion::crossfade(background);
     if (entering_.erase(args.Item().as<MusicUnlock::JobItem>().Id()) > 0) motion::enter(root);
+    // The reveal and remove buttons trade places when a job finishes. The one arriving grows in from 60 %.
+    const bool reveals = args.Item().as<MusicUnlock::JobItem>().HasOutput();
+    const auto key = container.as<IInspectable>();
+    if (auto found = row_action_.find(key); found != row_action_.end() && found->second != reveals) {
+        motion::describe(reveals ? L"在资源管理器中显示" : L"移出队列");
+        if (auto button = find_named(root, reveals ? L"RevealButton" : L"RemoveButton")) motion::pop(button, false);
+    }
+    row_action_[key] = reveals;
 }
 
 void UnlockView::PopState(MusicUnlock::JobItem const& item, bool bounce) {

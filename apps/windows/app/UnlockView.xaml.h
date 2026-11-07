@@ -131,6 +131,7 @@ private:
     std::map<uint64_t, com_ptr<JobItem>> item_cache_;
     std::function<void(std::string)> find_lyrics_;
     std::set<uint64_t> entering_;  // rows inserted since the last layout; they settle in once realized
+    std::map<IInspectable, bool> row_action_;  // per container: whether it last showed the reveal button
     hstring status_title_;
     motion::Loop drift_;
     motion::Loop hop_;

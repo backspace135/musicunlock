@@ -240,12 +240,12 @@
                                                 <TextBlock Text="{x:Bind StateLabel, Mode=OneWay}" FontSize="11" />
                                             </StackPanel>
                                             <Grid Grid.Column="4" VerticalAlignment="Top">
-                                                <Button Style="{StaticResource MuRowButtonStyle}" Tag="{x:Bind Id}" Click="OnRevealOutput"
+                                                <Button x:Name="RevealButton" Style="{StaticResource MuRowButtonStyle}" Tag="{x:Bind Id}" Click="OnRevealOutput"
                                                         Visibility="{x:Bind HasOutput, Mode=OneWay}" ToolTipService.ToolTip="在资源管理器中显示"
                                                         AutomationProperties.Name="{x:Bind RevealLabel, Mode=OneWay}">
                                                     <FontIcon Glyph="&#xE838;" FontSize="13" />
                                                 </Button>
-                                                <Button Style="{StaticResource MuRowButtonStyle}" Tag="{x:Bind Id}" Click="OnRemoveJob"
+                                                <Button x:Name="RemoveButton" Style="{StaticResource MuRowButtonStyle}" Tag="{x:Bind Id}" Click="OnRemoveJob"
                                                         Visibility="{x:Bind CanRemove, Mode=OneWay}" IsEnabled="{x:Bind ShowsStateGlyph, Mode=OneWay}"
                                                         ToolTipService.ToolTip="移出队列" AutomationProperties.Name="{x:Bind RemoveLabel, Mode=OneWay}">
                                                     <FontIcon Glyph="&#xE711;" FontSize="12" />
