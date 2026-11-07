@@ -56,6 +56,14 @@ Bytes wave_fixture() {
     return data;
 }
 
+Bytes from_hex(std::string_view hex) {
+    Bytes out;
+    for (std::size_t i = 0; i + 1 < hex.size(); i += 2) {
+        out.push_back(static_cast<std::uint8_t>(std::stoi(std::string(hex.substr(i, 2)), nullptr, 16)));
+    }
+    return out;
+}
+
 Bytes aes_encrypt(const Bytes& input, mu::ByteSpan key) {
     auto out = mu::detail::aes128_ecb(mu::detail::AesMode::encrypt, input, key);
     CHECK(out.has_value());
@@ -148,6 +156,56 @@ TEST(static_cipher_boundary) {
     mu::detail::qmc_apply_static(bytes, 0x7ff8);
     CHECK_EQ(bytes, (Bytes{0xd8, 0x52, 0xf7, 0x67, 0x90, 0xca, 0xd6, 0x4a, 0x4a, 0xd6, 0xca, 0x90, 0x67, 0xf7, 0x52, 0xd8}),
              "static box wrap at 0x7fff");
+}
+
+// FIPS-197 appendices B and C.1; every block is followed by the full PKCS#7 padding block.
+TEST(aes_matches_fips_197_vectors) {
+    using mu::detail::AesMode;
+    for (const auto& [key, plain, cipher] :
+         {std::array<std::string_view, 3>{"2b7e151628aed2a6abf7158809cf4f3c", "3243f6a8885a308d313198a2e0370734",
+                                          "3925841d02dc09fbdc118597196a0b32"},
+          std::array<std::string_view, 3>{"000102030405060708090a0b0c0d0e0f", "00112233445566778899aabbccddeeff",
+                                          "69c4e0d86a7b0430d8cdb78070b4c55a"}}) {
+        const auto sealed = mu::detail::aes128_ecb(AesMode::encrypt, from_hex(plain), from_hex(key));
+        CHECK(sealed.has_value() && sealed->size() == 32);
+        if (!sealed || sealed->size() != 32) continue;
+        CHECK_EQ(Bytes(sealed->begin(), sealed->begin() + 16), from_hex(cipher), std::string(cipher));
+        CHECK_EQ(mu::detail::aes128_ecb(AesMode::decrypt, *sealed, from_hex(key)), std::optional(from_hex(plain)),
+                 std::string(plain));
+    }
+}
+
+TEST(aes_pads_with_pkcs7) {
+    using mu::detail::AesMode;
+    const Bytes key = from_hex("000102030405060708090a0b0c0d0e0f");
+    for (std::size_t size : {1, 15, 16, 17, 31, 32, 100}) {
+        Bytes plain(size);
+        for (std::size_t i = 0; i < size; ++i) plain[i] = static_cast<std::uint8_t>(i * 7);
+        const auto sealed = mu::detail::aes128_ecb(AesMode::encrypt, plain, key);
+        CHECK(sealed.has_value() && sealed->size() == (size / 16 + 1) * 16);
+        CHECK_EQ(mu::detail::aes128_ecb(AesMode::decrypt, sealed.value_or(Bytes{}), key), std::optional(plain),
+                 "round trip " + std::to_string(size));
+    }
+    CHECK(!mu::detail::aes128_ecb(AesMode::encrypt, Bytes{1}, Bytes(15)).has_value());
+#ifdef MU_PORTABLE_AES
+    // Edge cases the platform libraries disagree on (no caller hits them): CNG seals empty input to nothing, and
+    // CommonCrypto hands malformed ciphertext back unchanged. The portable backend follows PKCS#7 strictly.
+    const auto empty = mu::detail::aes128_ecb(AesMode::encrypt, Bytes{}, key);
+    CHECK(empty.has_value() && empty->size() == 16);
+    CHECK_EQ(mu::detail::aes128_ecb(AesMode::decrypt, empty.value_or(Bytes{}), key), std::optional(Bytes{}), "empty");
+    CHECK(!mu::detail::aes128_ecb(AesMode::decrypt, Bytes(15), key).has_value());
+    CHECK(!mu::detail::aes128_ecb(AesMode::decrypt, Bytes{}, key).has_value());
+    // A block whose plaintext ends in 0x00, then one ending in 0x02 0x03: both are invalid padding.
+    for (std::string_view tail : {"00", "0203"}) {
+        Bytes plain(16 - tail.size() / 2, 0x41);
+        mu::detail::append(plain, from_hex(tail));
+        auto sealed = mu::detail::aes128_ecb(AesMode::encrypt, plain, key);
+        CHECK(sealed.has_value());
+        if (!sealed) continue;
+        sealed->resize(16);
+        CHECK(!mu::detail::aes128_ecb(AesMode::decrypt, *sealed, key).has_value());
+    }
+#endif
 }
 
 TEST(ncm_container_and_metadata) {

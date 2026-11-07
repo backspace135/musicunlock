@@ -144,6 +144,11 @@ TEST(word_timing_preserves_word_stamps_and_rejects_unavailable_content) {
 }
 
 TEST(pinyin_uses_system_transliteration) {
+#ifdef MU_NO_PLATFORM_TEXT
+    CHECK(!mu::mandarin_to_latin("你好").has_value());
+    std::cout << "  skipped: no platform text conversion in this build\n";
+    return;
+#endif
     const auto latin = mu::mandarin_to_latin("我们在重庆银行唱歌 Hello 了");
     CHECK(latin.has_value());
     CHECK_EQ(latin.value_or(""), std::string("wǒ men zài chóng qìng yín xíng chàng gē Hello le"), "pinyin");
@@ -179,8 +184,10 @@ TEST(local_lyric_files_decode_common_encodings) {
     CHECK_EQ(mu::decode_lyric_file(Bytes{0xef, 0xbb, 0xbf, 'a'}), std::string("a"), "utf8 bom");
     CHECK_EQ(mu::decode_lyric_file(Bytes{0xff, 0xfe, 0x2d, 0x4e}), std::string("中"), "utf16 le");
     CHECK_EQ(mu::decode_lyric_file(Bytes{0xfe, 0xff, 0x4e, 0x2d}), std::string("中"), "utf16 be");
+#ifndef MU_NO_PLATFORM_TEXT
     CHECK_EQ(mu::decode_lyric_file(Bytes{'[', '0', '0', ':', '0', '1', ']', 0xd6, 0xd0, 0xce, 0xc4}),
              std::string("[00:01]中文"), "gbk");
+#endif
     CHECK_THROWS_AS(mu::decode_lyric_file(Bytes{0xff, 0xfe, 0x2d}), LyricError, "odd utf16");
     CHECK_THROWS_AS(mu::decode_lyric_file(Bytes(5'000'001, 'a')), LyricError, "too large");
 }

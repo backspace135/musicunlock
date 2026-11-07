@@ -1,0 +1,52 @@
+name: Android
+
+on:
+  # Branch pushes are covered by their pull request; only main runs on push.
+  push:
+    branches: [main]
+    paths:
+      - "apps/android/**"
+      - "shared/**"
+      - "tests/fixtures/**"
+      - "resources/kgm.mask"
+      - ".github/workflows/android.yml"
+  pull_request:
+    paths:
+      - "apps/android/**"
+      - "shared/**"
+      - "tests/fixtures/**"
+      - "resources/kgm.mask"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Install the pinned NDK and CMake
+        run: |
+          version() { sed -n "s/^$1 = \"\(.*\)\"$/\1/p" apps/android/gradle/libs.versions.toml; }
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platforms;android-$(version compileSdk).0" "ndk;$(version ndk)" "cmake;$(version cmake)" > /dev/null
+      - name: Build the debug APK and run the core tests on the host (portable AES)
+        run: python3 apps/android/scripts/build.py
+      - name: Build the release APK
+        run: python3 apps/android/scripts/build.py --config release --no-test
+      - uses: actions/upload-artifact@v7
+        with:
+          name: musicunlock-android-arm64-debug
+          path: apps/android/build/app/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
