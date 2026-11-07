@@ -21,6 +21,10 @@
             <SolidColorBrush x:Key="MuChipBrush" Color="#1C1C1C" Opacity="0.055" />
             <SolidColorBrush x:Key="MuRunningRowBrush" Color="#1C1C1C" Opacity="0.06" />
             <SolidColorBrush x:Key="MuDropBrush" Color="#1C1C1C" Opacity="0.08" />
+            <SolidColorBrush x:Key="MuProminentBrush" Color="#1C1C1C" />
+            <SolidColorBrush x:Key="MuProminentTextBrush" Color="#FFFFFF" />
+            <!-- A disabled primary button keeps its ink; only the text fades, so it never vanishes into the panel. -->
+            <SolidColorBrush x:Key="MuProminentDisabledBrush" Color="#1C1C1C" />
             <Color x:Key="SystemAccentColor">#1C1C1C</Color>
             <Color x:Key="SystemAccentColorLight1">#1C1C1C</Color>
             <Color x:Key="SystemAccentColorLight2">#1C1C1C</Color>
@@ -44,6 +48,9 @@
             <SolidColorBrush x:Key="MuChipBrush" Color="#F2F2F2" Opacity="0.07" />
             <SolidColorBrush x:Key="MuRunningRowBrush" Color="#F2F2F2" Opacity="0.06" />
             <SolidColorBrush x:Key="MuDropBrush" Color="#F2F2F2" Opacity="0.08" />
+            <SolidColorBrush x:Key="MuProminentBrush" Color="#F2F2F2" />
+            <SolidColorBrush x:Key="MuProminentTextBrush" Color="#1C1C1C" />
+            <SolidColorBrush x:Key="MuProminentDisabledBrush" Color="#F2F2F2" />
             <Color x:Key="SystemAccentColor">#F2F2F2</Color>
             <Color x:Key="SystemAccentColorLight1">#E6E6E6</Color>
             <Color x:Key="SystemAccentColorLight2">#F2F2F2</Color>
@@ -62,6 +69,9 @@
             <SolidColorBrush x:Key="MuChipBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="MuRunningRowBrush" Color="{ThemeResource SystemColorHighlightColor}" Opacity="0.2" />
             <SolidColorBrush x:Key="MuDropBrush" Color="{ThemeResource SystemColorHighlightColor}" Opacity="0.2" />
+            <SolidColorBrush x:Key="MuProminentBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="MuProminentTextBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="MuProminentDisabledBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
@@ -100,5 +110,58 @@
     <Style x:Key="MuSmallCaptionStyle" TargetType="TextBlock" BasedOn="{StaticResource MuCaptionStyle}">
         <Setter Property="FontSize" Value="11" />
         <Setter Property="LineHeight" Value="17" />
+    </Style>
+
+    <!-- Capsule buttons (macOS controlSize .large): 30 tall, 14 horizontal padding, 13 Medium. The corner radius
+         is half the height, so the shape stays a capsule as the button grows with its label. -->
+    <Style x:Key="MuCapsuleButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Padding" Value="14,0" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="CornerRadius" Value="15" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <!-- Primary: solid ink, white text in light, black text in dark. No border. -->
+    <Style x:Key="MuProminentButtonStyle" TargetType="Button" BasedOn="{StaticResource MuCapsuleButtonStyle}">
+        <Setter Property="Background" Value="{ThemeResource MuProminentBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource MuProminentTextBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Border x:Name="Plate" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" />
+                        <ContentPresenter x:Name="Content" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                          Margin="{TemplateBinding Padding}" Foreground="{TemplateBinding Foreground}" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Content.Opacity" Value="0.85" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed" />
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="Plate.Background" Value="{ThemeResource MuProminentDisabledBrush}" />
+                                        <Setter Target="Plate.Opacity" Value="0.45" />
+                                        <Setter Target="Content.Opacity" Value="0.7" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- Secondary, sitting on a card: an opaque capsule with a hairline, so glass never stacks on glass. -->
+    <Style x:Key="MuOnGlassButtonStyle" TargetType="Button" BasedOn="{StaticResource MuCapsuleButtonStyle}">
+        <Setter Property="Background" Value="{ThemeResource MuSurfaceBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource MuTextBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource MuSeparatorBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
     </Style>
 </ResourceDictionary>

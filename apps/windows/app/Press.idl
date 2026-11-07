@@ -1,0 +1,17 @@
+namespace MusicUnlock
+{
+    // Press feedback (issue #64). Scale is the size while pressed (0.97 for plain controls, 0.96 for glass and
+    // primary buttons); 0 turns the behaviour off. Glass tints the background by that much of the text colour
+    // while pressed. Both spring back through glass_motion::pressable. Nothing scales when motion is off.
+    [default_interface]
+    runtimeclass Press : Microsoft.UI.Xaml.DependencyObject
+    {
+        Press();
+        static Microsoft.UI.Xaml.DependencyProperty ScaleProperty { get; };
+        static Microsoft.UI.Xaml.DependencyProperty GlassProperty { get; };
+        static Double GetScale(Microsoft.UI.Xaml.DependencyObject element);
+        static void SetScale(Microsoft.UI.Xaml.DependencyObject element, Double value);
+        static Double GetGlass(Microsoft.UI.Xaml.DependencyObject element);
+        static void SetGlass(Microsoft.UI.Xaml.DependencyObject element, Double value);
+    }
+}

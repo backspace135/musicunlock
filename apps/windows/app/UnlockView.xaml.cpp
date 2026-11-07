@@ -138,6 +138,18 @@ void UnlockView::ApplyTextScale() {
 
 void UnlockView::OnQueueHeaderSizeChanged(IInspectable const&, SizeChangedEventArgs const&) { FitQueueHeader(); }
 
+void UnlockView::FitFooter() {
+    const auto room = static_cast<float>(std::max(0.0, Footer().ActualWidth() - 40));
+    if (room <= 0) return;
+    StatusTitle().Measure({room, std::numeric_limits<float>::infinity()});
+    FooterActions().Measure({std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()});
+    const bool wrap = StatusTitle().DesiredSize().Width + FooterActions().DesiredSize().Width + 16 > room;
+    Controls::Grid::SetRow(FooterActions(), wrap ? 1 : 0);
+    Controls::Grid::SetColumn(FooterActions(), wrap ? 0 : 1);
+    Controls::Grid::SetColumnSpan(FooterActions(), wrap ? 2 : 1);
+    FooterActions().HorizontalAlignment(wrap ? HorizontalAlignment::Left : HorizontalAlignment::Right);
+}
+
 /// The filters sit beside the title, or on a second line when large text leaves no room for them.
 void UnlockView::FitQueueHeader() {
     const Windows::Foundation::Size unbounded{std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
@@ -249,6 +261,8 @@ void UnlockView::Refresh() {
     StopButton().Content(box_value(queue_.stop_requested() ? L"正在停止…" : L"停止转换"));
     StartButton().Visibility(shown(!running));
     StartButton().IsEnabled(waiting > 0 && imports_ == 0);
+    FooterActions().Update();
+    FitFooter();
     OutputButton().IsEnabled(!running);
     NamingBox().IsEnabled(!running);
     ChooseFilesButton().IsEnabled(imports_ == 0);
