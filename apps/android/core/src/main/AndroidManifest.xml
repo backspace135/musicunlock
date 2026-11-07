@@ -1,12 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- The default output folders (Music/音匣, Download/音匣/歌词) before scoped storage (Android 9 and older). -->
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <application>
         <!-- Gives the core the application context at process start; serves no data. -->
         <provider
             android:name=".CoreInitializer"
             android:authorities="${applicationId}.musicunlock-core"
             android:exported="false" />
+
+        <!-- Output files on Android 9 and older that MediaScanner gave no content URI for. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.musicunlock-files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/musicunlock_file_paths" />
+        </provider>
     </application>
 
 </manifest>

@@ -1,5 +1,6 @@
 package io.github.backspace135.musicunlock.core
 
+import android.content.Intent
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
@@ -106,5 +107,15 @@ class TestDocumentsProvider : DocumentsProvider() {
 
         /** The tree URI of a folder, as OpenDocumentTree would return it. */
         fun treeUri(relativePath: String): Uri = DocumentsContract.buildTreeDocumentUri(AUTHORITY, relativePath)
+
+        /** A folder as the user would pick it for output: created, with a read / write grant like a picker's. */
+        fun pickedFolder(relativePath: String): OutputFolder.Picked {
+            val context = Fixtures.context
+            File(rootFolder(context), relativePath).mkdirs()
+            val tree = treeUri(relativePath)
+            context.grantUriPermission(context.packageName, tree, Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PREFIX_URI_PERMISSION)
+            return OutputFolder.Picked(tree)
+        }
     }
 }

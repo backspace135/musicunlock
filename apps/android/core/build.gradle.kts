@@ -2,8 +2,31 @@ plugins {
     alias(libs.plugins.android.library)
 }
 
+/** Copies the repository's resources/kgm.mask (shared by every platform) into this module's assets. */
+abstract class KgmMaskAssets : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val mask: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val assets: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val target = assets.get().asFile
+        target.deleteRecursively()
+        target.mkdirs()
+        mask.get().asFile.copyTo(target.resolve("kgm.mask"))
+    }
+}
+
+val kgmMaskAssets = tasks.register<KgmMaskAssets>("kgmMaskAssets") {
+    mask = rootProject.layout.projectDirectory.file("../../resources/kgm.mask")
+}
+
 androidComponents {
     onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(kgmMaskAssets, KgmMaskAssets::assets)
         // The instrumented tests decode the shared fixtures (tests/fixtures/qmc), as the core tests do.
         variant.androidTest?.sources?.assets?.addStaticSourceDirectory(
             rootProject.layout.projectDirectory.dir("../../tests/fixtures").asFile.path)
@@ -47,6 +70,7 @@ android {
 dependencies {
     // Part of the API: suspend functions and Flow.
     api(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.core)
     androidTestImplementation(libs.androidx.test.core)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)

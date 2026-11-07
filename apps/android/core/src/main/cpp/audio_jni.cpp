@@ -1,9 +1,19 @@
-// audio.h, conversion.h, import.h and queue.h for AudioFormats.kt and AudioQueue.kt.
+// audio.h, conversion.h, import.h and queue.h for AudioFormats.kt, AudioQueue.kt and AudioConverter.kt.
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <algorithm>
+#include <cerrno>
+#include <cstring>
+#include <memory>
+#include <mutex>
 #include <numeric>
 
 #include <nlohmann/json.hpp>
 
+#include "detail.h"
 #include "jni_support.h"
 #include "musicunlock/conversion.h"
 #include "musicunlock/import.h"
@@ -13,6 +23,17 @@
 namespace mu::jni {
 
 namespace {
+
+std::mutex mask_mutex;
+std::shared_ptr<const Bytes> kgm_mask = std::make_shared<Bytes>();  // guarded by mask_mutex; from the APK's assets
+
+std::shared_ptr<const Bytes> current_mask() {
+    std::lock_guard lock(mask_mutex);
+    return kgm_mask;
+}
+
+jclass converted_class = nullptr;
+jmethodID converted_init = nullptr;
 
 constexpr NamingPolicy naming_policies[] = {NamingPolicy::original, NamingPolicy::artist_title, NamingPolicy::title};
 constexpr JobState job_states[] = {JobState::waiting, JobState::running, JobState::done, JobState::failed};
@@ -30,6 +51,62 @@ std::string dump(const nlohmann::json& json) {
     // Core strings are UTF-8 but file names may not be; never let the dump throw on them.
     return json.dump(-1, ' ', false, nlohmann::json::error_handler_t::replace);
 }
+
+/// The source as one span: mapped when the descriptor is a regular file, so a 100 MB source does not also sit on
+/// the heap while it is decoded; read otherwise (pipes from cloud document providers).
+class Source {
+public:
+    explicit Source(int fd) {
+        struct stat status {};
+        if (fstat(fd, &status) != 0) fail(errno);
+        if (S_ISREG(status.st_mode) && status.st_size > 0) {
+            if (static_cast<unsigned long long>(status.st_size) > (std::size_t{1} << 32)) {
+                detail::fail_invalid("文件过大（超过 4 GB）");
+            }
+            size_ = static_cast<std::size_t>(status.st_size);
+            void* mapped = mmap(nullptr, size_, PROT_READ, MAP_PRIVATE, fd, 0);
+            if (mapped != MAP_FAILED) {
+                madvise(mapped, size_, MADV_SEQUENTIAL);
+                mapped_ = static_cast<std::uint8_t*>(mapped);
+                return;
+            }
+        }
+        read_all(fd);
+    }
+
+    ~Source() {
+        if (mapped_) munmap(mapped_, size_);
+    }
+
+    Source(const Source&) = delete;
+    Source& operator=(const Source&) = delete;
+
+    ByteSpan span() const { return mapped_ ? ByteSpan(mapped_, size_) : ByteSpan(buffer_); }
+
+private:
+    [[noreturn]] static void fail(int error) {
+        detail::fail_invalid("无法读取文件（" + std::string(std::strerror(error)) + "）");
+    }
+
+    void read_all(int fd) {
+        if (lseek(fd, 0, SEEK_SET) < 0 && errno != ESPIPE) fail(errno);
+        std::uint8_t chunk[1 << 16];
+        for (;;) {
+            const ssize_t count = ::read(fd, chunk, sizeof chunk);
+            if (count < 0) {
+                if (errno == EINTR) continue;
+                fail(errno);
+            }
+            if (count == 0) break;
+            buffer_.insert(buffer_.end(), chunk, chunk + count);
+            if (buffer_.size() > (std::size_t{1} << 32)) detail::fail_invalid("文件过大（超过 4 GB）");
+        }
+    }
+
+    std::uint8_t* mapped_ = nullptr;
+    std::size_t size_ = 0;
+    Bytes buffer_;
+};
 
 // AudioFormats
 
@@ -247,6 +324,37 @@ jstring queue_status_detail(JNIEnv* env, jclass, jlong queue) {
     return guarded(env, [&] { return string(env, handle<AudioQueue>(queue).status_detail()); });
 }
 
+// AudioConverter
+
+void set_kgm_mask(JNIEnv* env, jclass, jbyteArray mask) {
+    guarded(env, [&] {
+        auto value = std::make_shared<const Bytes>(bytes(env, mask));
+        std::lock_guard lock(mask_mutex);
+        kgm_mask = std::move(value);
+    });
+}
+
+jobject convert_descriptor(JNIEnv* env, jclass, jint fd, jstring source_name, jstring directory, jint naming) {
+    return guarded(env, [&]() -> jobject {
+        const auto mask = current_mask();
+        ConversionOutput output;
+        {
+            const Source source(fd);
+            output = convert_data(source.span(), utf8(env, source_name), utf8_to_path(utf8(env, directory)),
+                                  pick(naming_policies, naming), *mask);
+        }
+        const AudioMetadata& meta = output.metadata;
+        jstring path = string(env, path_to_utf8(output.path));
+        jstring ext = string(env, output.file_extension);
+        jstring title = string(env, meta.title);
+        jstring artist = string(env, meta.artist);
+        jstring album = string(env, meta.album);
+        jbyteArray cover = meta.cover ? byte_array(env, *meta.cover) : nullptr;
+        if (env->ExceptionCheck()) return nullptr;
+        return env->NewObject(converted_class, converted_init, path, ext, title, artist, album, cover);
+    });
+}
+
 #define NATIVE(name, signature, function) {name, signature, reinterpret_cast<void*>(function)}
 
 const JNINativeMethod format_methods[] = {
@@ -289,11 +397,24 @@ const JNINativeMethod queue_methods[] = {
     NATIVE("nativeStatusDetail", "(J)Ljava/lang/String;", queue_status_detail),
 };
 
+const JNINativeMethod converter_methods[] = {
+    NATIVE("nativeSetKgmMask", "([B)V", set_kgm_mask),
+    NATIVE("nativeConvertDescriptor",
+           "(ILjava/lang/String;Ljava/lang/String;I)Lio/github/backspace135/musicunlock/core/ConvertedAudio;",
+           convert_descriptor),
+};
+
 }  // namespace
 
 void register_audio(JNIEnv* env) {
     register_natives(env, "AudioFormats", format_methods);
     register_natives(env, "AudioQueue", queue_methods);
+    register_natives(env, "AudioConverter", converter_methods);
+    converted_class = find_class(env, "io/github/backspace135/musicunlock/core/ConvertedAudio");
+    converted_init = env->GetMethodID(converted_class, "<init>",
+                                      "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;"
+                                      "Ljava/lang/String;[B)V");
+    if (!converted_init) std::abort();
 }
 
 }  // namespace mu::jni

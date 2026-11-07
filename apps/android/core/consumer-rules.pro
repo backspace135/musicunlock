@@ -21,3 +21,7 @@
     java.lang.String gb18030ToUtf8(byte[]);
 }
 
+# Conversion results (audio_jni.cpp).
+-keep class io.github.backspace135.musicunlock.core.ConvertedAudio {
+    <init>(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, byte[]);
+}
