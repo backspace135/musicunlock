@@ -52,9 +52,9 @@ struct GlassSwitch<Value: Hashable>: View {
         .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .named(space))
             .onChanged { drag in pressed = true; select(at: drag.location.x) }
             .onEnded { drag in pressed = false; select(at: drag.location.x) })
-        .animation(animated ? .spring(duration: 0.42, bounce: 0.3) : nil, value: selection)
-        .animation(animated ? .spring(duration: 0.3, bounce: 0.45) : nil, value: pressed)
-        .animation(animated ? .easeOut(duration: 0.15) : nil, value: hovered)
+        .animation(animated ? GlassMotion.lens : nil, value: selection)
+        .animation(animated ? GlassMotion.press : nil, value: pressed)
+        .animation(animated ? .easeOut(duration: 0.1) : nil, value: hovered)
         .sensoryFeedback(.levelChange, trigger: selection)
         .accessibilityRepresentation {
             Picker(title, selection: $selection) {
@@ -120,14 +120,14 @@ struct GlassSwitch<Value: Hashable>: View {
                 content.scaleEffect(x: scale.width, y: scale.height)
             } keyframes: { _ in
                 KeyframeTrack(\.width) {
-                    SpringKeyframe(1.3, duration: 0.14)
-                    SpringKeyframe(0.95, duration: 0.16)
-                    SpringKeyframe(1, duration: 0.24)
+                    SpringKeyframe(1.3, duration: 0.09)
+                    SpringKeyframe(0.95, duration: 0.1)
+                    SpringKeyframe(1, duration: 0.16)
                 }
                 KeyframeTrack(\.height) {
-                    SpringKeyframe(0.82, duration: 0.14)
-                    SpringKeyframe(1.05, duration: 0.16)
-                    SpringKeyframe(1, duration: 0.24)
+                    SpringKeyframe(0.82, duration: 0.09)
+                    SpringKeyframe(1.05, duration: 0.1)
+                    SpringKeyframe(1, duration: 0.16)
                 }
             }
         } else {

@@ -24,6 +24,8 @@ final class GlassMenuCenter {
     /// The panel and its button swap only where they coincide, so the two never show at once.
     private(set) var panelVisible = false
     private var sourceHidden = false
+    /// Set until the panel has been measured and starts to grow.
+    private var opening = false
     var animated = true
 
     func isShowing(_ id: UUID) -> Bool { menu?.id == id && menu?.hidesSource == true && sourceHidden }
@@ -33,22 +35,24 @@ final class GlassMenuCenter {
         // No animation: the glass appears exactly over the button it replaces.
         var instant = Transaction(); instant.disablesAnimations = true
         withTransaction(instant) {
-            expanded = false; panelVisible = true; sourceHidden = true
+            expanded = false; panelVisible = true; sourceHidden = true; opening = true
             self.menu = menu
         }
     }
 
     func expand() {
-        guard menu != nil, !expanded else { return }
-        withAnimation(animated ? .spring(duration: 0.42, bounce: 0.22) : nil) { expanded = true }
+        guard menu != nil, opening else { return }
+        opening = false
+        withAnimation(animated ? GlassMotion.open : nil) { expanded = true }
     }
 
     func close() {
         guard let id = menu?.id, panelVisible else { return }
+        opening = false
         guard animated else { expanded = false; panelVisible = false; sourceHidden = false; menu = nil; return }
-        // Shrink without overshoot, so the glass never dips inside the button, then cross-fade in place.
-        withAnimation(.smooth(duration: 0.3)) { expanded = false }
-        withAnimation(.easeInOut(duration: 0.12).delay(0.2)) {
+        // Shrink without overshoot, then cross-fade with the button in place.
+        withAnimation(GlassMotion.close) { expanded = false }
+        withAnimation(GlassMotion.handoff) {
             panelVisible = false; sourceHidden = false
         } completion: { [weak self] in
             if let self, self.menu?.id == id, !self.panelVisible { self.menu = nil }
@@ -167,7 +171,11 @@ private struct GlassMenuLayer: View {
                         .offset(x: rect.minX, y: rect.minY)
                         .opacity(center.panelVisible ? 1 : 0)
                     rows(menu, minWidth: anchor.width)
-                        .onGeometryChange(for: CGSize.self) { $0.size } action: { size = $0 }
+                        .onGeometryChange(for: CGSize.self) { $0.size } action: { measured in
+                            size = measured
+                            // Grow on the very next run loop turn, once the glass has drawn at the button.
+                            DispatchQueue.main.async { center.expand() }
+                        }
                         .opacity(center.expanded ? 1 : 0)
                         .blur(radius: center.expanded ? 0 : 6)
                         .scaleEffect(center.expanded ? 1 : 0.9, anchor: target.minY >= anchor.maxY ? .top : .bottom)
@@ -183,8 +191,7 @@ private struct GlassMenuLayer: View {
                 .task(id: menu.id) {
                     hovered = nil
                     focused = true
-                    // Let the rows lay out once so the glass knows how large to grow.
-                    try? await Task.sleep(for: .milliseconds(16))
+                    // Same size as the last menu: no geometry change fires, so grow from here.
                     center.expand()
                 }
             }
@@ -244,7 +251,7 @@ private struct GlassMenuLayer: View {
         .padding(6)
         .frame(minWidth: max(minWidth, 150), alignment: .leading)
         .fixedSize()
-        .animation(center.animated ? .spring(duration: 0.25, bounce: 0.2) : nil, value: hovered)
+        .animation(center.animated ? GlassMotion.highlight : nil, value: hovered)
         .focusable().focused($focused).focusEffectDisabled()
         .onKeyPress(.downArrow) { move(1, in: menu); return .handled }
         .onKeyPress(.upArrow) { move(-1, in: menu); return .handled }

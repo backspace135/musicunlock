@@ -101,6 +101,23 @@ struct LiquidSurface: ViewModifier {
     }
 }
 
+/// Springs for the glass controls, tuned to iOS 26 by eye. Apple does not publish these values;
+/// they follow community estimates of the system menu and tab lens, so keep them in one place.
+enum GlassMotion {
+    /// Menu growing out of its button: quick, with a barely visible settle.
+    static let open = Animation.spring(response: 0.32, dampingFraction: 0.78)
+    /// Menu shrinking back: critically damped, so it never dips inside the button. Settles in about 0.2 s.
+    static let close = Animation.spring(response: 0.26, dampingFraction: 1)
+    /// Panel and button swap places over the last stretch of `close`.
+    static let handoff = Animation.easeInOut(duration: 0.08).delay(0.12)
+    /// Switch lens travelling between segments.
+    static let lens = Animation.spring(response: 0.3, dampingFraction: 0.72)
+    /// Lens lifting under the pointer.
+    static let press = Animation.spring(response: 0.22, dampingFraction: 0.6)
+    /// Highlight sliding between rows.
+    static let highlight = Animation.spring(response: 0.2, dampingFraction: 0.85)
+}
+
 /// Implicit animation that respects Reduce Motion and the static renderer.
 struct MotionAnimation<Value: Equatable>: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
