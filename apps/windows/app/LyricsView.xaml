@@ -46,7 +46,12 @@
                 <Grid MinHeight="28">
                     <TextBlock Text="歌词工作台" Style="{StaticResource MuPageTitleStyle}" VerticalAlignment="Center" />
                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <FontIcon x:Name="SessionGlyph" Glyph="&#xE774;" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}" />
+                        <Grid>
+                            <!-- Signed out on top; signing in swaps it for the shield underneath. -->
+                            <FontIcon x:Name="SessionSignedIn" Glyph="&#xEA18;" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}"
+                                      Opacity="0" IsHitTestVisible="False" />
+                            <FontIcon x:Name="SessionSignedOut" Glyph="&#xE774;" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}" />
+                        </Grid>
                         <TextBlock x:Name="SessionText" Text="公开内容可免登录读取" FontSize="11" Foreground="{ThemeResource MuSecondaryBrush}" />
                     </StackPanel>
                 </Grid>

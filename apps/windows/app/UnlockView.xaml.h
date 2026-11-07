@@ -134,6 +134,7 @@ private:
     hstring status_title_;
     motion::Loop drift_;
     motion::Loop hop_;
+    motion::Wave wave_;
     Windows::UI::ViewManagement::UISettings ui_settings_;
     Windows::UI::ViewManagement::UISettings::TextScaleFactorChanged_revoker text_scale_changed_;
     double preview_text_scale_ = 0;

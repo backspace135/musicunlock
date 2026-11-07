@@ -431,6 +431,51 @@ void dip(UIElement const& element) {
     element.StartAnimation(animation);
 }
 
+Wave::Wave(std::initializer_list<UIElement> bars) {
+    for (const auto& bar : bars) bars_.emplace_back(bar);
+}
+
+void Wave::light(int index) {
+    auto c = compositor();
+    constexpr spring::Spring pulse{0.3, 1};
+    for (int i = 0; i < static_cast<int>(bars_.size()); ++i) {
+        auto bar = bars_[i].get();
+        if (!bar) continue;
+        // The bar whose turn it is comes up to full; the others sink to a dim rest. No curve when motion is off.
+        const float opacity = i == index ? 1.f : 0.35f;
+        if (!enabled()) {
+            bar.Opacity(opacity);
+            continue;
+        }
+        bar.StartAnimation(fade(c, static_cast<float>(bar.Opacity()), opacity, pulse));
+    }
+}
+
+void Wave::start() {
+    if (running_ || bars_.empty()) return;
+    running_ = true;
+    if (!enabled()) return;
+    index_ = 0;
+    light(index_);
+    timer_ = winrt::Microsoft::UI::Xaml::DispatcherTimer();
+    timer_.Interval(std::chrono::milliseconds(160));
+    timer_.Tick([this](auto&&, auto&&) {
+        index_ = (index_ + 1) % static_cast<int>(bars_.size());
+        light(index_);
+    });
+    timer_.Start();
+    record(L"Opacity", L"bars 0.35 -> 1 in turn", L"spring 0.30/1.00", 160);
+}
+
+void Wave::stop() {
+    if (!running_) return;
+    running_ = false;
+    if (timer_) timer_.Stop();
+    timer_ = nullptr;
+    for (const auto& bar : bars_)
+        if (auto element = bar.get()) element.Opacity(1);
+}
+
 void lift(UIElement const& element, bool lifted) {
     const float3 scale = uniform(lifted ? 1.1f : 1.f);
     const float rotation = lifted ? -6.f : 0.f;

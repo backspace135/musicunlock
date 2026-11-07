@@ -9,6 +9,11 @@
 
 #include "SpringCurve.h"
 
+#include <initializer_list>
+#include <vector>
+
+#include <winrt/Microsoft.UI.Xaml.h>
+
 namespace motion {
 
 namespace xaml = winrt::Microsoft::UI::Xaml;
@@ -62,6 +67,25 @@ void bounce(xaml::UIElement const& element);
 void replace(xaml::UIElement const& outgoing, xaml::UIElement const& incoming);
 /// An export starting or finishing: the icon drops 3 px and springs back up.
 void dip(xaml::UIElement const& element);
+
+/// The "keep original quality" mark while a conversion runs: its bars light up one after another, and go back to
+/// rest together when it stops. Call it with the same bars each time; starting again does nothing.
+class Wave {
+public:
+    Wave() = default;
+    Wave(std::initializer_list<xaml::UIElement> bars);
+
+    void start();
+    void stop();
+
+private:
+    void light(int index);
+
+    std::vector<winrt::weak_ref<xaml::UIElement>> bars_;
+    winrt::Microsoft::UI::Xaml::DispatcherTimer timer_{nullptr};
+    int index_ = 0;
+    bool running_ = false;
+};
 /// The empty-state disc while files hover: lifted to 110 % and tilted, or back.
 void lift(xaml::UIElement const& element, bool lifted);
 

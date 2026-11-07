@@ -90,6 +90,7 @@ void UnlockView::InitializeComponent() {
     JobList().ItemsSource(items_);
     drift_ = motion::Loop::drift(Disc());
     hop_ = motion::Loop::hop(DropGlyph());
+    wave_ = motion::Wave({WaveBar1(), WaveBar2(), WaveBar3(), WaveBar4()});
     text_scale_changed_ = ui_settings_.TextScaleFactorChanged(
         auto_revoke, [weak = get_weak(), queue = DispatcherQueue()](auto&&, auto&&) {
             queue.TryEnqueue([weak] {
@@ -282,6 +283,11 @@ void UnlockView::Refresh() {
         shown_running_ = running;
         motion::describe(L"开始转换");
         motion::bounce(StartIcon());
+        // The waveform takes the static glyph's place for as long as the conversion runs.
+        QualityIcon().Visibility(shown(!running));
+        QualityWave().Visibility(shown(running));
+        if (running) wave_.start();
+        else wave_.stop();
     }
     OutputButton().IsEnabled(!running);
     NamingBox().IsEnabled(!running);

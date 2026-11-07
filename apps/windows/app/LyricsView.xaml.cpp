@@ -209,7 +209,11 @@ void LyricsView::Refresh() {
     CancelSearchButton().Visibility(shown(searching));
     SearchActions().Update();
     const bool signed_in = accounts::signed_in(workspace_.provider());
-    SessionGlyph().Glyph(signed_in ? L"\xEA18" : L"\xE774");  // Shield / Globe
+    if (signed_in != shown_signed_in_) {
+        shown_signed_in_ = signed_in;
+        motion::describe(L"登录状态");
+        motion::replace(signed_in ? SessionSignedOut() : SessionSignedIn(), signed_in ? SessionSignedIn() : SessionSignedOut());
+    }
     SessionText().Text(signed_in ? L"登录会话已保存" : L"公开内容可免登录读取");
 
     const hstring notice = to_hstring(workspace_.notice());

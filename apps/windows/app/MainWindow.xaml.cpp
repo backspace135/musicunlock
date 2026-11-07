@@ -190,7 +190,11 @@ fire_and_forget MainWindow::ShowAccounts(mu::MusicProvider provider) {
 
 void MainWindow::UpdateAccountsButton() {
     const bool any = accounts::signed_in(mu::MusicProvider::netease) || accounts::signed_in(mu::MusicProvider::qq);
-    AccountsIcon().Glyph(any ? L"\uEA8C" : L"\uE77B");  // ContactSolid / Contact
+    if (any != accounts_signed_in_) {
+        accounts_signed_in_ = any;
+        motion::describe(L"账号");
+        motion::replace(any ? AccountsSignedOut() : AccountsSignedIn(), any ? AccountsSignedIn() : AccountsSignedOut());
+    }
     hstring name = L"账号登录";
     for (const auto provider : mu::all_providers) {
         if (accounts::signed_in(provider)) name = name + L"，" + to_hstring(mu::provider_title(provider)) + L"会话已保存";
