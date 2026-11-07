@@ -31,7 +31,7 @@ struct ContentView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button { model.chooseFiles(folder: true) } label: { Label("添加文件夹", systemImage: "folder.badge.plus") }
                     .disabled(model.importing).help("添加文件夹（⇧⌘O）")
-                Button { model.chooseFiles() } label: { Label("添加文件", systemImage: "plus") }
+                Button { model.chooseFiles() } label: { Label("添加文件", systemImage: "plus").symbolEffect(.bounce, value: model.jobs.count) }
                     .disabled(model.importing).help("添加文件（⌘O）")
             }
         }
@@ -81,7 +81,7 @@ struct ContentView: View {
 
             if let notice = model.notice {
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "info.circle")
+                    Image(systemName: "info.circle").symbolEffect(.bounce, value: notice)
                     Text(notice).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 4)
                     Button { model.notice = nil } label: { Image(systemName: "xmark") }
@@ -191,6 +191,7 @@ struct ContentView: View {
                 Button(action: model.chooseOutput) {
                     HStack(spacing: 10) {
                         Image(systemName: "folder.fill").foregroundStyle(Theme.accent).font(.system(size: 20))
+                            .symbolEffect(.bounce, value: model.outputDirectory)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(model.outputDirectory.lastPathComponent).font(.system(size: 12, weight: .medium)).lineLimit(1)
                             Text(model.outputDirectory.deletingLastPathComponent().path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
@@ -220,6 +221,7 @@ struct ContentView: View {
             Divider()
             VStack(alignment: .leading, spacing: 10) {
                 Label("保留原始音质", systemImage: "waveform")
+                    .symbolEffect(.variableColor.iterative.dimInactiveLayers, isActive: model.running)
                     .font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.accent)
                 Text("解除文件封装，保留原有编码。输出可能是 FLAC、MP3、OGG 或 M4A，不进行有损转码。")
                     .font(.system(size: 12)).foregroundStyle(Theme.secondary).lineSpacing(4)
@@ -284,7 +286,7 @@ struct ContentView: View {
                         .liquidButton().disabled(model.stopRequested).keyboardShortcut(".", modifiers: .command)
                         .glassEffectID("primary", in: glass)
                 } else {
-                    Button(action: model.start) { Label("开始转换", systemImage: "play.fill").frame(minWidth: 96) }
+                    Button(action: model.start) { Label("开始转换", systemImage: "play.fill").symbolEffect(.bounce, value: model.running).frame(minWidth: 96) }
                         .liquidButton(prominent: true).disabled(model.waitingCount == 0 || model.importing)
                         .keyboardShortcut(.return, modifiers: .command)
                         .glassEffectID("primary", in: glass)
@@ -367,6 +369,7 @@ struct JobRow: View {
                     Image(systemName: job.state.symbol).font(.system(size: 12))
                         .contentTransition(.symbolEffect(.replace.downUp))
                         .symbolEffect(.bounce, value: job.state == .done)
+                        .transition(.scale.combined(with: .opacity))
                 }
                 Text(job.state.label).font(.system(size: 11)).contentTransition(.interpolate)
             }
@@ -374,9 +377,11 @@ struct JobRow: View {
             Group {
                 if let output = job.output {
                     Button { NSWorkspace.shared.activateFileViewerSelecting([output]) } label: { Image(systemName: "magnifyingglass") }
+                        .transition(.scale.combined(with: .opacity))
                         .help("在 Finder 中显示").accessibilityLabel("在 Finder 中显示 \(output.lastPathComponent)")
                 } else {
                     Button(action: remove) { Image(systemName: "xmark") }
+                        .transition(.scale.combined(with: .opacity))
                         .disabled(job.state == .running).help("移出队列").accessibilityLabel("移出队列：\(job.source.lastPathComponent)")
                 }
             }

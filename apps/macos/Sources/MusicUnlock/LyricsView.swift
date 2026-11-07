@@ -15,7 +15,7 @@ struct LyricsView: View {
             searchBar
             if let message = model.notice ?? accounts.message {
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "info.circle")
+                    Image(systemName: "info.circle").symbolEffect(.bounce, value: message)
                     Text(message).font(.system(size: 12)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 4)
                     Button {
@@ -53,6 +53,7 @@ struct LyricsView: View {
                     }
                 } label: {
                     Label("账号登录", systemImage: accounts.signedIn.isEmpty ? "person.crop.circle" : "person.crop.circle.badge.checkmark")
+                        .contentTransition(.symbolEffect(.replace))
                 }
                     .help("官方登录后自动保存会话，无需手动获取 Cookie")
             }
@@ -90,7 +91,7 @@ struct LyricsView: View {
                         Button(action: model.cancelSearch) { Label("取消", systemImage: "xmark") }
                             .liquidButton().glassEffectID("search", in: glass)
                     } else {
-                        Button(action: { model.search() }) { Label("搜索", systemImage: "magnifyingglass") }
+                        Button(action: { model.search() }) { Label("搜索", systemImage: "magnifyingglass").symbolEffect(.bounce, value: model.songs.count) }
                             .liquidButton(prominent: true).disabled(model.exporting || model.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             .glassEffectID("search", in: glass)
                     }
@@ -321,7 +322,7 @@ struct LyricsView: View {
                     Picker("导出格式", selection: $model.options.format) {
                         ForEach(LyricFormat.allCases) { format in Text(format.rawValue).tag(format) }
                     }.labelsHidden().frame(width: 78)
-                    Button { model.showSettings = true } label: { Label("导出设置", systemImage: "slider.horizontal.3") }.liquidButton()
+                    Button { model.showSettings = true } label: { Label("导出设置", systemImage: "slider.horizontal.3").symbolEffect(.bounce, value: model.showSettings) }.liquidButton()
                         .transition(.blurReplace)
                 }
                 Spacer(minLength: 0)
@@ -344,7 +345,7 @@ struct LyricsView: View {
                                 .contentTransition(.numericText(value: Double(model.checked.count)))
                                 .glassEffectID("batch", in: glass)
                         }
-                        Button(action: model.exportCurrent) { Label("导出当前歌词", systemImage: "square.and.arrow.down") }
+                        Button(action: model.exportCurrent) { Label("导出当前歌词", systemImage: "square.and.arrow.down").symbolEffect(.bounce.down, value: model.exporting) }
                             .liquidButton(prominent: true).disabled(model.selected == nil || model.loadingLyrics || model.previewError != nil)
                             .glassEffectID("primary", in: glass)
                     }
