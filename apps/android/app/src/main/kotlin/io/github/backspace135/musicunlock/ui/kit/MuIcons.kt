@@ -89,6 +89,15 @@ object MuIcons {
                 "M17,6v8.18c-0.31,-0.11 -0.65,-0.18 -1,-0.18 -1.66,0 -3,1.34 -3,3s1.34,3 3,3 3,-1.34 3,-3V8h3V6h-5z",
         )
     }
+    /** Phone, for "scanned, confirm on the phone". */
+    val Phone: ImageVector by lazy {
+        material(
+            "Phone",
+            "M17,1H7C5.9,1 5,1.9 5,3v18c0,1.1 0.9,2 2,2h10c1.1,0 2,-0.9 2,-2V3C19,1.9 18.1,1 17,1z" +
+                "M17,19H7V5h10V19z",
+        )
+    }
+
     val Copy: ImageVector by lazy {
         material(
             "Copy",

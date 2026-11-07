@@ -1,7 +1,9 @@
 package io.github.backspace135.musicunlock.ui.nav
 
 import androidx.compose.runtime.Composable
+import io.github.backspace135.musicunlock.core.MusicProvider
 import io.github.backspace135.musicunlock.ui.accounts.AccountsScreen
+import io.github.backspace135.musicunlock.ui.accounts.WebLoginScreen
 import io.github.backspace135.musicunlock.ui.lyrics.LyricsEditorScreen
 import io.github.backspace135.musicunlock.ui.playground.DebugTools
 import io.github.backspace135.musicunlock.ui.settings.AboutScreen
@@ -37,6 +39,9 @@ sealed interface Route : Serializable {
 
     // #33 账号.
     data object Accounts : Route
+
+    /** Official login page. [relogin] drops the platform's music-key cookies before the page loads. */
+    data class WebLogin(val provider: MusicProvider, val relogin: Boolean) : Route
 }
 
 @Composable
@@ -50,5 +55,6 @@ fun RouteContent(route: Route) {
         Route.Playground -> DebugTools.Playground()
         is Route.LyricsEditor -> LyricsEditorScreen(route.songId)
         Route.Accounts -> AccountsScreen()
+        is Route.WebLogin -> WebLoginScreen(route.provider, route.relogin)
     }
 }
