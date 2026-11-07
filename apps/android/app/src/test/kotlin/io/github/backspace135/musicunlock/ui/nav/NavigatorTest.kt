@@ -9,32 +9,32 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NavigatorTest {
-    private fun navigator() = Navigator(listOf(PageEntry(0, Route.Root)), nextId = 1)
+    private fun navigator() = Navigator(listOf(PageEntry(0, Route.Settings)), nextId = 1)
 
     @Test
     fun rootCannotBePopped() {
         val navigator = navigator()
         navigator.pop()
-        assertEquals(listOf(Route.Root), navigator.routes)
+        assertEquals(listOf(Route.Settings), navigator.routes)
         assertFalse(navigator.canGoBack)
     }
 
     @Test
     fun pushAndPopBeforeTheStackIsShownApplyImmediately() {
         val navigator = navigator()
-        navigator.push(Route.Root)
-        navigator.push(Route.Root)
+        navigator.push(Route.Settings)
+        navigator.push(Route.Settings)
         assertEquals(3, navigator.routes.size)
         navigator.pop()
         assertEquals(2, navigator.routes.size)
         navigator.popToRoot()
-        assertEquals(listOf(Route.Root), navigator.routes)
+        assertEquals(listOf(Route.Settings), navigator.routes)
     }
 
     @Test
     fun poppedPagesClearTheirViewModels() {
         val navigator = navigator()
-        navigator.push(Route.Root)
+        navigator.push(Route.Settings)
         val page = navigator.entries.last()
         val model = ViewModelProvider.create(page, ViewModelProvider.NewInstanceFactory())[Probe::class.java]
         navigator.pop()
@@ -44,12 +44,12 @@ class NavigatorTest {
     @Test
     fun savedStackRestoresRoutesAndIds() {
         val navigator = navigator()
-        navigator.push(Route.Root)
+        navigator.push(Route.Settings)
         val saver = Navigator.saver()
         val saved = with(saver) { SaverScope { true }.save(navigator) }!!
         val restored = saver.restore(saved)!!
         assertEquals(navigator.entries.map { it.id }, restored.entries.map { it.id })
-        restored.push(Route.Root)
+        restored.push(Route.Settings)
         assertEquals(2L, restored.entries.last().id)
     }
 

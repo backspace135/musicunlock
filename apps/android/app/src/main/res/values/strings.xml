@@ -17,4 +17,110 @@
     <string name="common_delete">删除</string>
     <string name="common_more">更多</string>
     <string name="common_search">搜索</string>
+
+    <!-- nav: bottom navigation -->
+    <string name="nav_unlock">解封装</string>
+    <string name="nav_lyrics">歌词</string>
+    <string name="nav_settings_description">设置</string>
+
+    <!-- unlock: 解封装工作区（#31 替换假数据时沿用这些名字，按需增加） -->
+    <string name="unlock_title">转换队列</string>
+    <string name="unlock_add_files_description">添加文件</string>
+    <string name="unlock_add_folder_description">添加文件夹</string>
+    <string name="unlock_clear_finished_action">清除已完成</string>
+    <string name="unlock_clear_queue_action">清空队列</string>
+    <string name="unlock_clear_queue_title">清空队列？</string>
+    <string name="unlock_clear_queue_body">未开始的文件会一起移出，源文件保持不变。</string>
+    <string name="unlock_count_format">%1$d 个文件</string>
+    <string name="unlock_filter_all">全部</string>
+    <string name="unlock_filter_pending">待转换</string>
+    <string name="unlock_filter_finished">已完成</string>
+    <string name="unlock_filter_unfinished">未完成</string>
+    <string name="unlock_output_strip_format">输出到 %1$s · %2$s</string>
+    <string name="unlock_empty_title">把音乐放进来</string>
+    <string name="unlock_empty_body">选择文件或整个文件夹\n恢复为普通播放器也能打开的音频</string>
+    <string name="unlock_empty_pick_files_action">选择音乐文件</string>
+    <string name="unlock_empty_pick_folder_action">选择文件夹</string>
+    <string name="unlock_empty_local_hint">仅在你的手机上处理，不上传文件</string>
+    <string name="unlock_filter_empty_format">暂无%1$s的文件</string>
+    <string name="unlock_filter_show_all_action">查看全部</string>
+    <string name="unlock_remove_action">移出</string>
+    <string name="unlock_state_pending">待转换</string>
+    <string name="unlock_state_running">转换中</string>
+    <string name="unlock_state_done">已完成</string>
+    <string name="unlock_state_failed">未完成</string>
+    <string name="unlock_start_action">开始转换</string>
+    <string name="unlock_stop_action">停止转换</string>
+    <string name="unlock_retry_action">重试未完成</string>
+    <string name="unlock_status_ready_format">%1$d 个文件待转换</string>
+    <string name="unlock_status_running_format">正在转换 %1$d / %2$d</string>
+    <string name="unlock_status_idle">队列中没有待转换的文件</string>
+    <string name="unlock_status_detail">同名文件自动编号，源文件保持不变。</string>
+    <string name="unlock_added_notice_format">已添加 %1$d 个文件。</string>
+    <string name="unlock_finished_notice_format">已完成 %1$d 个，%2$d 个未完成。</string>
+    <string name="unlock_remove_from_queue_action">移出队列</string>
+    <string name="unlock_find_lyrics_action">查找这首歌的歌词</string>
+    <string name="unlock_export_settings_title">导出设置</string>
+    <string name="unlock_default_folder">音匣</string>
+    <string name="unlock_naming_original">保留原文件名</string>
+
+    <!-- lyrics: 歌词工作区（#32） -->
+    <string name="lyrics_title">歌词工作台</string>
+    <string name="lyrics_search_placeholder">歌曲、歌手，或粘贴歌曲 / 歌单 / 专辑链接</string>
+    <string name="lyrics_login_public">公开内容可免登录读取</string>
+    <string name="lyrics_login_saved">登录会话已保存</string>
+    <string name="lyrics_open_local_action">打开本地歌词</string>
+    <string name="lyrics_export_settings_action">导出设置</string>
+    <string name="lyrics_empty_title">先找到你想要的歌</string>
+    <string name="lyrics_empty_body">输入名称搜索，或粘贴完整链接。\n歌单与专辑可以批量提取歌词。</string>
+    <string name="lyrics_results_title">搜索结果</string>
+    <string name="lyrics_results_subtitle_format">%1$d 首歌曲，已选 %2$d 首</string>
+    <string name="lyrics_select_all_action">全选</string>
+    <string name="lyrics_deselect_all_action">取消全选</string>
+    <string name="lyrics_export_selected_format">导出所选 %1$d 首</string>
+    <string name="lyrics_exporting_format">正在导出 %1$d / %2$d</string>
+    <string name="lyrics_stop_export_action">停止导出</string>
+    <string name="lyrics_tab_original">原文</string>
+    <string name="lyrics_tab_translation">译文</string>
+    <string name="lyrics_tab_romanization">罗马音</string>
+    <string name="lyrics_tab_preview">导出预览</string>
+    <string name="lyrics_reload_description">重新获取</string>
+    <string name="lyrics_reload_title">重新获取歌词，会替换当前编辑</string>
+    <string name="lyrics_reload_action">重新获取</string>
+    <string name="lyrics_export_current_action">导出当前歌词</string>
+    <string name="lyrics_editable_hint">可直接编辑，修改会用于本次导出</string>
+    <string name="lyrics_line_count_format">%1$d 行</string>
+    <string name="lyrics_export_settings_title">歌词导出设置</string>
+    <string name="lyrics_export_format_label">格式</string>
+    <string name="lyrics_include_original">原文</string>
+    <string name="lyrics_include_translation">平台译文</string>
+    <string name="lyrics_include_romanization">平台罗马音</string>
+    <string name="lyrics_ignore_empty">忽略空行</string>
+    <string name="lyrics_skip_instrumental">跳过无歌词歌曲</string>
+
+    <!-- accounts: 账号登录（#33） -->
+    <string name="accounts_title">账号登录</string>
+    <string name="accounts_intro">在官方页面授权，音匣自动保存登录，无需复制 Cookie。</string>
+    <string name="accounts_netease">网易云音乐</string>
+    <string name="accounts_qq">QQ 音乐</string>
+    <string name="accounts_signed_out">未登录</string>
+    <string name="accounts_sign_in_action">登录</string>
+    <string name="accounts_storage_hint">登录信息用 Android 密钥库加密，只保存在这台手机上。</string>
+
+    <!-- settings: 设置页。每个区块的标题在这里，区块内容由对应 issue 填写 -->
+    <string name="settings_title">设置</string>
+    <string name="settings_output_header">输出</string>
+    <string name="settings_output_folder">输出文件夹</string>
+    <string name="settings_output_naming">文件命名</string>
+    <string name="settings_lyrics_header">歌词导出</string>
+    <string name="settings_lyrics_export">歌词导出设置</string>
+    <string name="settings_accounts_header">账号</string>
+    <string name="settings_accounts_entry">账号登录</string>
+    <string name="settings_appearance_header">外观</string>
+    <string name="settings_theme_system">跟随系统</string>
+    <string name="settings_theme_light">浅色</string>
+    <string name="settings_theme_dark">深色</string>
+    <string name="settings_theme_footer">深色模式只用灰阶，不跟随系统动态取色。</string>
+    <string name="settings_debug_header">开发</string>
+    <string name="settings_playground_entry">组件演示与动画调参</string>
 </resources>
