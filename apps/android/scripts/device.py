@@ -16,7 +16,8 @@ Each branch installs its own copy: the last part of the branch name becomes the 
 launcher name, so android/unlock installs io.github.backspace135.musicunlock.unlock as "音匣 (unlock)" and several
 sessions can share one phone. --suffix overrides it; MUSICUNLOCK_ANDROID_BRANCH names the branch where the checkout
 is detached (remote.py sets it). Commands that talk to a device use --serial, else ANDROID_SERIAL, else the only
-device online. adb, Gradle and their caches come from android_env.py, like build.py.
+device online. adb, Gradle and their caches come from android_env.py, like build.py. Device paths given to pull and
+shell may start with / in Git Bash too: the conversion Git Bash applies to them is undone.
 """
 from pathlib import Path
 import argparse
@@ -72,6 +73,24 @@ def app_uid(env: dict, serial: str, package: str) -> str:
         if match and match.group(1) == package:
             return match.group(2)
     sys.exit(f"{serial} 上没有安装 {package}，请先运行 device.py install")
+
+
+def git_bash_root() -> str | None:
+    """Where Git Bash's / is ("C:/Program Files/Git/"), when this runs from Git Bash on Windows."""
+    if not WINDOWS or not os.environ.get("MSYSTEM"):
+        return None
+    try:
+        return subprocess.run(["cygpath", "-m", "/"], capture_output=True, text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
+def device_paths(args: list[str]) -> list[str]:
+    """Undo Git Bash's path conversion: it hands /sdcard/x to Windows programs as C:/Program Files/Git/sdcard/x."""
+    root = git_bash_root()
+    if not root:
+        return args
+    return ["/" + arg[len(root):] if arg.startswith(root) else arg for arg in args]
 
 
 def inside_build(path: str) -> Path:
@@ -174,9 +193,9 @@ def main() -> None:
     elif args.command == "pull":
         folder = inside_build(args.local)
         folder.mkdir(parents=True, exist_ok=True)
-        sys.exit(adb(env, serial, "pull", args.remote, str(folder)).returncode)
+        sys.exit(adb(env, serial, "pull", *device_paths([args.remote]), str(folder)).returncode)
     elif args.command == "shell":
-        command = args.argv[1:] if args.argv[:1] == ["--"] else args.argv
+        command = device_paths(args.argv[1:] if args.argv[:1] == ["--"] else args.argv)
         if not command:
             sys.exit("请在 -- 后面给出要在设备上运行的命令")
         # One argument is a shell command line (pipes allowed); several are quoted so the device shell keeps them.
