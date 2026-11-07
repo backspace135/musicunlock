@@ -90,14 +90,13 @@ fun UnlockScreen(vm: UnlockViewModel = viewModel()) {
                     IconAction(MuIcons.Settings, stringResource(R.string.nav_settings_description), { navigator.push(Route.Settings) })
                 },
             )
+            // Outside the list: a banner inserted as the first lazy item would appear above the viewport.
+            val notice = vm.notice
+            NoticeBanner(notice?.let { stringResource(it.text, *it.args.toTypedArray()) }, onDismiss = { vm.notice = null })
             LazyColumn(
                 Modifier.fillMaxSize().nestedScroll(topBar.nestedScrollConnection),
                 contentPadding = PaddingValues(bottom = 112.dp),
             ) {
-                item(key = "notice") {
-                    val notice = vm.notice
-                    NoticeBanner(notice?.let { stringResource(it.text, *it.args.toTypedArray()) }, onDismiss = { vm.notice = null })
-                }
                 if (jobs.isNotEmpty()) {
                     item(key = "filters") {
                         Column(Modifier.padding(horizontal = MuSpacing.page, vertical = MuSpacing.s)) {
