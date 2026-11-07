@@ -18,6 +18,8 @@ struct LyricsView : LyricsViewT<LyricsView> {
     void UsePreviewData();
     /// Fills the results and editor with the same sample songs as the macOS preview renderer.
     void ShowSampleSongs();
+    /// Motion capture: selects one of the sample songs so the highlight slides to it.
+    void SelectSample(int index);
 
     /// "查找这首歌的歌词" from the audio queue: searches songs by the track's title.
     void SearchForAudio(std::string title) { Search(workspace_.search_for_audio(std::move(title))); }

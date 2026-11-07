@@ -391,6 +391,29 @@ void MainWindow::RenderMotion(std::wstring directory, std::wstring scenarios) {
         Audio().DismissNotice();
         driver.wait(300);
     });
+    // The queue has to hold something before its rows, icons and highlight have anything to react to.
+    motion_capture::add(L"icons", [this](motion_capture::Driver& driver) {
+        driver.capture(2200);
+        driver.note(L"加入示例文件，添加图标弹跳，提示条弹跳");
+        Audio().ShowSampleJobs();
+        driver.wait(500);
+        driver.note(L"换输出目录，文件夹图标弹跳");
+        Audio().UseOutputDirectory(L"C:\\示例\\另一处输出");
+        driver.wait(500);
+        driver.note(L"开始转换，播放图标弹跳，波形流动");
+        Audio().StartForCapture();
+        driver.wait(600);
+    });
+    motion_capture::add(L"selection", [this](motion_capture::Driver& driver) {
+        ShowWorkspace(false);
+        driver.capture(1800);
+        driver.note(L"示例结果出现，高亮滑到选中的那首");
+        Lyrics().ShowSampleSongs();
+        driver.wait(600);
+        driver.note(L"换一首，高亮滑过去");
+        Lyrics().SelectSample(1);
+        driver.wait(600);
+    });
     motion_capture::add(L"drop", [this](motion_capture::Driver& driver) {
         driver.capture(1400);
         Audio().PreviewDropTarget(true);

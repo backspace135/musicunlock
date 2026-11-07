@@ -47,6 +47,9 @@ struct UnlockView : UnlockViewT<UnlockView> {
     fire_and_forget Import(std::vector<std::filesystem::path> paths);
     /// Converts the waiting jobs one at a time in the background (Ctrl+Enter).
     fire_and_forget Start();
+    /// Motion capture only: marks a conversion as running and stopped, so the start icon and waveform animate
+    /// without reading or writing any file.
+    void StartForCapture();
     /// Stops after the current file (Ctrl+.).
     void Stop();
     bool Busy() const { return queue_.running(); }
