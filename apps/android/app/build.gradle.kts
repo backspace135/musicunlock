@@ -46,7 +46,8 @@ android {
         applicationId = "io.github.backspace135.musicunlock"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.compileSdk.get().toInt()
-        versionCode = 1
+        // major * 10000 + minor * 100 + patch. Keep this next to versionName; 0.1.0 is 100.
+        versionCode = 100
         versionName = "0.1.0"
         ndk { abiFilters += "arm64-v8a" }
         manifestPlaceholders["appLabel"] = "@string/app_name"
