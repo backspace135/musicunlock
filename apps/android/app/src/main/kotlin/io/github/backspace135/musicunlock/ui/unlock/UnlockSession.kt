@@ -3,11 +3,13 @@ package io.github.backspace135.musicunlock.ui.unlock
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
+import io.github.backspace135.musicunlock.R
+import java.io.File
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import io.github.backspace135.musicunlock.R
 import io.github.backspace135.musicunlock.core.AudioConverter
 import io.github.backspace135.musicunlock.core.AudioQueue
 import io.github.backspace135.musicunlock.core.CoreException
@@ -75,6 +77,28 @@ object UnlockSession {
             scanning = true
             try {
                 add(DocumentImporter.scanTree(tree))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: CoreException) {
+                notice = error.message.orEmpty()
+            } finally {
+                scanning = false
+            }
+        }
+    }
+
+    /** NetEase and QQ download folders. The walk itself is the core's `scan_import`. */
+    fun scanDownloads(context: Context) {
+        if (scanning) return
+        scope.launch {
+            scanning = true
+            try {
+                val scan = DocumentImporter.scanDirectories(downloadDirectories())
+                if (scan.files.isEmpty() && scan.skipped == 0) {
+                    notice = context.getString(R.string.unlock_scan_empty)
+                } else {
+                    add(scan)
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: CoreException) {
@@ -183,4 +207,10 @@ object UnlockSession {
         notice = queue.add(scan)
         filter = QueueFilter.ALL
     }
+}
+
+/** Public download folders from the on-device survey. `Android/data` stays unreadable on Android 11+. */
+internal fun downloadDirectories(): List<File> {
+    val root = Environment.getExternalStorageDirectory()
+    return listOf("netease/cloudmusic", "Download/netease", "qqmusic").map { File(root, it) }
 }

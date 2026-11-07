@@ -36,6 +36,12 @@ class UnlockViewModel : ViewModel() {
 
     fun importTree(tree: Uri) = UnlockSession.importTree(tree)
 
+    fun scanDownloads(context: Context) = UnlockSession.scanDownloads(context)
+
+    fun showNotice(text: String) {
+        UnlockSession.notice = text
+    }
+
     fun importIntent(intent: Intent) = UnlockSession.importIntent(intent)
 
     fun start(context: Context) = UnlockSession.start(context)

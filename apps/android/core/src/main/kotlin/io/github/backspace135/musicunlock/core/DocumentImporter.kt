@@ -9,6 +9,7 @@ import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.io.File
 import java.io.FileNotFoundException
 import java.security.MessageDigest
@@ -119,6 +120,30 @@ object DocumentImporter {
         scan(found, skipped)
     }
 
+    /**
+     * Real directories, scanned by the core's `scan_import`: dot names are skipped, unreadable folders are
+     * ignored, only supported extensions are kept, and the result is naturally sorted. Missing directories are
+     * left out, so they are not counted as skipped. The originals stay where they are; the queue only remembers
+     * them, and clearing a job does not delete the file.
+     */
+    suspend fun scanDirectories(directories: List<File>): ImportScan = withContext(Dispatchers.IO) {
+        val existing = directories.filter { it.isDirectory }
+        if (existing.isEmpty()) return@withContext ImportScan(emptyList(), 0)
+        val json = JSONObject(nativeScanImport(existing.map { it.absolutePath }.toTypedArray()))
+        val array = json.getJSONArray("files")
+        val files = List(array.length()) { index ->
+            val item = array.getJSONObject(index)
+            val path = item.getString("path")
+            val file = File(path)
+            // The core's path is the queue identity. deleteOnRelease is false: this is the user's file.
+            ImportedSources.remember(path, ImportedSources.Source(Uri.fromFile(file), file, file.name, deleteOnRelease = false))
+            ImportedFile(path, item.getLong("size"))
+        }
+        ImportScan(files, json.getInt("skipped"))
+    }
+
+    @JvmStatic private external fun nativeScanImport(directories: Array<String>): String
+
     private class Found(val logical: String, val uri: Uri, val name: String, val size: Long, val copied: Boolean = false)
 
     private val childColumns = arrayOf(
@@ -191,8 +216,11 @@ object DocumentImporter {
 
 /** The documents behind import paths, for the converter. In memory, like the queue that holds the paths. */
 internal object ImportedSources {
-    /** [file] is the cached copy of a shared file, null for documents read in place. */
-    class Source(val uri: Uri, val file: File?, val name: String) {
+    /**
+     * [file] is either the cached copy of a shared file, or a download read in place. [deleteOnRelease] is
+     * true only for copies this process made; a file the user already had is never deleted.
+     */
+    class Source(val uri: Uri, val file: File?, val name: String, val deleteOnRelease: Boolean = true) {
         /** Set once a queue holds the path; only such sources are forgotten when no queue holds them any more. */
         @Volatile
         var queued = false
@@ -230,14 +258,17 @@ internal object ImportedSources {
     /** Forgets queued imports that no queue holds any more, deleting their cached copies. */
     fun retainOnly(paths: Set<String>) {
         for ((path, source) in sources) {
-            if (source.queued && path !in paths && sources.remove(path, source)) {
-                source.file?.let { it.delete(); it.parentFile?.delete() }
-            }
+            if (source.queued && path !in paths && sources.remove(path, source)) source.deleteCopy()
         }
     }
 
-    /** Deletes the cached copy of a converted file; the document stays known in case it is added again. */
+    /** Deletes the cached copy of a converted shared file; a download read in place is left alone. */
     fun releaseCopy(path: String) {
-        sources[path]?.file?.let { it.delete(); it.parentFile?.delete() }
+        sources[path]?.deleteCopy()
+    }
+
+    private fun Source.deleteCopy() {
+        if (!deleteOnRelease) return
+        file?.let { it.delete(); it.parentFile?.delete() }
     }
 }
