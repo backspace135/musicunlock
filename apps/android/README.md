@@ -507,8 +507,8 @@ adb 不认 `ANDROID_USER_HOME`。Mac / Linux 上脚本只给 adb 子进程改 `H
 在仓库根目录运行（Windows 用 `python`）：
 
 ```sh
-python3 apps/android/scripts/build.py                   # debug APK + 主机上的核心测试
-python3 apps/android/scripts/build.py --config release  # release APK（未签名）+ 主机上的核心测试
+python3 apps/android/scripts/build.py                   # debug APK + :app 的单元测试 + 主机上的核心测试
+python3 apps/android/scripts/build.py --config release  # release APK（未签名）+ 单元测试 + 主机上的核心测试
 python3 apps/android/scripts/build.py --no-test         # 只编 APK
 python3 apps/android/scripts/build.py --device --serial emulator-5554  # 另外在 arm64 模拟器上跑核心测试
 python3 apps/android/scripts/build.py --suffix unlock   # debug 版带后缀：io.github.backspace135.musicunlock.unlock
@@ -580,12 +580,9 @@ Java 能处理这么长的路径，git 默认处理不了，所以删除工作�
 
 ## 单元测试
 
-界面的纯逻辑（页面栈、底部弹窗吸附）有 JVM 单元测试：
-
-```sh
-cd apps/android
-JAVA_HOME=~/jdk/jdk-21.0.11+10/Contents/Home ANDROID_HOME=~/Library/Android/sdk ./gradlew :app:testDebugUnitTest
-```
+界面的纯逻辑（页面栈、底部弹窗吸附）有 JVM 单元测试（`app/src/test/`），`build.py` 编完 APK 就跑
+（`:app:testDebugUnitTest`，release 是 `:app:testReleaseUnitTest`；`--no-test` 跳过）。报告在
+`apps/android/build/app/reports/tests/`。
 
 ## 核心测试
 
@@ -612,4 +609,4 @@ JAVA_HOME=~/jdk/jdk-21.0.11+10/Contents/Home ANDROID_HOME=~/Library/Android/sdk 
 ## CI
 
 `.github/workflows/android.yml` 在 Ubuntu 上装固定版本的 NDK 和 CMake，编 debug / release APK，在主机上跑核心测试
-（portable AES）和 `:app` 的 JVM 单元测试，上传 debug APK。`:core` 只有 instrumented tests，需要模拟器，CI 不跑。改动 `apps/android/`、`shared/`、`tests/fixtures/` 或 `resources/kgm.mask` 时触发。
+（portable AES）和 `:app` 的 JVM 单元测试（都由 `build.py` 运行），上传 debug APK。`:core` 只有 instrumented tests，需要模拟器，CI 不跑。改动 `apps/android/`、`shared/`、`tests/fixtures/` 或 `resources/kgm.mask` 时触发。
