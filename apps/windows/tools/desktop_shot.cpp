@@ -2,7 +2,7 @@
 // The app renders its own XAML tree to PNG (MUSICUNLOCK_RENDER_DIR) and exits; the desktop is closed afterwards.
 //
 //   desktop_shot.exe [--shortcut plain|app-id] <desktop name> <MusicUnlock.exe> <output directory>
-//                    [folder to import and convert [file...]]
+//                    [folder to import and convert [file...]] [--motion <scenario,scenario|all>]
 //
 // The desktop name is unique per checkout, so parallel worktrees never share a desktop. Files after the folder
 // are passed on the app's command line, as Explorer does for files dropped on the exe. The single-file
@@ -91,6 +91,12 @@ int wmain(int argc, wchar_t** argv) {
     SetEnvironmentVariableW(L"MUSICUNLOCK_TASKBAR_LOG", (directory + L"\\taskbar.log").c_str());
     SetEnvironmentVariableW(L"MUSICUNLOCK_LAUNCHER_PATH", nullptr);  // only the single exe sets it
     SetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_CONVERT", argc >= 5 ? argv[4] : nullptr);
+    // Motion capture (screenshot.py --motion) names its scenarios here; empty keeps the static previews.
+    // It is always the last argument, so it is never mistaken for a file to convert.
+    if (argc >= 6 && std::wstring(argv[argc - 2]) == L"--motion") {
+        SetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_MOTION", argv[argc - 1]);
+        argc -= 2;
+    }
     // Keep anything the app saves inside the output folder, never in the profile.
     SetEnvironmentVariableW(L"MUSICUNLOCK_DATA_DIR", (directory + L"\\appdata").c_str());
     // Same for the single exe's extracted runtime, which stays between runs (warm starts).
@@ -114,7 +120,8 @@ int wmain(int argc, wchar_t** argv) {
                        &startup, &process)) {
         AssignProcessToJobObject(job, process.hProcess);
         ResumeThread(process.hThread);
-        if (WaitForSingleObject(process.hProcess, 120'000) == WAIT_TIMEOUT) {
+        const DWORD timeout = GetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_MOTION", nullptr, 0) ? 300'000 : 120'000;
+        if (WaitForSingleObject(process.hProcess, timeout) == WAIT_TIMEOUT) {
             status = L"timeout";
         } else {
             DWORD code = 0;

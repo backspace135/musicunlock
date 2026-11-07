@@ -14,6 +14,15 @@ namespace xaml = winrt::Microsoft::UI::Xaml;
 bool enabled();
 /// Static renders, like the macOS PreviewRenderer.
 void suspend(bool suspended);
+/// Motion capture (MUSICUNLOCK_RENDER_MOTION). On screenshot.py's private desktop neither
+/// Windows.Graphics.Capture nor RenderTargetBitmap can produce a frame, so capture records every animation
+/// instead: its target, from and to values, curve and duration. `describe` names the element.
+void capture(bool capturing);
+/// Set before the call that starts an animation, so the record says which element moved.
+void describe(std::wstring element);
+/// Notes that an element's implicit show or hide animation is running, from its current Visibility.
+/// Call it after the change: Visibility changes raise no property-changed callback.
+void changed(xaml::UIElement const& element);
 
 // Implicit animations on Visibility changes (handoff visual). They are set, or cleared when motion is
 // off, at the time of the call, so callers apply them again when the system setting may have changed.
