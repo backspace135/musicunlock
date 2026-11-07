@@ -18,9 +18,10 @@
 
 ## 下载
 
-所有安装包在 [GitHub Releases](https://github.com/backspace135/musicunlock/releases)，各平台用各自的 tag：
+[最新版本](https://github.com/backspace135/musicunlock/releases/latest)里有三个平台的最新安装包，tag 按日期命名（例如 `2026.11.07`）。
+各平台的历史版本和完整更新说明在 [GitHub Releases](https://github.com/backspace135/musicunlock/releases) 里，用各自的 tag：
 
-| 平台 | tag | 文件 | 系统要求 |
+| 平台 | 各平台 tag | 文件 | 系统要求 |
 | --- | --- | --- | --- |
 | macOS | `v*` | `MusicUnlock-macOS-arm64.zip` | macOS 26+，Apple Silicon |
 | Windows | `windows-v*` | `MusicUnlock-Windows-x64.exe`（单文件，推荐）、`-portable.zip`（目录版）、`musicunlock-cli-Windows-x64.exe`（命令行版） | Windows 10 1809+ / Windows 11，仅 x64 |
@@ -92,6 +93,21 @@ python3 apps/android/scripts/device.py --help           # 安装到设备和调�
 
 架构、核心的 Kotlin API、签名与发布流程见 [Android README](apps/android/README.md)，界面规范见
 [DESIGN.md](apps/android/DESIGN.md)。
+
+## 发布
+
+GitHub 只把一个 Release 标成 Latest，仓库首页也只显示这一个，所以分两步：
+
+1. 各平台照旧用自己的 tag 发布正式版（`v*`、`windows-v*`、`android-v*`，见各平台 README）。
+2. 在仓库根目录运行 `scripts/release.py`，把每个平台最新的正式版汇总成一个总 Release 并标成 Latest：
+
+```sh
+python3 scripts/release.py              # 试运行：下载到 build/release/<tag>/，按 GitHub 记录的 SHA-256 校验，生成说明 notes.md
+python3 scripts/release.py --publish    # 创建总 Release，tag 默认是今天的日期（UTC+9），同一天再发一次用 2026.11.07.1
+```
+
+总 Release 带上所有安装包、Android 的 `.sha256` 和汇总的 `SHA256SUMS.txt`，说明里列出各平台版本、更新内容与安装提示。
+带后缀的测试 tag（例如 `android-v0.1.0-rc1`）、草稿和预发布不会被汇总。
 
 ## 许可证与来源
 
