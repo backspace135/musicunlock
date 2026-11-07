@@ -29,6 +29,7 @@
 # Callbacks of the HTTP transport, the QR login poll and the session cipher (api_jni.cpp, session_jni.cpp).
 -keep class io.github.backspace135.musicunlock.core.CoreCallbacks {
     io.github.backspace135.musicunlock.core.NativeHttpResult http(io.github.backspace135.musicunlock.core.HttpTransport, java.lang.String, java.lang.String, java.lang.String[], byte[]);
+    void qrReport(io.github.backspace135.musicunlock.core.QrPollListener, int, java.lang.String);
     byte[] seal(io.github.backspace135.musicunlock.core.SessionCipher, byte[]);
     byte[] open(io.github.backspace135.musicunlock.core.SessionCipher, byte[]);
 }
@@ -39,4 +40,5 @@
 }
 # Named in native method signatures, so their names must stay.
 -keep interface io.github.backspace135.musicunlock.core.HttpTransport
+-keep interface io.github.backspace135.musicunlock.core.QrPollListener
 -keep interface io.github.backspace135.musicunlock.core.SessionCipher

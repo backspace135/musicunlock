@@ -70,6 +70,21 @@ class MusicApi(transport: HttpTransport = OkHttpTransport()) : AutoCloseable {
     suspend fun accountName(provider: MusicProvider, cookie: String, cancel: CancelToken = CancelToken()): String? =
         blockingCall(cancel) { nativeAccountName(checked(), provider.ordinal, cookie) }
 
+    /** A new NetEase QR login (normally through [QrLogin]). Throws [LyricException] when NetEase refuses it. */
+    suspend fun createQrCode(cancel: CancelToken = CancelToken()): QrTicket = blockingCall(cancel) {
+        JSONObject(nativeCreateQrCode(checked())).let { QrTicket(it.getString("key"), it.getString("url"), it.getString("device")) }
+    }
+
+    /** One status query of a QR login: the code (800 expired, 801 waiting, 802 scanned, 803 confirmed) and cookies. */
+    suspend fun checkQrCode(ticket: QrTicket, cancel: CancelToken = CancelToken()): QrStatus = blockingCall(cancel) {
+        val status = JSONObject(nativeCheckQrCode(checked(), ticket.json()))
+        QrStatus(status.getInt("code"), Cookie.list(status.getJSONArray("cookies")))
+    }
+
+    internal fun pollQrLogin(ticket: QrTicket, token: Long, intervalMillis: Long, attempts: Int,
+                             listener: QrPollListener): JSONObject =
+        JSONObject(nativePollQrLogin(checked(), ticket.json(), token, intervalMillis, attempts, listener))
+
     /** [accountName] on a thread started by C++ (tests of attaching native threads to the JVM). */
     internal fun accountNameOnNativeThread(provider: MusicProvider, cookie: String): String? =
         nativeAccountNameOnNativeThread(checked(), provider.ordinal, cookie)
@@ -81,6 +96,8 @@ class MusicApi(transport: HttpTransport = OkHttpTransport()) : AutoCloseable {
     }
 
     private fun checked(): Long = handle.also { check(it != 0L) { "MusicApi 已关闭" } }
+
+    private fun QrTicket.json() = JSONObject().put("key", key).put("url", url).put("device", device).toString()
 
     companion object {
         private const val TOO_MANY_NAMES = "同名文件过多，请更换文件名或输出文件夹。"
@@ -107,6 +124,10 @@ class MusicApi(transport: HttpTransport = OkHttpTransport()) : AutoCloseable {
         @JvmStatic private external fun nativeRunSearch(api: Long, request: String, cookie: String, token: Long): String
         @JvmStatic private external fun nativeExportSong(api: Long, job: String, options: String, directory: String,
                                                          cookie: String, token: Long): String
+        @JvmStatic private external fun nativeCreateQrCode(api: Long): String
+        @JvmStatic private external fun nativeCheckQrCode(api: Long, ticket: String): String
+        @JvmStatic private external fun nativePollQrLogin(api: Long, ticket: String, token: Long, intervalMillis: Long,
+                                                          attempts: Int, listener: QrPollListener): String
         @JvmStatic private external fun nativeAccountName(api: Long, provider: Int, cookie: String): String?
         @JvmStatic private external fun nativeAccountNameOnNativeThread(api: Long, provider: Int, cookie: String): String?
         @JvmStatic private external fun nativeQqToken(cookie: String): Long
@@ -114,3 +135,8 @@ class MusicApi(transport: HttpTransport = OkHttpTransport()) : AutoCloseable {
     }
 }
 
+/** A NetEase QR login: [url] is the code's content; [device] is sent with each status query. */
+data class QrTicket(val key: String, val url: String, val device: String)
+
+/** One status query's answer. */
+data class QrStatus(val code: Int, val cookies: List<Cookie>)

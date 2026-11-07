@@ -1,12 +1,14 @@
-// music_api.h and the background half of lyric_workspace.h for MusicApi.kt and CancelToken.kt.
+// music_api.h, qr_login.h and the background half of lyric_workspace.h for MusicApi.kt and CancelToken.kt.
 // Requests go through a Kotlin HttpTransport (OkHttp in the app), called back synchronously on the thread that runs
 // the core, which ThreadEnv attaches to the JVM when C++ started it.
+#include <chrono>
 #include <thread>
 
 #include "jni_support.h"
 #include "model_json.h"
 #include "musicunlock/lyric_workspace.h"
 #include "musicunlock/music_api.h"
+#include "musicunlock/qr_login.h"
 #include "musicunlock/text.h"
 
 namespace mu::jni {
@@ -15,6 +17,7 @@ namespace {
 
 jclass callbacks = nullptr;
 jmethodID http_method = nullptr;       // CoreCallbacks.http(HttpTransport, String, String, String[], byte[])
+jmethodID qr_report_method = nullptr;  // CoreCallbacks.qrReport(QrPollListener, int, String)
 jfieldID result_status = nullptr;      // NativeHttpResult.status
 jfieldID result_body = nullptr;        // NativeHttpResult.body
 jfieldID result_cookies = nullptr;     // NativeHttpResult.setCookies
@@ -131,6 +134,45 @@ jstring api_export_song(JNIEnv* env, jclass, jlong handle, jstring job, jstring 
     });
 }
 
+jstring api_create_qr_code(JNIEnv* env, jclass, jlong handle) {
+    return guarded(env, [&] { return string(env, dump(to_json(api(handle).create_qr_code()))); });
+}
+
+jstring api_check_qr_code(JNIEnv* env, jclass, jlong handle, jstring ticket) {
+    return guarded(env, [&] {
+        const QrStatus status = api(handle).check_qr_code(ticket_from(parse(utf8(env, ticket))));
+        return string(env, dump({{"code", status.code}, {"cookies", Json::parse(cookies_to_json(status.cookies))}}));
+    });
+}
+
+jstring api_poll_qr_login(JNIEnv* env, jclass, jlong handle, jstring ticket, jlong cancel, jlong interval_ms,
+                          jint attempts, jobject listener) {
+    return guarded(env, [&] {
+        const CancelToken& stop = token(cancel);
+        const GlobalRef target(env, listener);
+        // The wait between polls checks the token every 100 ms, as the Windows dialog does.
+        const auto wait = [&stop, interval_ms] {
+            for (jlong waited = 0;; waited += 100) {
+                stop.check();
+                if (waited >= interval_ms) break;
+                std::this_thread::sleep_for(std::chrono::milliseconds(std::min<jlong>(100, interval_ms - waited)));
+            }
+        };
+        const auto report = [&target](const QrLoginStep& step) {
+            ThreadEnv thread;
+            jstring message = string(thread.get(), step.message);
+            thread->CallStaticVoidMethod(callbacks, qr_report_method, target.get(), index_of(step.state, qr_states), message);
+            thread->DeleteLocalRef(message);
+            check_java(thread.get());
+        };
+        const QrLoginStep step = poll_qr_login(api(handle), ticket_from(parse(utf8(env, ticket))), stop, wait, report,
+                                               attempts);
+        return string(env, dump({{"state", index_of(step.state, qr_states)},
+                                 {"message", step.message},
+                                 {"session", Json::parse(cookies_to_json(step.session))}}));
+    });
+}
+
 jstring api_account_name(JNIEnv* env, jclass, jlong handle, jint provider, jstring cookie) {
     return guarded(env, [&]() -> jstring {
         const auto name = api(handle).account_name(provider_at(provider), utf8(env, cookie));
@@ -183,6 +225,10 @@ const JNINativeMethod api_methods[] = {
     NATIVE("nativeLyrics", "(J" S S "J)" S, api_lyrics),
     NATIVE("nativeRunSearch", "(J" S S "J)" S, api_run_search),
     NATIVE("nativeExportSong", "(J" S S S S "J)" S, api_export_song),
+    NATIVE("nativeCreateQrCode", "(J)" S, api_create_qr_code),
+    NATIVE("nativeCheckQrCode", "(J" S ")" S, api_check_qr_code),
+    NATIVE("nativePollQrLogin", "(J" S "JJILio/github/backspace135/musicunlock/core/QrPollListener;)" S,
+           api_poll_qr_login),
     NATIVE("nativeAccountName", "(JI" S ")" S, api_account_name),
     NATIVE("nativeAccountNameOnNativeThread", "(JI" S ")" S, api_account_name_on_native_thread),
     NATIVE("nativeQqToken", "(" S ")J", qq_token),
@@ -201,11 +247,13 @@ void register_api(JNIEnv* env) {
         callbacks, "http",
         "(Lio/github/backspace135/musicunlock/core/HttpTransport;Ljava/lang/String;Ljava/lang/String;"
         "[Ljava/lang/String;[B)Lio/github/backspace135/musicunlock/core/NativeHttpResult;");
+    qr_report_method = env->GetStaticMethodID(
+        callbacks, "qrReport", "(Lio/github/backspace135/musicunlock/core/QrPollListener;ILjava/lang/String;)V");
     jclass result = env->FindClass("io/github/backspace135/musicunlock/core/NativeHttpResult");
     result_status = result ? env->GetFieldID(result, "status", "I") : nullptr;
     result_body = result ? env->GetFieldID(result, "body", "[B") : nullptr;
     result_cookies = result ? env->GetFieldID(result, "setCookies", "[Ljava/lang/String;") : nullptr;
-    if (!http_method || !result_status || !result_body || !result_cookies) std::abort();
+    if (!http_method || !qr_report_method || !result_status || !result_body || !result_cookies) std::abort();
     env->DeleteLocalRef(result);
 }
 

@@ -24,6 +24,8 @@ class LyricsTest {
         assertEquals(listOf("逐行交错", "同一行合并", "分段排列"), LyricLayout.entries.map { it.label })
         assertEquals("UTF-8 BOM", LyricEncoding.UTF8_BOM.label)
         assertEquals("导出预览", LyricTab.PREVIEW.label)
+        assertEquals("已扫码，请在手机上确认登录", QrLoginState.SCANNED.defaultMessage)
+        assertEquals(QrLoginState.EXPIRED, QrLoginState.fromCode(800))
         assertEquals("4:29", song.duration)
         assertEquals(true, MusicProvider.NETEASE.owns(".music.163.com"))
     }

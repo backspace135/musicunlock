@@ -80,6 +80,11 @@ internal object CoreCallbacks {
     }
 
     @JvmStatic
+    fun qrReport(listener: QrPollListener, state: Int, message: String) {
+        listener.report(QrLoginState.entries[state], message)
+    }
+
+    @JvmStatic
     fun seal(cipher: SessionCipher, plain: ByteArray): ByteArray = cipher.seal(plain)
 
     @JvmStatic
