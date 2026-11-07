@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include <winrt/Microsoft.UI.Xaml.Automation.h>
 #include <winrt/Windows.ApplicationModel.DataTransfer.h>
 
 #include "Motion.h"
@@ -71,6 +72,7 @@ void LyricsView::InitializeComponent() {
     }));
     KindHost().Child(glass_menu::make_picker(L"搜索类型", kinds, 0, 40, false, [this](int index) {
         workspace_.set_kind(search_kinds[index]);
+        Refresh();
     }));
     FormatHost().Child(glass_menu::make_picker(L"导出格式", formats, 0, 36, false, [this](int index) {
         auto options = workspace_.options();
@@ -117,6 +119,20 @@ void LyricsView::InitializeComponent() {
 void LyricsView::SelectSample(int index) {
     if (index < 0 || index >= static_cast<int>(workspace_.songs().size())) return;
     LoadLyrics(workspace_.select(workspace_.songs()[index].id()));
+}
+
+FrameworkElement LyricsView::MenuButton(winrt::hstring const& title) {
+    const Controls::Border hosts[] = {ProviderHost(), KindHost(), FormatHost(), MoreHost()};
+    const std::wstring wanted(title);
+    for (const auto& host : hosts) {
+        if (auto button = host.Child().try_as<Controls::Button>()) {
+            const std::wstring name(Automation::AutomationProperties::GetName(button));
+            if (name == wanted || name.starts_with(wanted + L"：")) {
+                return button;
+            }
+        }
+    }
+    return nullptr;
 }
 
 void LyricsView::UsePreviewData() {
@@ -404,10 +420,6 @@ void LyricsView::RefreshEditor() {
     LineCount().Text(to_hstring(std::to_string(workspace_.line_count()) + " 行"));
 }
 
-void LyricsView::OnProviderChanged(IInspectable const&, SelectionChangedEventArgs const&) {}
-
-void LyricsView::OnKindChanged(IInspectable const&, SelectionChangedEventArgs const&) {}
-
 void LyricsView::OnQueryChanged(IInspectable const&, TextChangedEventArgs const&) {
     workspace_.set_query(to_string(QueryBox().Text()));
     SearchButton().IsEnabled(!workspace_.exporting() && !mu::trim_space(workspace_.query()).empty());
@@ -466,8 +478,6 @@ void LyricsView::OnEditorChanged(IInspectable const&, TextChangedEventArgs const
     RefreshEditor();
     RefreshFooter();
 }
-
-void LyricsView::OnFormatChanged(IInspectable const&, SelectionChangedEventArgs const&) {}
 
 void LyricsView::OnCopy(IInspectable const&, RoutedEventArgs const&) {
     const std::string text = workspace_.copy_preview();

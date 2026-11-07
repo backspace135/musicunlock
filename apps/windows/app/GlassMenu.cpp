@@ -1,23 +1,33 @@
 #include "pch.h"
 
 #include "GlassMenu.h"
+#include "GlassMenuButton.h"
+#include "GlassMenuItems.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <optional>
 
 #include <winrt/Microsoft.UI.Xaml.Automation.h>
+#include <winrt/Microsoft.UI.Input.h>
+#include <winrt/Microsoft.UI.Xaml.Automation.Peers.h>
+#include <winrt/Microsoft.UI.Xaml.Automation.Provider.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.h>
 #include <winrt/Microsoft.UI.Xaml.Controls.Primitives.h>
 #include <winrt/Microsoft.UI.Xaml.Input.h>
+#include <winrt/Microsoft.UI.Xaml.Markup.h>
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Microsoft.UI.Xaml.Hosting.h>
 #include <winrt/Microsoft.UI.Xaml.Shapes.h>
+#include <winrt/Windows.System.h>
 #include <winrt/Windows.UI.Text.h>
 
 #include "Corners.h"
 #include "GlassMotion.h"
 #include "GlassSurface.h"
 #include "Motion.h"
+#include "MotionCapture.h"
 
 namespace glass_menu {
 namespace {
@@ -44,25 +54,71 @@ struct Menu {
     std::vector<Entry> entries;
     FrameworkElement panel{nullptr};  // the glass, sized and positioned over the window
     FrameworkElement rows{nullptr};   // measured once, so the panel knows where it is growing to
+    Border highlight{nullptr};
+    StackPanel stack{nullptr};
     winrt::Windows::Foundation::Rect anchor{};
     winrt::Windows::Foundation::Rect target{};
     bool above = false;
     int highlighted = -1;
+    winrt::Windows::Foundation::Rect current{};
+    winrt::Windows::Foundation::Rect from{};
+    double radius = 18;
+    double from_radius = 18;
+    double content_opacity = 0;
+    double from_content_opacity = 0;
+    double opacity = 1;
+    double from_opacity = 1;
+    bool closing = false;
+    winrt::Microsoft::UI::Composition::CompositionRoundedRectangleGeometry clip{nullptr};
+    std::chrono::steady_clock::time_point started;
 };
 
 void highlight(int index);
 void choose(int index);
 void grow();
+void finish();
+void advance(double elapsed);
 
 FrameworkElement root_{nullptr};
+struct Opener {
+    winrt::weak_ref<Controls::Button> button;
+    std::function<void()> open;
+};
+std::vector<Opener> openers_;
+struct Picker {
+    winrt::weak_ref<Controls::Button> button;
+    winrt::weak_ref<TextBlock> value;
+    std::wstring title;
+    std::vector<std::wstring> options;
+    int selected = -1;
+};
+std::vector<std::shared_ptr<Picker>> pickers_;
 Popup popup_{nullptr};
 Menu menu_;
 bool open_ = false;
+std::optional<winrt::event_token> rendering_;
 
 winrt::hstring glyph(const wchar_t* text) { return winrt::hstring(text); }
 
 Brush brush(const wchar_t* key) {
     return Application::Current().Resources().Lookup(winrt::box_value(winrt::hstring(key))).as<Brush>();
+}
+
+Controls::ControlTemplate picker_template(bool on_glass) {
+    // 画刷由元素的 ThemeResource 解析，不能在控件创建时固化为应用的当前主题。
+    std::wstring markup =
+        LR"(<ControlTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation'
+            xmlns:local='using:MusicUnlock' TargetType='Button'>)";
+    if (on_glass) {
+        markup += LR"(<Border Background='{ThemeResource MuSurfaceBrush}' BorderBrush='{ThemeResource MuSeparatorBrush}'
+            BorderThickness='1' CornerRadius='14' Padding='{TemplateBinding Padding}'>
+            <ContentPresenter HorizontalAlignment='Center' VerticalAlignment='Center'/></Border>)";
+    } else {
+        markup += LR"(<local:GlassSurface Kind='Control' Radius='-1' Padding='{TemplateBinding Padding}'>
+            <ContentPresenter HorizontalAlignment='Center' VerticalAlignment='Center'/></local:GlassSurface>)";
+    }
+    markup += L"</ControlTemplate>";
+    return Markup::XamlReader::Load(markup).as<Controls::ControlTemplate>();
 }
 
 /// The button's rectangle in the root's coordinate space.
@@ -75,8 +131,8 @@ winrt::Windows::Foundation::Rect anchor_of(FrameworkElement const& button) {
 void place(Menu& menu) {
     const auto window = winrt::Windows::Foundation::Size{static_cast<float>(root_.ActualWidth()),
                                                         static_cast<float>(root_.ActualHeight())};
-    const double width = menu.rows.ActualWidth();
-    const double height = menu.rows.ActualHeight();
+    const double width = menu.rows.Width();
+    const double height = menu.rows.Height();
     double x = menu.anchor.X;
     if (x + width > window.Width - kMargin) x = menu.anchor.X + menu.anchor.Width - width;
     x = std::clamp(x, kMargin, std::max(kMargin, static_cast<double>(window.Width) - kMargin - width));
@@ -139,44 +195,85 @@ FrameworkElement build_rows(Menu const& menu) {
         if (!entry.enabled) text.Opacity(0.6), text.Foreground(brush(L"MuSecondaryBrush"));
         Grid::SetColumn(text, column);
         row.Children().Append(text);
+        row.Background(SolidColorBrush(winrt::Windows::UI::Color{0, 0, 0, 0}));
         row.IsHitTestVisible(entry.enabled);
         const int index = static_cast<int>(rows.Children().Size());
         row.PointerEntered([index](auto&&, auto&&) { highlight(index); });
-        row.PointerExited([index](auto&&, auto&&) {
-            if (menu_.highlighted == index) highlight(-1);
-        });
-        row.Tapped([index](auto&&, Input::TappedRoutedEventArgs const& args) {
-            args.Handled(true);
-            choose(index);
-        });
-        rows.Children().Append(row);
+        auto item = winrt::make<winrt::MusicUnlock::implementation::GlassMenuButton>();
+        auto state = winrt::get_self<winrt::MusicUnlock::implementation::GlassMenuButton>(item);
+        state->menu_item = true;
+        state->checkable = checks;
+        state->selected = entry.checked;
+        item.Content(row);
+        item.Padding(ThicknessHelper::FromUniformLength(0));
+        item.HorizontalContentAlignment(HorizontalAlignment::Stretch);
+        item.IsEnabled(entry.enabled);
+        item.IsTabStop(false);
+        item.Template(Markup::XamlReader::Load(
+            LR"(<ControlTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' TargetType='Button'>
+                <Border Background='Transparent'><ContentPresenter/></Border></ControlTemplate>)")
+                          .as<Controls::ControlTemplate>());
+        Automation::AutomationProperties::SetName(item, entry.text);
+        if (entry.checked) Automation::AutomationProperties::SetItemStatus(item, L"已选中");
+        item.Click([index](auto&&, auto&&) { choose(index); });
+        rows.Children().Append(item);
     }
-    return rows;
+    Grid content;
+    Border highlight;
+    highlight.Height(kRowHeight);
+    highlight.HorizontalAlignment(HorizontalAlignment::Stretch);
+    highlight.VerticalAlignment(VerticalAlignment::Top);
+    highlight.Margin({6, 0, 6, 0});
+    highlight.CornerRadius(CornerRadiusHelper::FromUniformRadius(12));
+    highlight.IsHitTestVisible(false);
+    highlight.Opacity(0);
+    auto colour = brush(L"MuTextBrush").as<SolidColorBrush>().Color();
+    colour.A = 20;
+    highlight.Background(SolidColorBrush(colour));
+    content.Children().Append(highlight);
+    content.Children().Append(rows);
+    rows.PointerExited([](auto&&, auto&&) { menu_.highlighted = -1; menu_.highlight.Opacity(0); });
+    menu_.highlight = highlight;
+    menu_.stack = rows;
+    auto items = winrt::make<winrt::MusicUnlock::implementation::GlassMenuItems>();
+    items.Content(content);
+    items.IsTabStop(true);
+    return items;
 }
 
 /// The one highlight, sliding between rows. -1 clears it.
 void highlight(int index) {
     if (!open_ || !menu_.rows) return;
     menu_.highlighted = index;
-    auto stack = menu_.rows.try_as<StackPanel>();
-    if (!stack) return;
-    for (uint32_t i = 0; i < stack.Children().Size(); ++i) {
-        auto row = stack.Children().GetAt(i).try_as<Grid>();
-        if (!row) continue;
-        const bool on = static_cast<int>(i) == index;
-        if (!on) {
-            row.Background(nullptr);
-            continue;
-        }
-        // 8 % of the text colour behind the glyphs.
-        auto colour = brush(L"MuTextBrush").as<SolidColorBrush>().Color();
-        colour.A = 20;
-        row.Background(SolidColorBrush(colour));
+    if (index < 0 || index >= static_cast<int>(menu_.entries.size()) ||
+        menu_.entries[index].kind != Entry::Kind::item || !menu_.entries[index].enabled) {
+        menu_.highlight.Opacity(0);
+        return;
     }
+    const auto row = menu_.stack.Children().GetAt(index).as<FrameworkElement>();
+    const float y = row.TransformToVisual(menu_.rows).TransformPoint({0, 0}).Y;
+    auto visual = Hosting::ElementCompositionPreview::GetElementVisual(menu_.highlight);
+    if (menu_.highlight.Opacity() == 0 || !motion::enabled()) {
+        visual.Offset({0, y, 0});
+    } else {
+        auto animation = visual.Compositor().CreateScalarKeyFrameAnimation();
+        animation.InsertExpressionKeyFrame(0, L"this.StartingValue");
+        for (const auto& [time, value] : spring::keyframes(glass_motion::highlight)) {
+            if (time <= 0) continue;
+            // 非零起点也从当前值接续，避免公共零起点关键帧把高亮拉回首行。
+            animation.InsertExpressionKeyFrame(time, L"this.StartingValue + (" + std::to_wstring(y) +
+                L" - this.StartingValue) * " + std::to_wstring(value));
+        }
+        animation.Duration(std::chrono::duration_cast<winrt::Windows::Foundation::TimeSpan>(
+            std::chrono::duration<double>(spring::settle_time(glass_motion::highlight))));
+        visual.StartAnimation(L"Offset.Y", animation);
+    }
+    menu_.highlight.Opacity(1);
 }
 
 void choose(int index) {
     if (!open_ || index < 0 || index >= static_cast<int>(menu_.entries.size())) return;
+    if (menu_.entries[index].kind != Entry::Kind::item || !menu_.entries[index].enabled) return;
     auto action = menu_.entries[index].action;
     close();
     if (action) action();
@@ -184,6 +281,7 @@ void choose(int index) {
 
 void show(Source source, std::vector<Entry> entries) {
     if (!popup_ || !source.button.get()) return;
+    finish();
     menu_ = {};
     menu_.source = std::move(source);
     menu_.entries = std::move(entries);
@@ -194,53 +292,172 @@ void show(Source source, std::vector<Entry> entries) {
     surface.Kind(winrt::MusicUnlock::GlassKind::Menu);
     surface.Radius(kMenuRadius);
     menu_.rows = build_rows(menu_);
+    Automation::AutomationProperties::SetName(menu_.rows, Automation::AutomationProperties::GetName(button));
     surface.Content(menu_.rows);
     menu_.panel = surface;
     // Measure off screen: the panel has to know its final size before it starts growing.
-    menu_.rows.Measure({10000, 10000});
-    menu_.rows.Arrange({0, 0, menu_.rows.DesiredSize().Width, menu_.rows.DesiredSize().Height});
+    menu_.panel.Measure({10000, 10000});
+    menu_.panel.UpdateLayout();
+    const auto desired = menu_.panel.DesiredSize();
+    menu_.rows.Width(desired.Width);
+    menu_.rows.Height(desired.Height);
     place(menu_);
 
     popup_.Child(menu_.panel);
+    if (!popup_.XamlRoot()) popup_.XamlRoot(root_.XamlRoot());
     popup_.HorizontalOffset(menu_.anchor.X);
     popup_.VerticalOffset(menu_.anchor.Y);
     menu_.panel.Width(menu_.anchor.Width);
     menu_.panel.Height(menu_.anchor.Height);
     popup_.IsOpen(true);
     open_ = true;
+    if (auto control = button.try_as<winrt::MusicUnlock::GlassMenuButton>()) {
+        winrt::get_self<winrt::MusicUnlock::implementation::GlassMenuButton>(control)->Expanded(true);
+    }
     if (menu_.source.hides) button.Opacity(0);
-    menu_.panel.Focus(FocusState::Programmatic);
+    menu_.panel.IsTabStop(true);
+    menu_.panel.KeyDown([](auto&&, Input::KeyRoutedEventArgs const& args) {
+        const auto key = args.Key();
+        using winrt::Windows::System::VirtualKey;
+        if (key == VirtualKey::Tab) { close(); return; }
+        if (key != VirtualKey::Up && key != VirtualKey::Down && key != VirtualKey::Enter && key != VirtualKey::Escape) {
+            return;
+        }
+        args.Handled(true);
+        if (key == VirtualKey::Escape) {
+            auto button = menu_.source.button.get();
+            close();
+            if (button) button.Focus(FocusState::Programmatic);
+            return;
+        }
+        const int step = key == VirtualKey::Down ? 1 : -1;
+        if (key == VirtualKey::Enter) {
+            choose(menu_.highlighted);
+            return;
+        }
+        std::vector<int> enabled;
+        for (int i = 0; i < static_cast<int>(menu_.entries.size()); ++i) {
+            if (menu_.entries[i].kind == Entry::Kind::item && menu_.entries[i].enabled) enabled.push_back(i);
+        }
+        if (enabled.empty()) return;
+        const auto found = std::find(enabled.begin(), enabled.end(), menu_.highlighted);
+        const int next = found == enabled.end() ? (step > 0 ? enabled.front() : enabled.back())
+                                                 : enabled[(found - enabled.begin() + step + enabled.size()) % enabled.size()];
+        highlight(next);
+    });
+    menu_.rows.Focus(FocusState::Programmatic);
     grow();
 }
 
-/// Moves the panel between its button and its final place. `opening` uses the slightly overshooting curve;
-/// closing uses the critically damped one, so the panel never shrinks inside the button.
-void animate(bool opening) {
-    const auto& from = opening ? menu_.anchor : menu_.target;
-    const auto& to = opening ? menu_.target : menu_.anchor;
-    if (!motion::enabled()) {
-        menu_.panel.Width(to.Width);
-        menu_.panel.Height(to.Height);
-        popup_.HorizontalOffset(to.X);
-        popup_.VerticalOffset(to.Y);
-        return;
-    }
-    auto visual = Hosting::ElementCompositionPreview::GetElementVisual(menu_.panel);
-    Hosting::ElementCompositionPreview::SetIsTranslationEnabled(menu_.panel, true);
-    // The panel stays where the popup put it; the visual's translation covers the rest of the travel, and the
-    // size animates on the element. Both start from the current value, so an interrupted menu does not jump.
-    visual.Properties().InsertVector3(L"Translation", {static_cast<float>(from.X - menu_.anchor.X),
-                                                      static_cast<float>(from.Y - menu_.anchor.Y), 0});
-    auto compositor = visual.Compositor();
-    auto move = glass_motion::vector3(compositor, opening ? glass_motion::open : glass_motion::close, L"Translation",
-                                      {static_cast<float>(to.X - menu_.anchor.X),
-                                       static_cast<float>(to.Y - menu_.anchor.Y), 0});
-    if (move) visual.StartAnimation(L"Translation", move);
-    menu_.panel.Width(to.Width);
-    menu_.panel.Height(to.Height);
+void stop_rendering() {
+    if (!rendering_) return;
+    CompositionTarget::Rendering(*rendering_);
+    rendering_.reset();
 }
 
-void grow() { animate(true); }
+void finish() {
+    stop_rendering();
+    if (auto button = menu_.source.button.get()) {
+        button.Opacity(1);
+        if (auto control = button.try_as<winrt::MusicUnlock::GlassMenuButton>()) {
+            winrt::get_self<winrt::MusicUnlock::implementation::GlassMenuButton>(control)->Expanded(false);
+        }
+    }
+    if (popup_) {
+        popup_.IsOpen(false);
+        popup_.Child(nullptr);
+    }
+    open_ = false;
+    menu_ = {};
+}
+
+void paint() {
+    const auto rect = menu_.current;
+    popup_.HorizontalOffset(rect.X);
+    popup_.VerticalOffset(rect.Y);
+    menu_.panel.Width(rect.Width);
+    menu_.panel.Height(rect.Height);
+    menu_.panel.as<winrt::MusicUnlock::GlassSurface>().Radius(menu_.radius);
+    menu_.panel.Opacity(menu_.opacity);
+    menu_.rows.Opacity(menu_.content_opacity);
+    // 行的排版始终保持最终尺寸，随面板扩张显示，而不是把文字挤进按钮里。
+    menu_.rows.HorizontalAlignment(HorizontalAlignment::Left);
+    menu_.rows.VerticalAlignment(VerticalAlignment::Top);
+    menu_.rows.Margin({menu_.target.X - rect.X, menu_.target.Y - rect.Y, 0, 0});
+    auto visual = Hosting::ElementCompositionPreview::GetElementVisual(menu_.panel);
+    auto compositor = visual.Compositor();
+    if (!menu_.clip) menu_.clip = compositor.CreateRoundedRectangleGeometry();
+    menu_.clip.Size({rect.Width, rect.Height});
+    menu_.clip.CornerRadius({static_cast<float>(menu_.radius), static_cast<float>(menu_.radius)});
+    visual.Clip(compositor.CreateGeometricClip(menu_.clip));
+    auto rows = Hosting::ElementCompositionPreview::GetElementVisual(menu_.rows);
+    rows.CenterPoint({menu_.target.Width / 2, menu_.above ? menu_.target.Height : 0, 0});
+    const float scale = static_cast<float>(0.9 + 0.1 * menu_.content_opacity);
+    rows.Scale({scale, scale, 1});
+    if (menu_.source.hides) {
+        if (auto button = menu_.source.button.get()) button.Opacity(menu_.closing ? 1 - menu_.opacity : 0);
+    }
+}
+
+void animate(bool opening) {
+    stop_rendering();
+    menu_.closing = !opening;
+    menu_.from = menu_.current;
+    menu_.from_radius = menu_.radius;
+    menu_.from_content_opacity = menu_.content_opacity;
+    menu_.from_opacity = menu_.opacity;
+    menu_.started = std::chrono::steady_clock::now();
+    const auto to = opening ? menu_.target : menu_.anchor;
+    const double radius = opening ? kMenuRadius : std::min(menu_.anchor.Height / 2.0, kMenuRadius);
+    const auto curve = opening ? glass_motion::open : glass_motion::close;
+    if (!motion::enabled()) {
+        if (!opening) { finish(); return; }
+        menu_.current = to;
+        menu_.radius = radius;
+        menu_.content_opacity = 1;
+        menu_.opacity = 1;
+        paint();
+        return;
+    }
+    // Rendering 的下一帧开始展开，不插入定时器或人为等待；中断从当前几何状态接续。
+    rendering_ = CompositionTarget::Rendering([](auto&&, auto&&) {
+        advance(std::chrono::duration<double>(std::chrono::steady_clock::now() - menu_.started).count());
+    });
+}
+
+void advance(double elapsed) {
+        if (!menu_.panel) return;
+        const bool opening = !menu_.closing;
+        const auto to = opening ? menu_.target : menu_.anchor;
+        const double radius = opening ? kMenuRadius : std::min(menu_.anchor.Height / 2.0, kMenuRadius);
+        const auto curve = opening ? glass_motion::open : glass_motion::close;
+        const double duration = spring::settle_time(curve);
+        const double progress = elapsed >= duration ? 1 : spring::value(curve, elapsed);
+        const auto lerp = [progress](double a, double b) { return static_cast<float>(a + (b - a) * progress); };
+        menu_.current = {lerp(menu_.from.X, to.X), lerp(menu_.from.Y, to.Y),
+                         lerp(menu_.from.Width, to.Width), lerp(menu_.from.Height, to.Height)};
+        menu_.radius = lerp(menu_.from_radius, radius);
+        menu_.content_opacity = std::clamp(static_cast<double>(lerp(menu_.from_content_opacity, opening ? 1 : 0)), 0.0, 1.0);
+        if (!opening) {
+            const double handoff = std::clamp((elapsed - glass_motion::handoff_delay) / glass_motion::handoff_duration, 0.0, 1.0);
+            const double eased = handoff * handoff * (3 - 2 * handoff);
+            menu_.opacity = menu_.from_opacity * (1 - eased);
+        } else menu_.opacity = std::clamp(static_cast<double>(lerp(menu_.from_opacity, 1)), 0.0, 1.0);
+        paint();
+        if (!opening && elapsed >= glass_motion::handoff_delay + glass_motion::handoff_duration) finish();
+        else if (opening && elapsed >= duration) {
+            stop_rendering();
+            corners::clip(menu_.panel, static_cast<float>(kMenuRadius));
+        }
+}
+
+void grow() {
+    menu_.current = menu_.anchor;
+    menu_.radius = std::min(menu_.anchor.Height / 2.0, kMenuRadius);
+    menu_.content_opacity = 0;
+    paint();
+    animate(true);
+}
 
 }  // namespace
 
@@ -254,15 +471,94 @@ void attach(FrameworkElement const& root) {
     root.ActualThemeChanged([](auto&&, auto&&) {
         if (open_) close();
     });
+    root.PointerPressed([](auto&&, Input::PointerRoutedEventArgs const& args) {
+        if (!open_) return;
+        const auto point = args.GetCurrentPoint(root_).Position();
+        const auto anchor = menu_.anchor;
+        if (point.X >= anchor.X && point.X <= anchor.X + anchor.Width &&
+            point.Y >= anchor.Y && point.Y <= anchor.Y + anchor.Height) return;
+        close();
+    });
+    root.SizeChanged([](auto&&, auto&&) { if (open_) close(); });
+    const auto verify_motion = [](motion_capture::Driver& driver) {
+        finish();
+        auto found = std::find_if(openers_.begin(), openers_.end(), [](const auto& opener) {
+            auto button = opener.button.get();
+            return button && button.IsLoaded() && button.ActualWidth() > 0 && button.ActualHeight() > 0;
+        });
+        if (found == openers_.end()) throw winrt::hresult_error(E_FAIL, L"动效场景缺少菜单按钮");
+        if (!motion::enabled()) {
+            found->open();
+            if (!open_ || menu_.content_opacity != 1 || rendering_) {
+                throw winrt::hresult_error(E_FAIL, L"减少动态效果时菜单没有立即展开");
+            }
+            close();
+            if (menu_.panel || rendering_) throw winrt::hresult_error(E_FAIL, L"减少动态效果时菜单没有立即关闭");
+            driver.note(L"PASS: reduced motion opens and closes immediately without a frame callback");
+            return;
+        }
+        driver.note(L"geometry samples from the production animation clock; not captured pixel frames");
+        driver.note(L"open response=0.32 damping=0.78; close response=0.26 damping=1; handoff delay=0.12 duration=0.08");
+        found->open();
+        for (int i = 0; i <= 60; ++i) advance(i / 120.0);
+        if (!open_ || menu_.content_opacity != 1) throw winrt::hresult_error(E_FAIL, L"菜单展开未完成");
+        const auto anchor = menu_.anchor;
+        driver.note(L"opened size=" + std::to_wstring(menu_.current.Width) + L"x" + std::to_wstring(menu_.current.Height));
+        close();
+        for (int i = 0; i <= 24 && menu_.panel; ++i) {
+            advance(i / 120.0);
+            if (!menu_.panel) break;
+            if (menu_.current.Width + 0.01 < anchor.Width || menu_.current.Height + 0.01 < anchor.Height) {
+                throw winrt::hresult_error(E_FAIL, L"收起尺寸小于按钮");
+            }
+            if (auto button = menu_.source.button.get(); menu_.source.hides &&
+                std::abs(button.Opacity() + menu_.opacity - 1) > 0.001) {
+                throw winrt::hresult_error(E_FAIL, L"菜单交接不透明度不互补");
+            }
+            driver.note(L"sample=" + std::to_wstring(i / 120.0) + L"s size=" + std::to_wstring(menu_.current.Width) +
+                L"x" + std::to_wstring(menu_.current.Height) + L" opacity=" + std::to_wstring(menu_.opacity));
+        }
+        if (menu_.panel) throw winrt::hresult_error(E_FAIL, L"透明菜单未清理");
+        driver.note(L"PASS: no shrink undershoot, complementary handoff, transparent removal");
+        found->open();
+        advance(0.05);
+        close();
+        advance(0.03);
+        const auto interrupted = menu_.current;
+        found->open();
+        if (std::abs(menu_.current.Width - interrupted.Width) > 0.01 ||
+            std::abs(menu_.current.Height - interrupted.Height) > 0.01) {
+            throw winrt::hresult_error(E_FAIL, L"中断后菜单尺寸跳变");
+        }
+        advance(0.5);
+        finish();
+        driver.note(L"PASS: closing can reopen from its current rectangle");
+    };
+    motion_capture::add(L"glass-menu", verify_motion);
+    motion_capture::add(L"glass-menu-reduced", [verify_motion](motion_capture::Driver& driver) {
+        motion::suspend(true);
+        try {
+            verify_motion(driver);
+        } catch (...) {
+            motion::suspend(false);
+            throw;
+        }
+        motion::suspend(false);
+    });
 }
 
 Controls::Button make_button(std::wstring title, std::function<std::vector<Entry>()> entries, bool hides) {
-    Controls::Button button;
+    auto button = winrt::make<winrt::MusicUnlock::implementation::GlassMenuButton>();
     Automation::AutomationProperties::SetName(button, title);
-    button.Click([title = std::move(title), entries = std::move(entries), hides,
-                  weak = winrt::make_weak(button)](auto&&, auto&&) {
+    auto open = [title = std::move(title), entries = std::move(entries), hides, weak = winrt::make_weak(button)] {
         if (auto self = weak.get()) show_entries(self, title, hides, entries);
-    });
+    };
+    button.Click([open](auto&&, auto&&) { open(); });
+    auto state = winrt::get_self<winrt::MusicUnlock::implementation::GlassMenuButton>(button);
+    state->expand = open;
+    state->collapse = [] { close(); };
+    std::erase_if(openers_, [](const auto& opener) { return !opener.button.get(); });
+    openers_.push_back({winrt::make_weak(button.as<Controls::Button>()), std::move(open)});
     return button;
 }
 
@@ -283,14 +579,20 @@ FrameworkElement make_picker(std::wstring title, std::vector<std::wstring> optio
     content.Children().Append(value);
     content.Children().Append(chevron);
 
-    auto button = make_button(title, [options, changed, weak = winrt::make_weak(value)] {
+    auto picker = std::make_shared<Picker>();
+    picker->title = title;
+    picker->options = std::move(options);
+    picker->value = winrt::make_weak(value);
+    auto button = make_button(title, [picker, changed] {
         std::vector<Entry> entries;
-        const auto current = weak.get() ? std::wstring(weak.get().Text()) : std::wstring{};
-        for (int i = 0; i < static_cast<int>(options.size()); ++i) {
+        for (int i = 0; i < static_cast<int>(picker->options.size()); ++i) {
             Entry entry;
-            entry.text = options[i];
-            entry.checked = current == options[i];
-            entry.action = [changed, i] { if (changed) changed(i); };
+            entry.text = picker->options[i];
+            entry.checked = picker->selected == i;
+            entry.action = [picker, changed, i] {
+                if (auto button = picker->button.get()) select(button, i);
+                if (changed) changed(i);
+            };
             entries.push_back(std::move(entry));
         }
         return entries;
@@ -298,78 +600,77 @@ FrameworkElement make_picker(std::wstring title, std::vector<std::wstring> optio
     button.MinWidth(minimum);
     button.Padding(Thickness{12, on_glass ? 6.0 : 8.0, 12, on_glass ? 6.0 : 8.0});
     button.Content(content);
-    if (on_glass) {
-        button.Background(brush(L"MuSurfaceBrush"));
-        button.BorderBrush(brush(L"MuSeparatorBrush"));
-        button.BorderThickness(ThicknessHelper::FromUniformLength(1));
-    } else {
-        button.Background(brush(L"MuSurfaceBrush"));
-        button.BorderThickness(ThicknessHelper::FromUniformLength(0));
-    }
+    button.Template(picker_template(on_glass));
     button.CornerRadius(CornerRadiusHelper::FromUniformRadius(14));
-    std::vector<winrt::hstring> labels;
-    for (const auto& option : options) labels.emplace_back(option);
-    button.Tag(winrt::single_threaded_vector<winrt::hstring>(std::move(labels)));
+    picker->button = winrt::make_weak(button);
+    std::erase_if(pickers_, [](const auto& item) { return !item->button.get(); });
+    pickers_.push_back(picker);
     select(button, selected);
     return button;
 }
 
 void select(FrameworkElement const& picker, int index) {
-    auto button = picker.try_as<Controls::Button>();
-    auto content = button ? button.Content().try_as<StackPanel>() : nullptr;
-    auto value = content && content.Children().Size() ? content.Children().GetAt(0).try_as<TextBlock>() : nullptr;
-    if (!value || index < 0) return;
-    // The button rebuilds its entries from this text, so the text is the selection.
-    const auto options = button.Tag().try_as<winrt::Windows::Foundation::Collections::IVector<winrt::hstring>>();
-    if (!options || index >= static_cast<int>(options.Size())) return;
-    value.Text(options.GetAt(index));
+    if (!picker || index < 0) return;
+    for (const auto& state : pickers_) {
+        auto button = state->button.get();
+        if (!button || button.as<winrt::Windows::Foundation::IInspectable>() !=
+                           picker.as<winrt::Windows::Foundation::IInspectable>()) continue;
+        if (index >= static_cast<int>(state->options.size())) return;
+        state->selected = index;
+        if (auto value = state->value.get()) value.Text(state->options[index]);
+        Automation::AutomationProperties::SetName(button, state->title + L"：" + state->options[index]);
+        return;
+    }
 }
 
 void show_entries(FrameworkElement const& button, std::wstring title, bool hides,
-                  std::function<std::vector<Entry>()> entries) {
-    Automation::AutomationProperties::SetName(button, title);
-    if (open_ && menu_.source.button.get() == button) {
-        close();
+                   std::function<std::vector<Entry>()> entries) {
+    if (Automation::AutomationProperties::GetName(button).empty()) Automation::AutomationProperties::SetName(button, title);
+    auto current = menu_.source.button.get();
+    if (current && current.as<winrt::Windows::Foundation::IInspectable>() ==
+                       button.as<winrt::Windows::Foundation::IInspectable>()) {
+        if (open_) close();
+        else if (menu_.closing) {
+            open_ = true;
+            if (auto control = button.try_as<winrt::MusicUnlock::GlassMenuButton>()) {
+                winrt::get_self<winrt::MusicUnlock::implementation::GlassMenuButton>(control)->Expanded(true);
+            }
+            menu_.panel.IsHitTestVisible(true);
+            menu_.rows.Focus(FocusState::Programmatic);
+            animate(true);
+        }
         return;
     }
     show(Source{winrt::make_weak(button), hides}, entries());
 }
 
+void open_for_preview(FrameworkElement const& button) {
+    if (!button) throw winrt::hresult_invalid_argument(L"玻璃菜单预览缺少按钮");
+    bool matched = false;
+    for (auto& opener : openers_) {
+        auto stored = opener.button.get();
+        if (stored && stored.as<winrt::Windows::Foundation::IInspectable>() ==
+                          button.as<winrt::Windows::Foundation::IInspectable>()) {
+            matched = true;
+            opener.open();
+            break;
+        }
+    }
+    if (!matched || !open_) throw winrt::hresult_error(E_FAIL, L"玻璃菜单预览未打开");
+    menu_.panel.UpdateLayout();
+}
+
 void close() {
     if (!open_) return;
     open_ = false;
-    auto button = menu_.source.button.get();
-    if (!motion::enabled()) {
-        if (button) button.Opacity(1);
-        popup_.IsOpen(false);
-        popup_.Child(nullptr);
-        menu_ = {};
-        return;
+    if (auto button = menu_.source.button.get()) {
+        button.Focus(FocusState::Programmatic);
+        if (auto control = button.try_as<winrt::MusicUnlock::GlassMenuButton>()) {
+            winrt::get_self<winrt::MusicUnlock::implementation::GlassMenuButton>(control)->Expanded(false);
+        }
     }
+    menu_.panel.IsHitTestVisible(false);
     animate(false);
-    // The panel and the button cross-fade where they meet, starting 0.12 s into the shrink.
-    auto timer = menu_.panel.DispatcherQueue().CreateTimer();
-    timer.Interval(std::chrono::milliseconds(static_cast<int>(glass_motion::handoff_delay * 1000)));
-    timer.Tick([button, timer](auto&&, auto&&) {
-        timer.Stop();
-        if (button) button.Opacity(1);
-        auto visual = Hosting::ElementCompositionPreview::GetElementVisual(menu_.panel);
-        auto fade = visual.Compositor().CreateScalarKeyFrameAnimation();
-        fade.InsertKeyFrame(0, 1);
-        fade.InsertKeyFrame(1, 0);
-        fade.Duration(std::chrono::milliseconds(static_cast<int>(glass_motion::handoff_duration * 1000)));
-        visual.StartAnimation(L"Opacity", fade);
-        auto done = menu_.panel.DispatcherQueue().CreateTimer();
-        done.Interval(fade.Duration());
-        done.Tick([done](auto&&, auto&&) {
-            done.Stop();
-            popup_.IsOpen(false);
-            popup_.Child(nullptr);
-            menu_ = {};
-        });
-        done.Start();
-    });
-    timer.Start();
 }
 
 }  // namespace glass_menu

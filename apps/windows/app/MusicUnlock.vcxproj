@@ -123,6 +123,8 @@
     <ClInclude Include="Accounts.h" />
     <ClInclude Include="Corners.h" />
     <ClInclude Include="GlassMenu.h" />
+    <ClInclude Include="GlassMenuButton.h" />
+    <ClInclude Include="GlassMenuItems.h" />
     <ClInclude Include="GlassMotion.h" />
     <ClInclude Include="GlassSurface.h">
       <DependentUpon>GlassSurface.idl</DependentUpon>
@@ -169,6 +171,7 @@
     <ClCompile Include="Accounts.cpp" />
     <ClCompile Include="Corners.cpp" />
     <ClCompile Include="GlassMenu.cpp" />
+    <ClCompile Include="GlassMenuButton.cpp" />
     <ClCompile Include="GlassMotion.cpp" />
     <ClCompile Include="GlassSurface.cpp">
       <DependentUpon>GlassSurface.idl</DependentUpon>
@@ -222,6 +225,7 @@
     <Midl Include="GlassSurface.idl" />
     <Midl Include="MorphGroup.idl" />
     <Midl Include="Press.idl" />
+    <Midl Include="GlassMenuControls.idl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

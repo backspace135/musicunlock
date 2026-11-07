@@ -45,6 +45,9 @@ void select(xaml::FrameworkElement const& picker, int index);
 void show_entries(xaml::FrameworkElement const& button, std::wstring title, bool hides,
                   std::function<std::vector<Entry>()> entries);
 
+/// Opens the button's menu and leaves it fully open, for the static preview renders.
+void open_for_preview(xaml::FrameworkElement const& button);
+
 /// Closes whatever is open. A window losing activation and a preview render both need this.
 void close();
 

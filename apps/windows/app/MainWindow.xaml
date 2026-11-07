@@ -66,7 +66,7 @@
                                     local:Press.Scale="0.96">
                                 <FontIcon Glyph="&#xE8E5;" FontSize="13" Foreground="{ThemeResource MuTextBrush}" />
                             </Button>
-                            <Button x:Name="AccountsButton" Click="OnAccounts" Background="Transparent" BorderThickness="0"
+                            <local:GlassMenuButton x:Name="AccountsButton" Click="OnAccounts" Background="Transparent" BorderThickness="0"
                                     Width="36" Height="30" Padding="0" ToolTipService.ToolTip="官方登录后自动保存会话，无需手动获取 Cookie"
                                     AutomationProperties.Name="账号登录" local:Press.Scale="0.96">
                                 <Grid>
@@ -76,7 +76,7 @@
                                     <FontIcon x:Name="AccountsSignedOut" Glyph="&#xE77B;" FontSize="13"
                                               Foreground="{ThemeResource MuTextBrush}" />
                                 </Grid>
-                            </Button>
+                            </local:GlassMenuButton>
                         </StackPanel>
                     </local:GlassSurface>
                 </Grid>

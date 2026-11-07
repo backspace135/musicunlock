@@ -541,8 +541,6 @@ void UnlockView::OnChooseOutput(IInspectable const&, RoutedEventArgs const&) {
     }
 }
 
-void UnlockView::OnNamingChanged(IInspectable const&, SelectionChangedEventArgs const&) {}
-
 void UnlockView::OnRetry(IInspectable const&, RoutedEventArgs const&) {
     if (!queue_.retry_failed()) return;
     FilterBar().SelectedItem(FilterBar().Items().GetAt(0));
