@@ -532,6 +532,7 @@ python3 apps/android/scripts/device.py screenshot <名字>           # 截图存
 python3 apps/android/scripts/device.py test                       # instrumented tests，然后是 musicunlock_core_tests
 python3 apps/android/scripts/device.py pull <手机路径> build/<目录>/  # 只能拉到仓库根目录的 build/ 下
 python3 apps/android/scripts/device.py shell -- <命令>             # 在设备上运行命令
+python3 apps/android/scripts/device.py input tap <x> <y>           # 点击；还有 swipe、text、keyevent，只发给最前面的本分支 App
 ```
 
 - **每个分支装自己的一份**：分支名最后一段做 applicationIdSuffix 和桌面名称，`android/unlock` 装成
@@ -541,6 +542,9 @@ python3 apps/android/scripts/device.py shell -- <命令>             # 在设备
 - 连着多台设备时用 `--serial` 指定（放在子命令前面，如 `device.py --serial emulator-5554 install`），
   否则用 `ANDROID_SERIAL`，再没有就要求恰好只有一台在线。
 - `logcat` 按 App 的 uid 过滤（Android 11 以下按当前进程）。
+- **往设备发点击、滑动、文字、按键只用 `input`**：它先查 `dumpsys activity activities`（最前面的 Activity）和
+  `dumpsys window`（焦点窗口），两者都是当前分支那一份 App 才发送；最前面是其他 App、通知栏或系统弹窗时拒绝并退出
+  （退出码 1）。`shell` 拒绝执行 `input` 和 `monkey`。连续发送时每一步都用 `&&` 连起来，任何一步失败就停下。
 - `test` 用 Gradle 的 `connectedDebugAndroidTest`（只在选中的设备上跑），核心测试推到
   `/data/local/tmp/musicunlock-core-tests-<后缀>/`，跑完删除。Gradle 跑完 instrumented tests 会卸载它装的 App，
   之后需要的话重新 `install`。

@@ -11,6 +11,7 @@
     python apps/android/scripts/device.py test                  # instrumented tests, then musicunlock_core_tests
     python apps/android/scripts/device.py pull <device path> build/<folder>/
     python apps/android/scripts/device.py shell -- <command>
+    python apps/android/scripts/device.py input tap <x> <y>     # also swipe, text, keyevent; only into this app
 
 Each branch installs its own copy: the last part of the branch name becomes the application ID suffix and the
 launcher name, so android/unlock installs io.github.backspace135.musicunlock.unlock as "音匣 (unlock)" and several
@@ -18,6 +19,10 @@ sessions can share one phone. --suffix overrides it; MUSICUNLOCK_ANDROID_BRANCH 
 is detached (remote.py sets it). Commands that talk to a device use --serial, else ANDROID_SERIAL, else the only
 device online. adb, Gradle and their caches come from android_env.py, like build.py. Device paths given to pull and
 shell may start with / in Git Bash too: the conversion Git Bash applies to them is undone.
+
+Taps, swipes, text and key presses go through `input`, which first checks that this branch's app is in front and has
+the focus (not another app, the notification shade or a system dialog) and refuses otherwise; `shell` refuses to
+run `input` or `monkey` itself.
 """
 from pathlib import Path
 import argparse
@@ -113,6 +118,27 @@ def install(env: dict, serial: str, suffix: str) -> None:
     adb(env, serial, "shell", "am", "start", "-n", f"{package}/{APPLICATION_ID}.MainActivity", check=True)
 
 
+INPUT_ACTIONS = {"tap", "swipe", "text", "keyevent"}
+# `input` or `monkey` where the device shell starts a command: at the start, or after ; & | ( or a quote.
+RAW_INPUT = re.compile(r"(?:^|[;&|(`'\"])\s*(?:input|monkey)\b")
+
+
+def foreground(env: dict, serial: str) -> tuple[str | None, str | None]:
+    """The package of the top resumed activity and the package owning the focused window, when known."""
+    activities = adb(env, serial, "shell", "dumpsys", "activity", "activities", capture_output=True, check=True).stdout
+    windows = adb(env, serial, "shell", "dumpsys", "window", capture_output=True, check=True).stdout
+    resumed = re.search(r"(?:topResumedActivity=|ResumedActivity: ?)ActivityRecord\{\S+ \S+ ([\w.]+)/", activities)
+    focus = re.search(r"mCurrentFocus=Window\{\S+ \S+ ([\w.]+)/", windows)
+    return resumed and resumed.group(1), focus and focus.group(1)
+
+
+def require_foreground(env: dict, serial: str, package: str) -> None:
+    resumed, focus = foreground(env, serial)
+    if resumed != package or focus != package:
+        sys.exit(f"拒绝发送输入：最前面的不是 {package}（当前 Activity：{resumed or '未知'}，焦点窗口：{focus or '无'}）。"
+                 "先用 device.py install 启动它，或请用户把它切到前台；不要操作其他 App")
+
+
 def run_tests(env: dict, serial: str, suffix: str) -> None:
     # Start the server with adb's own environment before Gradle talks to it.
     adb(env, None, "start-server", check=True)
@@ -145,6 +171,9 @@ def main() -> None:
     pull.add_argument("local", help="a folder under the repository's build/")
     shell = commands.add_parser("shell", help="run a command on the device: shell -- <command>")
     shell.add_argument("argv", nargs=argparse.REMAINDER)
+    send = commands.add_parser("input", help="tap, swipe, type or press a key, only while this app is in front")
+    send.add_argument("action", choices=sorted(INPUT_ACTIONS))
+    send.add_argument("values", nargs=argparse.REMAINDER, help="the arguments of adb shell input <action>")
     args = parser.parse_args()
 
     env = android_environment()
@@ -200,7 +229,14 @@ def main() -> None:
             sys.exit("请在 -- 后面给出要在设备上运行的命令")
         # One argument is a shell command line (pipes allowed); several are quoted so the device shell keeps them.
         line = command[0] if len(command) == 1 else shlex.join(command)
+        if RAW_INPUT.search(line):
+            sys.exit("不要用 shell 发送输入，改用 device.py input（它会先确认最前面的是音匣）")
         sys.exit(adb(env, serial, "shell", line).returncode)
+    elif args.command == "input":
+        if not args.values:
+            sys.exit(f"请给出 input {args.action} 的参数")
+        require_foreground(env, serial, package)
+        sys.exit(adb(env, serial, "shell", shlex.join(["input", args.action, *args.values])).returncode)
 
 
 if __name__ == "__main__":
