@@ -172,7 +172,7 @@ def main():
         "--target", "main",
         "--latest",
     )
-    if not gh_json("release", "view", args.tag, "--json", "isLatest")["isLatest"]:
+    if gh("api", "repos/{owner}/{repo}/releases/latest", "--jq", ".tag_name").strip() != args.tag:
         sys.exit(f"{args.tag} 已创建，但没有被标成 Latest")
     print(gh_json("release", "view", args.tag, "--json", "url")["url"])
 
