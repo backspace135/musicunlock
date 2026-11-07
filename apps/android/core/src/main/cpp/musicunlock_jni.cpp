@@ -4,6 +4,7 @@
 #include "jni_support.h"
 
 namespace mu::jni {
+void register_api(JNIEnv* env);
 void register_audio(JNIEnv* env);
 void register_lyrics(JNIEnv* env);
 void register_platform_text(JNIEnv* env);
@@ -16,5 +17,6 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
     mu::jni::register_platform_text(env);
     mu::jni::register_lyrics(env);
     mu::jni::register_audio(env);
+    mu::jni::register_api(env);
     return JNI_VERSION_1_6;
 }

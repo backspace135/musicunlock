@@ -25,3 +25,15 @@
 -keep class io.github.backspace135.musicunlock.core.ConvertedAudio {
     <init>(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, byte[]);
 }
+
+# Callbacks of the HTTP transport (api_jni.cpp).
+-keep class io.github.backspace135.musicunlock.core.CoreCallbacks {
+    io.github.backspace135.musicunlock.core.NativeHttpResult http(io.github.backspace135.musicunlock.core.HttpTransport, java.lang.String, java.lang.String, java.lang.String[], byte[]);
+}
+-keep class io.github.backspace135.musicunlock.core.NativeHttpResult {
+    int status;
+    byte[] body;
+    java.lang.String[] setCookies;
+}
+# Named in native method signatures, so their names must stay.
+-keep interface io.github.backspace135.musicunlock.core.HttpTransport
