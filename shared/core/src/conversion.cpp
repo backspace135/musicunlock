@@ -76,9 +76,15 @@ std::string numbered_file_name(std::string_view stem, std::string_view extension
 ConversionOutput convert_file(const std::filesystem::path& source, const std::filesystem::path& directory,
                               NamingPolicy naming, ByteSpan kgm_mask) {
     const Bytes original = detail::read_file(source);
+    return convert_data(original, path_to_utf8(source.filename()), directory, naming, kgm_mask);
+}
+
+ConversionOutput convert_data(ByteSpan data, std::string_view source_name, const std::filesystem::path& directory,
+                              NamingPolicy naming, ByteSpan kgm_mask) {
+    const std::filesystem::path source = utf8_to_path(source_name);
     std::string ext = path_to_utf8(source.extension());
     if (!ext.empty() && ext.front() == '.') ext.erase(0, 1);
-    DecodedAudio result = decode_audio(original, ext, kgm_mask);
+    DecodedAudio result = decode_audio(data, ext, kgm_mask);
 
     std::string name = path_to_utf8(source.stem());
     const AudioMetadata& meta = result.metadata;
