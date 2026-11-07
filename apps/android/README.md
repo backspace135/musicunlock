@@ -547,8 +547,10 @@ python3 apps/android/scripts/device.py input tap <x> <y>           # 点击；�
   `dumpsys window`（焦点窗口），两者都是当前分支那一份 App 才发送；最前面是其他 App、通知栏或系统弹窗时拒绝并退出
   （退出码 1）。`shell` 拒绝执行 `input` 和 `monkey`。连续发送时每一步都用 `&&` 连起来，任何一步失败就停下。
 - `test` 用 Gradle 的 `connectedDebugAndroidTest`（只在选中的设备上跑），核心测试推到
-  `/data/local/tmp/musicunlock-core-tests-<后缀>/`，跑完删除。Gradle 跑完 instrumented tests 会卸载它装的 App，
-  之后需要的话重新 `install`。
+  `/data/local/tmp/musicunlock-core-tests-<后缀>/`，跑完删除。`:core` 的测试包也带分支后缀
+  （`io.github.backspace135.musicunlock.core.test.<后缀>`），几个会话同时在一台手机上跑也互不覆盖；Gradle 跑完
+  会卸载这个测试包，不动 `install` 装的那一份 App。测试会往 `Music/音匣` 写几个文件并在结束时删除，可能留下空的
+  `Music/音匣` 文件夹（App 的默认输出位置）。
 - 小米手机安装时报 `INSTALL_FAILED_USER_RESTRICTED`：需要在手机上确认，或者打开“开发者选项 → USB 安装”。
 
 ## 在 g16win 上远程编译

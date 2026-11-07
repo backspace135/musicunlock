@@ -5,7 +5,7 @@
         <!-- Stands in for a file manager's documents in the import and output tests. -->
         <provider
             android:name="io.github.backspace135.musicunlock.core.TestDocumentsProvider"
-            android:authorities="io.github.backspace135.musicunlock.core.test.documents"
+            android:authorities="${applicationId}.documents"
             android:exported="true"
             android:grantUriPermissions="true"
             android:permission="android.permission.MANAGE_DOCUMENTS">
