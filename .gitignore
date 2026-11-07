@@ -37,6 +37,14 @@ __pycache__/
 *.aps
 *.ipch
 
+# Android / Gradle
+.gradle/
+.kotlin/
+.cxx/
+.externalNativeBuild/
+local.properties
+captures/
+
 # Local credentials and signing material
 .env
 .env.*
@@ -45,3 +53,5 @@ __pycache__/
 *.pfx
 *.key
 *.pem
+*.jks
+*.keystore

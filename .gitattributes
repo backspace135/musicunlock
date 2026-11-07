@@ -20,3 +20,5 @@
 *.icns binary
 *.woff binary
 *.ttf binary
+gradlew text eol=lf
+*.jar binary
