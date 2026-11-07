@@ -106,7 +106,7 @@ struct GlassSwitch<Value: Hashable>: View {
     private var lens: some View {
         let body = Group {
             if onGlass {
-                Capsule().fill(Theme.surface).shadow(color: .black.opacity(pressed ? 0.16 : 0.1), radius: pressed ? 6 : 2, y: 1)
+                Capsule().fill(Theme.adaptive(0xffffff, 0x484848)).shadow(color: .black.opacity(pressed ? 0.16 : 0.1), radius: pressed ? 6 : 2, y: 1)
             } else if plain {
                 Capsule().fill(Theme.text.opacity(0.1))
             } else {
