@@ -212,6 +212,28 @@ jstring filter_label(JNIEnv* env, jclass, jint filter) {
     return guarded(env, [&] { return string(env, mu::filter_label(pick(all_filters, filter))); });
 }
 
+jstring scan_import(JNIEnv* env, jclass, jobjectArray directories) {
+    return guarded(env, [&] {
+        std::vector<std::filesystem::path> inputs;
+        const jsize count = directories ? env->GetArrayLength(directories) : 0;
+        inputs.reserve(static_cast<std::size_t>(count));
+        for (jsize i = 0; i < count; ++i) {
+            auto path = static_cast<jstring>(env->GetObjectArrayElement(directories, i));
+            inputs.push_back(utf8_to_path(utf8(env, path)));
+            env->DeleteLocalRef(path);
+        }
+        const mu::ImportScan scan = mu::scan_import(inputs);
+        nlohmann::json json;
+        json["skipped"] = scan.skipped;
+        auto files = nlohmann::json::array();
+        for (const mu::ImportedFile& file : scan.files) {
+            files.push_back({{"path", path_to_utf8(file.path)}, {"size", file.size}});
+        }
+        json["files"] = std::move(files);
+        return string(env, dump(json));
+    });
+}
+
 jboolean filter_includes(JNIEnv* env, jclass, jint filter, jint state) {
     return guarded(env, [&] {
         return static_cast<jboolean>(mu::filter_includes(pick(all_filters, filter), pick(job_states, state)));
@@ -420,6 +442,10 @@ const JNINativeMethod queue_methods[] = {
     NATIVE("nativeStatusDetail", "(J)Ljava/lang/String;", queue_status_detail),
 };
 
+const JNINativeMethod importer_methods[] = {
+    NATIVE("nativeScanImport", "([Ljava/lang/String;)Ljava/lang/String;", scan_import),
+};
+
 const JNINativeMethod converter_methods[] = {
     NATIVE("nativeSetKgmMask", "([B)V", set_kgm_mask),
     NATIVE("nativeConvertDescriptor",
@@ -433,6 +459,7 @@ void register_audio(JNIEnv* env) {
     register_natives(env, "AudioFormats", format_methods);
     register_natives(env, "AudioQueue", queue_methods);
     register_natives(env, "AudioConverter", converter_methods);
+    register_natives(env, "DocumentImporter", importer_methods);
     converted_class = find_class(env, "io/github/backspace135/musicunlock/core/ConvertedAudio");
     converted_init = env->GetMethodID(converted_class, "<init>",
                                       "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;"

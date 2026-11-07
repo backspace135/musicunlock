@@ -71,4 +71,22 @@ class DocumentImporterTest {
         assertTrue("a cleared job's copy is deleted", !copy.exists())
         assertNull(DocumentImporter.scanIntent(Intent(Intent.ACTION_MAIN)))
     }
+
+    @Test
+    fun directoryScanFollowsImportRulesAndKeepsTheOriginal() = runBlocking {
+        val root = File(Fixtures.context.cacheDir, "scan-import").apply { deleteRecursively(); mkdirs() }
+        File(root, "10.ncm").writeBytes(ByteArray(4))
+        val original = File(root, "2.ncm").apply { writeBytes(ByteArray(4)) }
+        File(root, "sub").mkdirs()
+        File(root, "sub/1.qmcflac").writeBytes(ByteArray(4))
+        File(root, "cover.jpg").writeBytes(ByteArray(4))
+        File(root, ".hidden").mkdirs()
+        File(root, ".hidden/skip.ncm").writeBytes(ByteArray(4))
+        val scan = DocumentImporter.scanDirectories(listOf(root, File(root, "missing")))
+        assertEquals(listOf("2.ncm", "10.ncm", "1.qmcflac"), scan.files.map { File(it.path).name })
+        assertEquals(1, scan.skipped) // cover.jpg; hidden names and the missing directory are not counted
+        assertEquals("已添加 3 个文件，跳过 1 个其他格式的文件。", queue.add(scan))
+        queue.clear()
+        assertTrue("the download itself must stay", original.isFile)
+    }
 }
