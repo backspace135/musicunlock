@@ -67,6 +67,12 @@ std::string sanitize_component(std::string_view name, std::size_t max_units, std
 
 std::string sanitize_file_stem(std::string_view name) { return detail::sanitize_component(name, 180, "音频", false); }
 
+std::string numbered_file_name(std::string_view stem, std::string_view extension, int suffix) {
+    std::string name(stem);
+    if (suffix > 0) name += " (" + std::to_string(suffix) + ")";
+    return name + "." + std::string(extension);
+}
+
 ConversionOutput convert_file(const std::filesystem::path& source, const std::filesystem::path& directory,
                               NamingPolicy naming, ByteSpan kgm_mask) {
     const Bytes original = detail::read_file(source);
@@ -83,9 +89,8 @@ ConversionOutput convert_file(const std::filesystem::path& source, const std::fi
     }
     name = sanitize_file_stem(name);
 
-    for (int suffix = 0; suffix < 10000; ++suffix) {
-        const std::string stem = suffix == 0 ? name : name + " (" + std::to_string(suffix) + ")";
-        const std::filesystem::path target = directory / utf8_to_path(stem + "." + result.file_extension);
+    for (int suffix = 0; suffix < max_name_suffix; ++suffix) {
+        const auto target = directory / utf8_to_path(numbered_file_name(name, result.file_extension, suffix));
         if (detail::write_new_file(target, result.data)) {
             return {target, result.file_extension, std::move(result.metadata)};
         }

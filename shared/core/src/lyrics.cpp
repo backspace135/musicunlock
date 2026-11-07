@@ -10,6 +10,7 @@
 #include <nlohmann/json.hpp>
 
 #include "detail.h"
+#include "musicunlock/conversion.h"
 #include "musicunlock/text.h"
 
 namespace mu {
@@ -545,9 +546,8 @@ std::filesystem::path save_lyrics(std::string_view text, const LyricSong& song, 
                                   const std::filesystem::path& directory) {
     const std::string name = lyric_filename(song, options.filename, index);
     const Bytes data = encode_text(options.encoding, text);
-    for (int suffix = 0; suffix < 10000; ++suffix) {
-        const std::string stem = suffix == 0 ? name : name + " (" + std::to_string(suffix) + ")";
-        const auto target = directory / utf8_to_path(stem + "." + std::string(format_extension(options.format)));
+    for (int suffix = 0; suffix < max_name_suffix; ++suffix) {
+        const auto target = directory / utf8_to_path(numbered_file_name(name, format_extension(options.format), suffix));
         if (detail::write_new_file(target, data)) return target;
     }
     throw LyricError("同名文件过多，请更换文件名或输出文件夹。");

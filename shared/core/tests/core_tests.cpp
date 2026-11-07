@@ -256,6 +256,11 @@ TEST(export_does_not_overwrite_and_keeps_original) {
     fs::remove_all(removable(folder));
 }
 
+TEST(numbered_names_match_the_export_rule) {
+    CHECK_EQ(mu::numbered_file_name("歌名", "flac", 0), std::string("歌名.flac"), "first name");
+    CHECK_EQ(mu::numbered_file_name("歌名", "flac", 2), std::string("歌名 (2).flac"), "collision suffix");
+}
+
 TEST(long_output_paths_are_writable) {
     // Deeper than MAX_PATH (260) once the 180-unit name is added.
     fs::path folder = fresh_scratch("long");
