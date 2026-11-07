@@ -1,0 +1,14 @@
+namespace MusicUnlock
+{
+    // A row of capsule buttons that merge and split instead of popping (issue #64, macOS GlassCluster).
+    // The last child is the primary button. Children before it slide out of the primary's place as they appear
+    // and slide back in as they leave. Set Shared to the child that occupies the primary's place while it is
+    // hidden: the capsule keeps one shape and its width springs between the two contents.
+    [default_interface]
+    runtimeclass MorphGroup : Microsoft.UI.Xaml.Controls.StackPanel
+    {
+        MorphGroup();
+        Microsoft.UI.Xaml.UIElement Shared;
+        void Update();
+    }
+}

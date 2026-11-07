@@ -89,6 +89,7 @@ struct UnlockView : UnlockViewT<UnlockView> {
                                     Microsoft::UI::Xaml::Controls::ContainerContentChangingEventArgs const& args);
     void OnJobListKeyDown(IInspectable const&, Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args);
     void OnQueueHeaderSizeChanged(IInspectable const&, Microsoft::UI::Xaml::SizeChangedEventArgs const&);
+    void OnFooterSizeChanged(IInspectable const&, Microsoft::UI::Xaml::SizeChangedEventArgs const&) { FitFooter(); }
 
     /// "查找这首歌的歌词": the window switches to the lyrics workspace and searches for the title.
     void OnFindLyricsRequested(std::function<void(std::string)> handler) { find_lyrics_ = std::move(handler); }
@@ -100,6 +101,8 @@ private:
     void ShowDropTarget(bool shown);
     void ApplyTextScale();
     void FitQueueHeader();
+    /// The footer actions drop to their own line once they no longer fit beside the status (200 % text).
+    void FitFooter();
     /// Speaks `text` through Narrator without moving focus (failures, notices).
     void Announce(hstring const& text);
     /// Animates the state glyph of a realized row.

@@ -14,6 +14,7 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Foreground" Value="{ThemeResource MuSecondaryBrush}" />
+            <Setter Property="local:Press.Scale" Value="0.97" />
         </Style>
         <Style x:Key="MuChipStyle" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource MuChipBrush}" />
@@ -112,11 +113,11 @@
                                     <TextBlock Text="拖入文件或整个文件夹&#x0a;恢复为普通播放器也能打开的音频" FontSize="13"
                                                Foreground="{ThemeResource MuSecondaryBrush}" TextAlignment="Center" LineHeight="22"
                                                HorizontalAlignment="Center" Margin="0,0,0,24" />
-                                    <Button x:Name="ChooseFilesButton" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Center"
-                                            Padding="18,8" Click="OnChooseFiles" AutomationProperties.Name="选择音乐文件"
-                                            AutomationProperties.AcceleratorKey="Ctrl+O">
-                                        <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <FontIcon Glyph="&#xE710;" FontSize="14" />
+                                    <Button x:Name="ChooseFilesButton" Style="{StaticResource MuProminentButtonStyle}" HorizontalAlignment="Center"
+                                            Click="OnChooseFiles" AutomationProperties.Name="选择音乐文件"
+                                            AutomationProperties.AcceleratorKey="Ctrl+O" local:Press.Scale="0.96" local:Press.Glass="0.06">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <FontIcon Glyph="&#xE710;" FontSize="13" />
                                             <TextBlock Text="选择音乐文件" />
                                         </StackPanel>
                                     </Button>
@@ -268,7 +269,8 @@
                         <StackPanel Spacing="8">
                             <TextBlock Text="输出文件夹" Style="{StaticResource MuLabelStyle}" />
                             <Button x:Name="OutputButton" Click="OnChooseOutput" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="12"
-                                    Background="{ThemeResource MuSurfaceBrush}" BorderBrush="{ThemeResource MuSeparatorBrush}" CornerRadius="8">
+                                    Background="{ThemeResource MuSurfaceBrush}" BorderBrush="{ThemeResource MuSeparatorBrush}" CornerRadius="8"
+                                    local:Press.Scale="0.97">
                                 <Grid ColumnSpacing="10">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
@@ -340,12 +342,16 @@
         <!-- Footer. GlassSurface is the placeholder for the glass material (issue #59); the brushes match
              MuPanelStyle, so this reads the same as the Border it replaces. -->
         <local:GlassSurface x:Name="Footer" Grid.Row="1" Kind="Panel" Radius="22" Margin="24,16" Padding="20,12"
-                            MinHeight="64">
-            <Grid ColumnSpacing="16">
+                            MinHeight="64" SizeChanged="OnFooterSizeChanged">
+            <Grid ColumnSpacing="16" RowSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <StackPanel VerticalAlignment="Center" Spacing="7">
                     <TextBlock x:Name="StatusTitle" FontSize="12" FontWeight="Medium" TextWrapping="Wrap"
                                AutomationProperties.LiveSetting="Polite" />
@@ -353,26 +359,37 @@
                     <ProgressBar x:Name="BatchProgress" Width="240" HorizontalAlignment="Left" Visibility="Collapsed"
                                  AutomationProperties.Name="转换进度" />
                 </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <Button x:Name="RetryButton" Content="重试未完成" Padding="16,8" Visibility="Collapsed" Click="OnRetry" />
-                    <Button x:Name="RevealButton" Padding="16,8" Visibility="Collapsed" Click="OnOpenOutput"
-                            AutomationProperties.Name="打开输出目录">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE838;" FontSize="14" />
-                            <TextBlock Text="打开输出目录" />
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="StopButton" Content="停止转换" Padding="16,8" MinWidth="120" Visibility="Collapsed" Click="OnStop"
-                            ToolTipService.ToolTip="停止转换（Ctrl+.）" AutomationProperties.AcceleratorKey="Ctrl+." />
-                    <Button x:Name="StartButton" Style="{StaticResource AccentButtonStyle}" Padding="16,8" MinWidth="120" Click="OnStart"
+                <local:MorphGroup x:Name="FooterActions" Grid.Column="1" Shared="{x:Bind StopButton}">
+                    <local:GlassSurface Kind="Control" Radius="-1" local:Press.Scale="0.96" local:Press.Glass="0.06">
+                        <Button x:Name="RetryButton" Content="重试未完成" Background="Transparent" BorderThickness="0"
+                                Style="{StaticResource MuCapsuleButtonStyle}" Foreground="{ThemeResource MuTextBrush}"
+                                Visibility="Collapsed" Click="OnRetry" />
+                    </local:GlassSurface>
+                    <local:GlassSurface Kind="Control" Radius="-1" local:Press.Scale="0.96" local:Press.Glass="0.06">
+                        <Button x:Name="RevealButton" Background="Transparent" BorderThickness="0"
+                                Style="{StaticResource MuCapsuleButtonStyle}" Foreground="{ThemeResource MuTextBrush}"
+                                Visibility="Collapsed" Click="OnOpenOutput" AutomationProperties.Name="打开输出目录">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE838;" FontSize="13" />
+                                <TextBlock Text="打开输出目录" />
+                            </StackPanel>
+                        </Button>
+                    </local:GlassSurface>
+                    <local:GlassSurface Kind="Control" Radius="-1" local:Press.Scale="0.96" local:Press.Glass="0.06">
+                        <Button x:Name="StopButton" Content="停止转换" Background="Transparent" BorderThickness="0" MinWidth="96"
+                                Style="{StaticResource MuCapsuleButtonStyle}" Foreground="{ThemeResource MuTextBrush}"
+                                Visibility="Collapsed" Click="OnStop" ToolTipService.ToolTip="停止转换（Ctrl+.）"
+                                AutomationProperties.AcceleratorKey="Ctrl+." />
+                    </local:GlassSurface>
+                    <Button x:Name="StartButton" Style="{StaticResource MuProminentButtonStyle}" MinWidth="96" Click="OnStart"
                             ToolTipService.ToolTip="开始转换（Ctrl+Enter）" AutomationProperties.Name="开始转换"
-                            AutomationProperties.AcceleratorKey="Ctrl+Enter">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE768;" FontSize="14" />
+                            AutomationProperties.AcceleratorKey="Ctrl+Enter" local:Press.Scale="0.96" local:Press.Glass="0.06">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE768;" FontSize="13" />
                             <TextBlock Text="开始转换" />
                         </StackPanel>
                     </Button>
-                </StackPanel>
+                </local:MorphGroup>
             </Grid>
         </local:GlassSurface>
 

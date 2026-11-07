@@ -200,6 +200,7 @@ void LyricsView::Refresh() {
     SearchButton().Visibility(shown(!searching));
     SearchButton().IsEnabled(!exporting && !mu::trim_space(workspace_.query()).empty());
     CancelSearchButton().Visibility(shown(searching));
+    SearchActions().Update();
     const bool signed_in = accounts::signed_in(workspace_.provider());
     SessionGlyph().Glyph(signed_in ? L"\xEA18" : L"\xE774");  // Shield / Globe
     SessionText().Text(signed_in ? L"登录会话已保存" : L"公开内容可免登录读取");
@@ -253,6 +254,7 @@ void LyricsView::RefreshFooter() {
     StopExportButton().Content(box_value(workspace_.stop_requested() ? L"正在停止…" : L"停止导出"));
     ExportCurrentButton().Visibility(shown(!exporting));
     ExportCurrentButton().IsEnabled(workspace_.can_export_current());
+    ExportActions().Update();
 }
 
 /// Patches the bound list in place so rows keep their containers (and focus) across updates.
