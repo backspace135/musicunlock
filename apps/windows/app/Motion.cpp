@@ -413,27 +413,20 @@ void move_highlight(UIElement const& highlight, UIElement const& row) {
         highlight.Opacity(0);
         return;
     }
-    const auto place = row.TransformToVisual(nullptr).TransformPoint({0, 0});
-    const auto origin = highlight.TransformToVisual(nullptr).TransformPoint({0, 0});
-    const float x = place.X - origin.X;
-    const float y = place.Y - origin.Y + highlight.Translation().y;
-    const float height = row.ActualSize().y;
-    auto frame = highlight.as<winrt::Microsoft::UI::Xaml::FrameworkElement>();
+    // Layout offsets, not TransformToVisual: a hidden highlight reports no transform, and the animated
+    // translation would otherwise be counted twice.
+    const float x = row.ActualOffset().x - highlight.ActualOffset().x;
+    const float y = row.ActualOffset().y - highlight.ActualOffset().y;
+    // Height follows the row directly. Animating Size crashes a highlight that has only just been realized,
+    // and the rows differ by a line at most, so the slide is what reads.
+    highlight.as<winrt::Microsoft::UI::Xaml::FrameworkElement>().Height(row.ActualSize().y);
     if (!enabled() || highlight.Opacity() == 0) {
         highlight.Translation({x, y, 0});
-        frame.Height(height);
         highlight.Opacity(1);
         return;
     }
     auto c = compositor();
     highlight.StartAnimation(vector(c, L"Translation", highlight.Translation(), {x, y, 0}, glass_motion::selection));
-    auto grow = c.CreateScalarKeyFrameAnimation();
-    grow.Target(L"Size.Y");
-    sample(grow, glass_motion::selection, highlight.ActualSize().y, height);
-    record(L"Size.Y", L"row height", spring_label(glass_motion::selection).c_str(), milliseconds(grow.Duration()));
-    // The visual scales its height; the element follows so the next measurement starts from the settled size.
-    frame.Height(height);
-    highlight.StartAnimation(grow);
     highlight.Opacity(1);
 }
 
