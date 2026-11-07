@@ -133,6 +133,12 @@ python3 apps/windows/scripts/remote.py android-device -- logcat --dump  # 其他
 python3 apps/windows/scripts/remote.py remove                      # 用完删掉 g16win 上的工作树
 ```
 
+在最深的工作树路径（如 `.worktrees\g16-android-device-survey`）里编译和跑 `device.py test` 都没问题，但 AGP 的
+中间文件路径会超过 260 个字符（实测最长 262，在 `build\core\intermediates\desugar_graph\debugAndroidTest\…`）。
+Java 能处理这么长的路径，git 默认处理不了，所以删除工作树要用
+`git -c core.longpaths=true worktree remove --force <工作树>`（`remote.py remove` 已经这样做），不需要改系统的
+长路径设置。
+
 ## 核心测试
 
 `shared/core` 的 `musicunlock_core_tests` 有两种跑法，都由 `build.py` 用固定版本的 CMake 编译 `core/src/main/cpp`：

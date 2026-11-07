@@ -128,7 +128,8 @@ echo "synced {commit[:10]} to {self.worktree}"
 
     def remove(self) -> None:
         wt = shlex.quote(self.worktree)
-        self.ssh(f"cd {shlex.quote(self.repo)} && git worktree remove --force {wt}; "
+        # Android builds leave paths longer than 260 characters, which git deletes only with core.longpaths.
+        self.ssh(f"cd {shlex.quote(self.repo)} && git -c core.longpaths=true worktree remove --force {wt}; "
                  f"git branch -q -D {self.ref} 2>/dev/null; git worktree prune; true")
 
 
