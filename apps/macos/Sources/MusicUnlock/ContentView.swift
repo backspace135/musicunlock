@@ -167,6 +167,7 @@ struct ContentView: View {
                             if job.id != visible.last?.id { Divider().padding(.leading, 68) }
                         }
                         .transition(.settle)
+                        .scrollEdgeSettle()
                     }
                 }
                 .padding(.vertical, 4)

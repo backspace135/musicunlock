@@ -51,7 +51,9 @@ struct LyricsView: View {
                         }
                         if provider != MusicProvider.allCases.last { Divider() }
                     }
-                } label: { Label("账号登录", systemImage: accounts.signedIn.isEmpty ? "person.crop.circle" : "person.crop.circle.badge.checkmark") }
+                } label: {
+                    Label("账号登录", systemImage: accounts.signedIn.isEmpty ? "person.crop.circle" : "person.crop.circle.badge.checkmark")
+                }
                     .help("官方登录后自动保存会话，无需手动获取 Cookie")
             }
         }
@@ -144,10 +146,10 @@ struct LyricsView: View {
                                 }.padding(14).contentShape(Rectangle())
                             }.buttonStyle(.pressable).disabled(model.exporting)
                             .hoverHighlight(radius: 14).padding(.horizontal, 6)
-                            .transition(.settle)
+                            .transition(.settle).scrollEdgeSettle()
                             Divider().padding(.leading, 54)
                         }
-                        ForEach(model.songs) { song in songRow(song).transition(.settle) }
+                        ForEach(model.songs) { song in songRow(song).transition(.settle).scrollEdgeSettle() }
                         if model.hasMore {
                             Button("加载更多", action: { model.search(more: true) })
                                 .padding(16).disabled(model.searching || model.exporting)

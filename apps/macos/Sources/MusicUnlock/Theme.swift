@@ -146,6 +146,23 @@ extension ButtonStyle where Self == PressableButtonStyle {
     static var pressable: PressableButtonStyle { PressableButtonStyle() }
 }
 
+/// List rows shrink and fade a little as they scroll past the edges, as iOS lists do.
+struct ScrollEdgeSettle: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.staticPreview) private var staticPreview
+
+    func body(content: Content) -> some View {
+        if reduceMotion || staticPreview {
+            content
+        } else {
+            content.scrollTransition(axis: .vertical) { view, phase in
+                view.opacity(phase.isIdentity ? 1 : 0.4)
+                    .scaleEffect(phase.isIdentity ? 1 : 0.96, anchor: phase.value < 0 ? .bottom : .top)
+            }
+        }
+    }
+}
+
 extension View {
     func liquidSurface(radius: CGFloat = 22, tint: Color? = nil, interactive: Bool = false) -> some View {
         modifier(LiquidSurface(radius: radius, tint: tint, interactive: interactive))
@@ -155,6 +172,7 @@ extension View {
         modifier(MotionAnimation(animation: animation, value: value))
     }
     func hoverHighlight(radius: CGFloat = 8) -> some View { modifier(HoverHighlight(radius: radius)) }
+    func scrollEdgeSettle() -> some View { modifier(ScrollEdgeSettle()) }
 }
 
 extension AnyTransition {
