@@ -27,20 +27,31 @@ add_library(musicunlock_core STATIC
 )
 target_include_directories(musicunlock_core PUBLIC include PRIVATE src)
 target_include_directories(musicunlock_core SYSTEM PRIVATE third_party)
+# The portable AES in src/platform/portable/ replaces the platform crypto library where native code cannot reach
+# one; elsewhere this option swaps it in, so the development Mac can run every core test against it.
+option(MU_PORTABLE_AES "Use the portable AES instead of the platform crypto library" OFF)
 if(WIN32)
-  target_sources(musicunlock_core PRIVATE src/platform/win/crypto_bcrypt.cpp src/platform/win/dpapi_win.cpp
-    src/platform/win/http_winhttp.cpp src/platform/win/platform_text_win.cpp)
+  target_sources(musicunlock_core PRIVATE src/platform/win/dpapi_win.cpp src/platform/win/http_winhttp.cpp
+    src/platform/win/platform_text_win.cpp)
+  if(NOT MU_PORTABLE_AES)
+    target_sources(musicunlock_core PRIVATE src/platform/win/crypto_bcrypt.cpp)
+  endif()
   target_link_libraries(musicunlock_core PUBLIC bcrypt crypt32 winhttp)
 elseif(APPLE)
   # No HTTP transport on the Mac: API tests use a scripted transport.
-  target_sources(musicunlock_core PRIVATE src/platform/apple/crypto_commoncrypto.cpp
-    src/platform/apple/platform_text_mac.cpp)
+  target_sources(musicunlock_core PRIVATE src/platform/apple/platform_text_mac.cpp)
+  if(NOT MU_PORTABLE_AES)
+    target_sources(musicunlock_core PRIVATE src/platform/apple/crypto_commoncrypto.cpp)
+  endif()
   target_link_libraries(musicunlock_core PUBLIC "-framework CoreFoundation")
 elseif(ANDROID)
   # Placeholder: phase 1 adds the Android platform implementations.
   message(FATAL_ERROR "The Android platform implementations are not there yet.")
 else()
   message(FATAL_ERROR "Only Windows (product) and macOS (development) are supported.")
+endif()
+if(MU_PORTABLE_AES)
+  target_sources(musicunlock_core PRIVATE src/platform/portable/crypto_portable.cpp)
 endif()
 
 enable_testing()
@@ -52,4 +63,7 @@ target_compile_definitions(musicunlock_core_tests PRIVATE
   _CRT_SECURE_NO_WARNINGS  # std::getenv for the opt-in live tests
   MU_FIXTURES_DIR="${MU_REPO_ROOT}/tests/fixtures/qmc"
   MU_TEST_SCRATCH="${CMAKE_CURRENT_BINARY_DIR}/test-scratch")
+if(MU_PORTABLE_AES)
+  target_compile_definitions(musicunlock_core_tests PRIVATE MU_PORTABLE_AES)
+endif()
 add_test(NAME core COMMAND musicunlock_core_tests)
