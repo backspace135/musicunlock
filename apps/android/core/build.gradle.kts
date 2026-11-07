@@ -39,6 +39,10 @@ android {
 
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
+        // scripts/device.py test passes the branch's -Pmusicunlock.suffix (see app/build.gradle.kts), so sessions on
+        // one phone each install their own test package and never replace or uninstall another's mid-run.
+        testApplicationId = "io.github.backspace135.musicunlock.core.test" +
+            (providers.gradleProperty("musicunlock.suffix").orNull?.let { ".$it" } ?: "")
         ndk { abiFilters += "arm64-v8a" }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Keeps every class and method the C++ core calls back into when an app using :core is minified.

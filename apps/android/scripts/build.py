@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the Android app (arm64-v8a) with the Gradle wrapper, then run the shared core's tests.
+"""Build the Android app (arm64-v8a) with the Gradle wrapper, run its JVM unit tests, then the shared core's tests.
 
 The core tests run on the host with the portable AES Android uses (macOS and Linux hosts; Windows covers them with
 apps/windows/scripts/build.py). With --device they are also cross-compiled for arm64 Android and run on an emulator
@@ -116,7 +116,7 @@ def run_instrumented_tests(env: dict, serial: str, live: bool) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", default="debug", choices=["debug", "release"])
-    parser.add_argument("--no-test", action="store_true", help="skip the core tests on the host")
+    parser.add_argument("--no-test", action="store_true", help="skip the app's unit tests and the core tests on the host")
     parser.add_argument("--device", action="store_true",
                         help="also run the core tests and :core's instrumented tests on an arm64 emulator")
     parser.add_argument("--live", action="store_true",
@@ -136,8 +136,9 @@ def main() -> None:
     # Choose the emulator before the long build, so a wrong serial fails fast.
     serial = emulator_serial(env, args.serial) if args.device else None
 
-    gradle(env, f":app:assemble{args.config.capitalize()}", *suffix_property(args.suffix),
-           *(["--info"] if args.info else []))
+    variant = args.config.capitalize()
+    unit_tests = [] if args.no_test else [f":app:test{variant}UnitTest"]
+    gradle(env, f":app:assemble{variant}", *unit_tests, *suffix_property(args.suffix), *(["--info"] if args.info else []))
     outputs = BUILD / "app" / "outputs" / "apk" / args.config
     apk = outputs / ("app-debug.apk" if args.config == "debug" else "app-release-unsigned.apk")
     if not apk.is_file():

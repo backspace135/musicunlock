@@ -11,6 +11,7 @@ import android.provider.DocumentsContract.Document
 import android.provider.DocumentsContract.Root
 import android.provider.DocumentsProvider
 import android.webkit.MimeTypeMap
+import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -92,7 +93,8 @@ class TestDocumentsProvider : DocumentsProvider() {
     }
 
     companion object {
-        const val AUTHORITY = "io.github.backspace135.musicunlock.core.test.documents"
+        /** `<test package>.documents`, as in androidTest/AndroidManifest.xml; the test package carries the branch suffix. */
+        val AUTHORITY: String by lazy { "${InstrumentationRegistry.getInstrumentation().context.packageName}.documents" }
 
         private val defaultColumns = arrayOf(Document.COLUMN_DOCUMENT_ID, Document.COLUMN_DISPLAY_NAME,
             Document.COLUMN_MIME_TYPE, Document.COLUMN_SIZE, Document.COLUMN_FLAGS)

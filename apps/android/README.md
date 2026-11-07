@@ -499,7 +499,7 @@ python3 apps/android/scripts/setup_toolchain.py --in-repo  # Mac / Linux：也�
 
 adb 不认 `ANDROID_USER_HOME`。Mac / Linux 上脚本只给 adb 子进程改 `HOME`；Windows 上 adb 通过系统接口
 （`SHGetFolderPath(CSIDL_PROFILE)`）取用户目录，`USERPROFILE` 等环境变量都改不了，它的密钥和配置只能放在
-`%USERPROFILE%\.android\`（g16win 上的例外见下文）。adb 的后台服务从工具链目录启动，日志也写在那里，不会占住
+`%USERPROFILE%\.android\`（g16win 上的例外见“在 g16win 上开发”）。adb 的后台服务从工具链目录启动，日志也写在那里，不会占住
 要删除的工作树。
 
 ## 构建
@@ -507,8 +507,8 @@ adb 不认 `ANDROID_USER_HOME`。Mac / Linux 上脚本只给 adb 子进程改 `H
 在仓库根目录运行（Windows 用 `python`）：
 
 ```sh
-python3 apps/android/scripts/build.py                   # debug APK + 主机上的核心测试
-python3 apps/android/scripts/build.py --config release  # release APK（未签名）+ 主机上的核心测试
+python3 apps/android/scripts/build.py                   # debug APK + :app 的单元测试 + 主机上的核心测试
+python3 apps/android/scripts/build.py --config release  # release APK（未签名）+ 单元测试 + 主机上的核心测试
 python3 apps/android/scripts/build.py --no-test         # 只编 APK
 python3 apps/android/scripts/build.py --device --serial emulator-5554  # 另外在 arm64 模拟器上跑核心测试
 python3 apps/android/scripts/build.py --suffix unlock   # debug 版带后缀：io.github.backspace135.musicunlock.unlock
@@ -526,12 +526,14 @@ python3 apps/android/scripts/device.py devices                    # 已连接的
 python3 apps/android/scripts/device.py pair <ip:port> <配对码>     # 无线调试首次配对（手机：开发者选项 → 无线调试 → 使用配对码配对）
 python3 apps/android/scripts/device.py connect <ip:port>          # 连接已配对的手机
 python3 apps/android/scripts/device.py install                    # 编当前分支的 debug 版，安装并启动
+python3 apps/android/scripts/device.py start                      # 启动已装的当前分支那一份（或切回前台），不重新编译
 python3 apps/android/scripts/device.py uninstall                  # 卸载当前分支装的那一份
 python3 apps/android/scripts/device.py logcat [--dump]            # 只看当前分支那一份 App 的日志；--dump 输出现有日志后退出
 python3 apps/android/scripts/device.py screenshot <名字>           # 截图存到 build/screenshots/<名字>.png
 python3 apps/android/scripts/device.py test                       # instrumented tests，然后是 musicunlock_core_tests
 python3 apps/android/scripts/device.py pull <手机路径> build/<目录>/  # 只能拉到仓库根目录的 build/ 下
 python3 apps/android/scripts/device.py shell -- <命令>             # 在设备上运行命令
+python3 apps/android/scripts/device.py input tap <x> <y>           # 点击；还有 swipe、text、keyevent，只发给最前面的本分支 App
 ```
 
 - **每个分支装自己的一份**：分支名最后一段做 applicationIdSuffix 和桌面名称，`android/unlock` 装成
@@ -541,29 +543,145 @@ python3 apps/android/scripts/device.py shell -- <命令>             # 在设备
 - 连着多台设备时用 `--serial` 指定（放在子命令前面，如 `device.py --serial emulator-5554 install`），
   否则用 `ANDROID_SERIAL`，再没有就要求恰好只有一台在线。
 - `logcat` 按 App 的 uid 过滤（Android 11 以下按当前进程）。
+- **往设备发点击、滑动、文字、按键只用 `input`**（g16win 上的规则见“在 g16win 上开发 → 往手机发输入”）：它先查 `dumpsys activity activities`（最前面的 Activity）和
+  `dumpsys window`（焦点窗口），两者都是当前分支那一份 App 才发送；最前面是其他 App、通知栏或系统弹窗时拒绝并退出
+  （退出码 1）。`shell` 拒绝执行 `input` 和 `monkey`。连续发送时每一步都用 `&&` 连起来，任何一步失败就停下。
 - `test` 用 Gradle 的 `connectedDebugAndroidTest`（只在选中的设备上跑），核心测试推到
-  `/data/local/tmp/musicunlock-core-tests-<后缀>/`，跑完删除。Gradle 跑完 instrumented tests 会卸载它装的 App，
-  之后需要的话重新 `install`。
+  `/data/local/tmp/musicunlock-core-tests-<后缀>/`，跑完删除。`:core` 的测试包也带分支后缀
+  （`io.github.backspace135.musicunlock.core.test.<后缀>`），几个会话同时在一台手机上跑也互不覆盖；Gradle 跑完
+  会卸载这个测试包，不动 `install` 装的那一份 App。测试会往 `Music/音匣` 写几个文件并在结束时删除，可能留下空的
+  `Music/音匣` 文件夹（App 的默认输出位置）。
 - 小米手机安装时报 `INSTALL_FAILED_USER_RESTRICTED`：需要在手机上确认，或者打开“开发者选项 → USB 安装”。
 
-## 在 g16win 上远程编译
+## 在 g16win 上开发
 
-**访问范围的唯一例外（2026-11-07 用户批准）：** g16win 上只能动 `D:\project\musicunlock` 和开发工具链，缓存、下载、
-临时文件都在仓库 `build/` 下。adb 是例外：Windows 版 adb 只认用户目录，允许它在 `%USERPROFILE%\.android\` 下写
-配对密钥（`adbkey`、`adbkey.pub`）和它自己的少量配置（如无线调试记录 `adb_known_hosts.pb`）。这个目录里的其他
-东西不读、不改，也不要手动查看或清理它；其余访问规则不变。
+g16win 是用户的 Windows 电脑（`ssh g16win`，默认 shell 是 Git Bash），用户的手机 `ivpf99sgvkauugdu`（小米
+M2007J22C，Android 12）用 USB 连在上面。#31–#34、#36 在这台电脑上开发和真机调试；每个 issue 末尾的“g16win 工作
+规则”是必须遵守的规则，这一节是它的详细说明。下面的命令都在 g16win 上实际跑过（2026-11-07）。
+
+### 能动哪些地方
+
+- 只能读写 `D:\project\musicunlock`（包括 `.worktrees\`、`build\`），以及开发工具链（主检出
+  `build\android-toolchain\` 里的 JDK / SDK / NDK / CMake / Gradle 缓存，Git、Python、Visual Studio Build Tools）。
+  `D:\project` 下的其他仓库、用户目录、浏览器、凭据、其他磁盘、注册表和系统设置一律不碰；缓存、下载、临时文件
+  都在仓库 `build\` 下（脚本已经这样设置，见“工具链”一节）。
+- **唯一的例外（2026-11-07 用户批准）：** Windows 版 adb 只认用户目录，允许 **adb 程序自己**在
+  `%USERPROFILE%\.android\` 下写配对密钥（`adbkey`、`adbkey.pub`）和它自己的少量配置（如无线调试记录
+  `adb_known_hosts.pb`）。这个目录里的东西不读、不列出、不改，也不要手动查看或清理它；其余访问规则不变。
+- 不要装 USB 驱动、Android Studio 或任何系统软件，不要直接运行 `gradlew`、全局的 `gradle` / `adb`：只用
+  `setup_toolchain.py`、`build.py`、`device.py`。
+- 主检出 `D:\project\musicunlock` 停在一个较旧的 `main` 提交上，不要在里面切分支、pull、编译或改文件。
+
+### 开工前检查
+
+```bash
+cd /d/project/musicunlock
+git fetch origin
+git worktree add .worktrees/g16-android-<主题> -b android/<主题> origin/main   # 每个 issue 一个，目录名以 g16- 开头
+cd .worktrees/g16-android-<主题>
+
+export PYTHONUTF8=1                                    # 每个新终端都要先执行，否则中文输出是乱码
+git status -sb                                         # ## android/<主题>...，没有改动
+python apps/android/scripts/setup_toolchain.py         # 已装好的跳过，几秒钟
+python apps/android/scripts/build.py                   # 首次约 2 分钟
+python apps/android/scripts/device.py devices          # 看到 ivpf99sgvkauugdu  device ... model:M2007J22C
+```
+
+每一步应该看到的结果：
+
+| 命令 | 正常结果 |
+| --- | --- |
+| `setup_toolchain.py` | 每个包都是“已安装”；最后 5 行 `JAVA_HOME`、`ANDROID_HOME`、`GRADLE_USER_HOME`、`ANDROID_USER_HOME`、`TMP` 都在 `D:\project\musicunlock\build\android-toolchain\` 下 |
+| `build.py` | 先打印同样的路径和 `NDK`、`CMake`，然后 `BUILD SUCCESSFUL`、`APK: …\app-debug.apk`；最后一行“Windows 主机上的核心测试由 apps/windows/scripts/build.py 运行，这里跳过”是正常的 |
+| `device.py devices` | `adb 密钥：Windows 用户目录下的 .android`，下面一行是手机，状态是 `device` |
+
+任何一步失败就停下来报告（见下面“遇到问题怎么办”），不要先修别人的东西。
+
+### 常用命令
+
+都在工作树根目录运行：
+
+```bash
+python apps/android/scripts/build.py                  # debug APK + :app 单元测试（--no-test 只编 APK）
+python apps/android/scripts/device.py install         # 编译、安装当前分支那一份并启动：音匣 (<主题>)
+python apps/android/scripts/device.py start           # 不重新编译，启动 / 切回前台
+python apps/android/scripts/device.py logcat --dump   # 本分支 App 的日志，输出后退出（不加 --dump 一直跟随，Ctrl+C 结束）
+python apps/android/scripts/device.py screenshot unlock-1        # build/screenshots/unlock-1.png
+python apps/android/scripts/device.py input tap 540 1750         # 点击，只发给最前面的本分支 App
+python apps/android/scripts/device.py input swipe 540 1600 540 600 300   # 上滑 300 毫秒
+python apps/android/scripts/device.py input text hello           # 往焦点输入框打字（只支持 ASCII）
+python apps/android/scripts/device.py input keyevent KEYCODE_BACK
+python apps/android/scripts/device.py test            # 手机上的 instrumented tests + musicunlock_core_tests，约 2 分钟
+python apps/android/scripts/device.py pull /sdcard/Download/x.lrc build/compare/
+python apps/android/scripts/device.py shell -- ls -la /sdcard/Music/
+python apps/android/scripts/device.py uninstall       # 卸载当前分支那一份
+python apps/windows/scripts/build.py                  # 改了 shared/core 时：Windows 核心、测试和 CLI，约 5 分钟
+```
+
+- **每个分支一份**：`android/<主题>` 装成 `io.github.backspace135.musicunlock.<主题>`，桌面名“音匣 (<主题>)”，
+  `device.py test` 的测试包也带同样的后缀，几个会话可以同时用这台手机。不要卸载别的会话装的版本；PR 开好或当天
+  的真机测试做完后，用 `device.py uninstall` 卸载自己这一份。
+- **`device.py test` 的正常结果**：`Running tests on devices: M2007J22C - 12`、`BUILD SUCCESSFUL`，最后一行
+  `57 tests, 0 failures`。instrumented tests 共 40 个，3 个跳过是正常的（`legacyDefaultFolderNumbersCollisions`
+  只在 Android 9 及以下运行，`LiveTest` 的 2 个需要 `build.py --device --live`）。报告在
+  `apps/android/build/core/reports/androidTests/connected/debug/index.html`。测试可能留下一个空的 `Music/音匣` 文件夹，正常。
+- **手机上的路径**：Git Bash 会把以 `/` 开头的参数改写成 `C:/Program Files/Git/...` 再交给 Python；`device.py`
+  的 `pull` 和 `shell` 会改回来，所以直接写 `/sdcard/...` 即可。
+- Windows 版 CLI：`apps/windows/build/windows-release/musicunlock.exe <输出目录> <文件或目录> [更多文件…]`
+  （先跑一次 `apps/windows/scripts/build.py`），用来和 Android 的输出逐字节比较（`cmp a b`）。
+
+### 往手机发输入
+
+用户的私人手机上装着其他 App，误点可能改掉系统设置或打开私人内容（2026-11-07 Mac 上的会话就因为没检查前台，
+把点击发到了系统的 USB 设置页）。所以：
+
+1. 只用 `device.py input`。它每次发送前都查 `dumpsys activity activities`（最前面的 Activity）和
+   `dumpsys window`（焦点窗口），两者都是本分支的音匣才发送；否则打印“拒绝发送输入：最前面的不是……”并以退出码 1
+   结束。`device.py shell` 不允许执行 `input` 和 `monkey`。
+2. 连续多步用 `&&` 连起来，例如
+   `python apps/android/scripts/device.py start && python apps/android/scripts/device.py input tap 540 1750 && python apps/android/scripts/device.py screenshot lyrics-2`。
+   任何一步失败就停下，不要换别的办法继续发输入，也不要重试。被拒绝时可以运行一次 `device.py start`，还不行就请
+   用户看一下手机。
+3. 不打开、不操作系统设置、文件管理、相册、通知栏、权限弹窗等任何其他 App 或系统界面。测试需要在这些界面里操作
+   时（系统文件选择器里选文件、从“文件”App 分享、允许通知权限、开发者选项），请用户在手机上操作，你只截图和看日志。
+4. 坐标用截图量：`screenshot` 存的 PNG 就是手机的实际分辨率（1080 × 2340），图上的像素坐标可以直接用于 `input tap`。
+
+截图截的是整个屏幕（包括状态栏的通知图标），只在自测清单需要时截；截之前确认屏幕上没有 Cookie、密码或私人内容。
+截图只存本地，不上传。
+
+### 遇到问题怎么办
+
+| 现象 | 原因和处理 |
+| --- | --- |
+| 中文输出是乱码 | 没有 `export PYTHONUTF8=1`，执行后重跑 |
+| `未找到 JDK 21` / `未找到 Android SDK` / `未找到固定版本的 NDK 或 CMake` | 运行 `python apps/android/scripts/setup_toolchain.py`（它只往 `build\android-toolchain\` 里装） |
+| `devices` 里没有手机，或者是 `unauthorized` / `offline` | 停下来请用户检查数据线、在手机上点“允许 USB 调试”；或者请用户打开无线调试，用 `device.py pair <ip:port> <配对码>`、`device.py connect <ip:port>` 连接。不要装驱动 |
+| 安装报 `INSTALL_FAILED_USER_RESTRICTED` | 手机拒绝了 USB 安装：请用户在手机上确认（小米：开发者选项 → USB 安装）。不要自己去点手机 |
+| 安装报 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` | 签名不一致：先 `device.py uninstall`（只卸载自己这一份），再 `install` |
+| `拒绝发送输入：最前面的不是……` | 见上一节第 2 条；不要绕过 |
+| `请用 --serial 指定设备` | 连着多台设备：`device.py --serial ivpf99sgvkauugdu <子命令>`（`--serial` 写在子命令前面） |
+| `当前不在分支上，请用 --suffix 指定后缀` | 工作树是 detached HEAD；按“开工前检查”用 `-b android/<主题>` 建工作树 |
+| `本地目录必须在 …\build 下` | `pull` 只能拉到工作树的 `build/` 下，比如 `build/compare/` |
+| Gradle 报错 | 先看完整报错（往上翻到第一个 `FAILURE` / `e: `）；同一个错误修了两次还没好，就把原文贴到 issue 里问用户 |
+| `device.py test` 失败 | 打开报告 `apps/android/build/core/reports/androidTests/connected/debug/index.html` 看是哪个测试；`main` 上的测试在这台手机上是全部通过的，先确认是不是自己的改动引起的 |
+| `git push` / `gh` 失败（没有凭据） | 停下来告诉用户，不要配置凭据或改 git 全局设置 |
+
+### 从 Mac 远程编译（remote.py）
 
 Mac 上的会话可以用 `apps/windows/scripts/remote.py` 把当前工作区同步到 g16win 的独立工作树
-（`D:\project\musicunlock\.worktrees\<分支>`），在那里编译、装到连着 g16win 的手机：
+（`D:\project\musicunlock\.worktrees\<分支>`，detached HEAD，分支名经 `MUSICUNLOCK_ANDROID_BRANCH` 传给
+`device.py`），在那里编译、装到连着 g16win 的手机：
 
 ```sh
 python3 apps/windows/scripts/remote.py android-setup               # 在 g16win 上装仓库内工具链（所有工作树共用）
 python3 apps/windows/scripts/remote.py android-build [-- --no-test]  # build.py
 python3 apps/windows/scripts/remote.py android-install             # device.py install，后缀取 Mac 上的分支名
 python3 apps/windows/scripts/remote.py android-screenshot <名字>    # 截图并取回到 Mac 的 build/screenshots/
-python3 apps/windows/scripts/remote.py android-device -- logcat --dump  # 其他 device.py 命令
+python3 apps/windows/scripts/remote.py android-device -- logcat --dump  # 其他 device.py 命令（test、input、uninstall…）
 python3 apps/windows/scripts/remote.py remove                      # 用完删掉 g16win 上的工作树
 ```
+
+### 长路径
 
 在最深的工作树路径（如 `.worktrees\g16-android-device-survey`）里编译和跑 `device.py test` 都没问题，但 AGP 的
 中间文件路径会超过 260 个字符（实测最长 262，在 `build\core\intermediates\desugar_graph\debugAndroidTest\…`）。
@@ -573,12 +691,9 @@ Java 能处理这么长的路径，git 默认处理不了，所以删除工作�
 
 ## 单元测试
 
-界面的纯逻辑（页面栈、底部弹窗吸附）有 JVM 单元测试：
-
-```sh
-cd apps/android
-JAVA_HOME=~/jdk/jdk-21.0.11+10/Contents/Home ANDROID_HOME=~/Library/Android/sdk ./gradlew :app:testDebugUnitTest
-```
+界面的纯逻辑（页面栈、底部弹窗吸附）有 JVM 单元测试（`app/src/test/`），`build.py` 编完 APK 就跑
+（`:app:testDebugUnitTest`，release 是 `:app:testReleaseUnitTest`；`--no-test` 跳过）。报告在
+`apps/android/build/app/reports/tests/`。
 
 ## 核心测试
 
@@ -605,4 +720,4 @@ JAVA_HOME=~/jdk/jdk-21.0.11+10/Contents/Home ANDROID_HOME=~/Library/Android/sdk 
 ## CI
 
 `.github/workflows/android.yml` 在 Ubuntu 上装固定版本的 NDK 和 CMake，编 debug / release APK，在主机上跑核心测试
-（portable AES）和 `:app` 的 JVM 单元测试，上传 debug APK。`:core` 只有 instrumented tests，需要模拟器，CI 不跑。改动 `apps/android/`、`shared/`、`tests/fixtures/` 或 `resources/kgm.mask` 时触发。
+（portable AES）和 `:app` 的 JVM 单元测试（都由 `build.py` 运行），上传 debug APK。`:core` 只有 instrumented tests，需要模拟器，CI 不跑。改动 `apps/android/`、`shared/`、`tests/fixtures/` 或 `resources/kgm.mask` 时触发。
