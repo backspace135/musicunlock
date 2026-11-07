@@ -5,9 +5,9 @@ The core tests run on the host with the portable AES Android uses (macOS and Lin
 apps/windows/scripts/build.py). With --device they are also cross-compiled for arm64 Android and run on an emulator
 through adb, together with the fixtures. Only emulators are accepted, never a connected phone.
 
-Runs on macOS, Windows and Linux (CI) hosts. The JDK and Android SDK come from JAVA_HOME / ANDROID_HOME when set,
-otherwise from the platform defaults below. The NDK and CMake are the versions pinned in gradle/libs.versions.toml,
-installed with sdkmanager into that SDK.
+Runs on macOS, Windows and Linux (CI) hosts. android_env.py decides which JDK and Android SDK to use (the
+in-repository toolchain from setup_toolchain.py, or JAVA_HOME / ANDROID_HOME and the platform defaults). The NDK and
+CMake are the versions pinned in gradle/libs.versions.toml, installed into that SDK by setup_toolchain.py.
 
 All output and temporary files stay under apps/android/build/.
 """
@@ -16,7 +16,7 @@ import argparse
 import subprocess
 import sys
 
-from android_env import BUILD, EXE, REPO, ROOT, WINDOWS, android_environment, pinned
+from android_env import BUILD, EXE, REPO, ROOT, WINDOWS, android_environment, pinned, print_environment
 
 NATIVE_PROJECT = ROOT / "core" / "src" / "main" / "cpp"
 DEVICE_DIR = "/data/local/tmp/musicunlock-core-tests"
@@ -33,7 +33,8 @@ def native_tools(env: dict) -> tuple[Path, Path]:
     ndk = sdk / "ndk" / pinned("ndk")
     cmake_bin = sdk / "cmake" / pinned("cmake") / "bin"
     if not ndk.is_dir() or not (cmake_bin / f"cmake{EXE}").is_file():
-        sys.exit(f'未找到固定版本的 NDK 或 CMake，请运行：sdkmanager "ndk;{pinned("ndk")}" "cmake;{pinned("cmake")}"')
+        sys.exit(f"未找到固定版本的 NDK 或 CMake（{pinned('ndk')}、{pinned('cmake')}），"
+                 "请运行 python apps/android/scripts/setup_toolchain.py")
     return ndk, cmake_bin
 
 
@@ -112,8 +113,7 @@ def main() -> None:
 
     env = android_environment()
     ndk, cmake_bin = native_tools(env)
-    for key in ["JAVA_HOME", "ANDROID_HOME", "GRADLE_USER_HOME", "ANDROID_USER_HOME", "TMP"]:
-        print(f"{key}: {env.get(key, '(default)')}", flush=True)
+    print_environment(env)
     print(f"NDK: {ndk}\nCMake: {cmake_bin}", flush=True)
     # Choose the emulator before the long build, so a wrong serial fails fast.
     serial = emulator_serial(env, args.serial) if args.device else None
