@@ -78,8 +78,10 @@ adb -s emulator-5554 shell am start -n io.github.backspace135.musicunlock/.MainA
   一起推到 `/data/local/tmp/musicunlock-core-tests/` 运行，结束后删除。只接受 `emulator-*` 且 `ro.kernel.qemu` 为 1
   的设备，不会碰连着的真机；没给 `--serial` 时用 `ANDROID_SERIAL`，再没有就要求恰好只有一台模拟器在线。
 
-Android 和 Linux 上暂时没有平台文字转换（拼音、GBK），`platform_text` 是返回 `std::nullopt` 的占位实现，相关检查在
-测试里跳过；阶段 2 用 JNI 实现后恢复。
+平台文字转换（拼音、GBK）在 App 里由 JNI 调 Android 的 API 实现（`platform_text_jni.cpp` → `PlatformText.kt`）：
+拼音用 `android.icu.text.Transliterator` 的 `Han-Latin`（API 29 起，结果和 macOS、Windows 一致；API 26–28 返回
+`std::nullopt`，核心按“不支持拼音”处理），GBK 用 `java.nio.charset` 的 GB18030。核心测试不在 JVM 里运行，链接的是
+返回 `std::nullopt` 的占位实现，相关检查跳过，由 instrumented tests 覆盖。
 
 ## CI
 

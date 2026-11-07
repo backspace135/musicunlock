@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Gives the core the application context at process start; serves no data. -->
+        <provider
+            android:name=".CoreInitializer"
+            android:authorities="${applicationId}.musicunlock-core"
+            android:exported="false" />
+    </application>
+
+</manifest>

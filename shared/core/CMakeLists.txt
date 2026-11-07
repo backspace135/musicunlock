@@ -45,11 +45,13 @@ elseif(APPLE)
   endif()
   target_link_libraries(musicunlock_core PUBLIC "-framework CoreFoundation")
 elseif(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  # Android, and Linux as the Android CI host: portable AES, no HTTP transport or session cipher in native code,
-  # and no platform text conversion until phase 2 bridges Android's through JNI.
+  # Android, and Linux as the Android CI host: portable AES, no HTTP transport or session cipher in native code.
+  # Text conversion (pinyin, GBK) is left out of the core: the Android app's JNI library implements it with the
+  # platform's Java APIs, while the core tests, which run without a JVM, link this stand-in returning nullopt.
   set(MU_PORTABLE_AES ON)
   set(mu_no_platform_text ON)
-  target_sources(musicunlock_core PRIVATE src/platform/portable/platform_text_none.cpp)
+  add_library(musicunlock_platform_text_none STATIC src/platform/portable/platform_text_none.cpp)
+  target_include_directories(musicunlock_platform_text_none PRIVATE include src)
 else()
   message(FATAL_ERROR "Only Windows and Android (products), macOS (development) and Linux (CI) are supported.")
 endif()
@@ -66,6 +68,9 @@ enable_testing()
 add_executable(musicunlock_core_tests tests/core_tests.cpp tests/account_tests.cpp tests/import_tests.cpp
   tests/lyric_workspace_tests.cpp tests/lyrics_tests.cpp tests/queue_tests.cpp)
 target_link_libraries(musicunlock_core_tests PRIVATE musicunlock_core)
+if(TARGET musicunlock_platform_text_none)
+  target_link_libraries(musicunlock_core_tests PRIVATE musicunlock_platform_text_none)
+endif()
 target_include_directories(musicunlock_core_tests PRIVATE src)
 target_compile_definitions(musicunlock_core_tests PRIVATE
   _CRT_SECURE_NO_WARNINGS  # std::getenv for the opt-in live tests

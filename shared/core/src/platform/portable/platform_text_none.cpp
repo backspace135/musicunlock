@@ -1,4 +1,5 @@
-// No platform text conversion: Android until phase 2 adds the JNI-backed version, and the Linux CI host.
+// No platform text conversion: the core tests on Android and on the Linux CI host. The Android app links its
+// JNI-backed version instead (apps/android/core/src/main/cpp/platform_text_jni.cpp).
 // Callers already handle nullopt (pinyin is reported as unsupported; GBK lyric files fail to decode).
 #include "detail.h"
 #include "musicunlock/lyrics.h"

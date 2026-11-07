@@ -8,6 +8,9 @@ ndk = "30.0.16248370"
 cmake = "4.1.2"
 activityCompose = "1.13.0"
 composeBom = "2026.09.00"
+androidxTest = "1.7.0"
+androidxTestJunit = "1.3.0"
+junit = "4.13.2"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
@@ -16,6 +19,10 @@ androidx-compose-foundation = { module = "androidx.compose.foundation:foundation
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+androidx-test-core = { module = "androidx.test:core", version.ref = "androidxTest" }
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTest" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestJunit" }
+junit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

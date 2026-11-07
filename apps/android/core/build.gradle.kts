@@ -9,6 +9,9 @@ android {
     defaultConfig {
         minSdk = libs.versions.minSdk.get().toInt()
         ndk { abiFilters += "arm64-v8a" }
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Keeps every class and method the C++ core calls back into when an app using :core is minified.
+        consumerProguardFiles("consumer-rules.pro")
         externalNativeBuild {
             cmake {
                 // The core's tests are built and run by scripts/build.py, not packaged.
@@ -31,4 +34,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+dependencies {
+    androidTestImplementation(libs.androidx.test.core)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.junit)
 }
