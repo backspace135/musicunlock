@@ -6,12 +6,14 @@ on:
     branches: [main]
     paths:
       - "apps/windows/**"
+      - "shared/**"
       - "tests/fixtures/**"
       - "resources/kgm.mask"
       - ".github/workflows/windows.yml"
   pull_request:
     paths:
       - "apps/windows/**"
+      - "shared/**"
       - "tests/fixtures/**"
       - "resources/kgm.mask"
       - ".github/workflows/windows.yml"

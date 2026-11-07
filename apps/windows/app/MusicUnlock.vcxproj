@@ -64,7 +64,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <WarningLevel>Level4</WarningLevel>
       <TreatWarningAsError>false</TreatWarningAsError>
-      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory);$(MSBuildThisFileDirectory)..\core\include;$(MSBuildThisFileDirectory)..\core\src;$(MSBuildThisFileDirectory)..\third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(MSBuildThisFileDirectory);$(MSBuildThisFileDirectory)..\..\..\shared\core\include;$(MSBuildThisFileDirectory)..\..\..\shared\core\src;$(MSBuildThisFileDirectory)..\..\..\shared\core\third_party;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>DISABLE_XAML_GENERATED_MAIN;MICROSOFT_WINDOWSAPPSDK_SELFCONTAINED=1;NOMINMAX;WIN32_LEAN_AND_MEAN;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalOptions>%(AdditionalOptions) /bigobj /utf-8 /permissive- /Zc:__cplusplus</AdditionalOptions>
       <RuntimeLibrary Condition="'$(Configuration)'=='Debug'">MultiThreadedDebug</RuntimeLibrary>
@@ -160,12 +160,12 @@
     <ClCompile Include="Taskbar.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
-  <!-- The portable core, compiled with the app's settings (static CRT, no precompiled header). -->
+  <!-- The shared core, compiled with the app's settings (static CRT, no precompiled header). -->
   <ItemGroup>
-    <ClCompile Include="..\core\src\*.cpp" Exclude="..\core\src\*_mac.cpp;..\core\src\crypto_commoncrypto.cpp">
+    <ClCompile Include="..\..\..\shared\core\src\*.cpp" Exclude="..\..\..\shared\core\src\*_mac.cpp;..\..\..\shared\core\src\crypto_commoncrypto.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="..\third_party\qrcodegen\qrcodegen.cpp">
+    <ClCompile Include="..\..\..\shared\core\third_party\qrcodegen\qrcodegen.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
   </ItemGroup>
