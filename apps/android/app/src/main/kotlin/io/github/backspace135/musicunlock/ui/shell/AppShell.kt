@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -25,9 +26,11 @@ import io.github.backspace135.musicunlock.ui.kit.BottomNavigation
 import io.github.backspace135.musicunlock.ui.kit.MuIcons
 import io.github.backspace135.musicunlock.ui.kit.NavItem
 import io.github.backspace135.musicunlock.ui.lyrics.LyricsScreen
+import io.github.backspace135.musicunlock.ui.nav.LocalNavigator
 import io.github.backspace135.musicunlock.ui.nav.LocalPageActive
 import io.github.backspace135.musicunlock.ui.theme.MuMotion
 import io.github.backspace135.musicunlock.ui.unlock.UnlockScreen
+import io.github.backspace135.musicunlock.ui.unlock.UnlockSession
 
 enum class Workspace { Unlock, Lyrics }
 
@@ -57,6 +60,15 @@ val LocalShell = staticCompositionLocalOf<ShellState> { error("No ShellState out
 fun AppShell() {
     val shell = rememberSaveable(saver = ShellState.Saver) { ShellState(Workspace.Unlock) }
     val holder = rememberSaveableStateHolder()
+    val navigator = LocalNavigator.current
+    // #31: a file shared or opened from another app lands in the unlock queue and shows this workspace.
+    val openRequest = UnlockSession.openRequest
+    LaunchedEffect(openRequest) {
+        if (openRequest != 0) {
+            navigator.popToRoot()
+            shell.open(Workspace.Unlock)
+        }
+    }
     BackHandler(enabled = LocalPageActive.current && shell.workspace != Workspace.Unlock) { shell.open(Workspace.Unlock) }
     CompositionLocalProvider(LocalShell provides shell) {
         Column(Modifier.fillMaxSize()) {
