@@ -1,8 +1,6 @@
 #pragma once
-// The window's one glass menu (issue #63), matching apps/macos GlassMenu.swift.
-//
-// A menu is a window-level Popup, so it floats over every panel and the title bar instead of being clipped by
-// them. Only one is open. It grows out of the button that opened it and shrinks back into that button.
+// 窗口共享的玻璃菜单（#63），对应 macOS 的 GlassMenu.swift。
+// 窗口级 Popup 避免菜单被面板裁剪；同一时刻只有一个菜单，从来源按钮展开并向其收起。
 
 #include <functional>
 #include <string>
@@ -14,7 +12,7 @@ namespace glass_menu {
 
 namespace xaml = winrt::Microsoft::UI::Xaml;
 
-/// One row. `action` runs after the menu has started closing; notes and dividers have none.
+/// 一行菜单项；开始收起后执行 action，说明和分隔线没有 action。
 struct Entry {
     enum class Kind { item, note, divider } kind = Kind::item;
     std::wstring text;
@@ -23,32 +21,28 @@ struct Entry {
     std::function<void()> action;
 };
 
-/// Attaches the shared menu to the window's root. Call once, after the content is loaded.
+/// 将共享菜单挂到窗口根节点，只调用一次。
 void attach(xaml::FrameworkElement const& root);
 
-/// The button a menu grows out of. `title` is its accessible name ("音乐来源：网易云音乐"), `entries` is read
-/// each time it opens. While its menu is open the button is hidden, unless `hides` is false (the title bar
-/// draws the button, so the menu grows from behind it).
+/// 创建来源按钮。每次打开时重新读取 entries；hides=false 时保留标题栏绘制的按钮。
 xaml::Controls::Button make_button(std::wstring title, std::function<std::vector<Entry>()> entries, bool hides = true);
 
-/// A capsule showing the current value of a list, with the up/down chevron. `on_glass` paints an opaque
-/// surface so it does not stack glass on a glass card. `minimum` keeps neighbours still as the value changes
-/// length. `changed` runs with the chosen index.
+/// 当前值和上下箭头组成的胶囊选择器；on_glass 使用普通表面，避免玻璃叠加。
+/// minimum 限定最小宽度，changed 接收选择索引。
 xaml::FrameworkElement make_picker(std::wstring title, std::vector<std::wstring> options, int selected, double minimum,
                                    bool on_glass, std::function<void(int)> changed);
 
-/// Points an existing picker at a new selection without notifying `changed` (the model updated the control).
+/// 模型更新选择器时同步显示值和无障碍名称，不触发 changed。
 void select(xaml::FrameworkElement const& picker, int index);
 
-/// Opens `button` as a menu. The title bar account button already exists, so it is not made here; `hides` is
-/// false because the title bar draws that button and the menu grows from behind it.
+/// 从已有按钮打开菜单；标题栏账号按钮使用 hides=false，从按钮后方展开。
 void show_entries(xaml::FrameworkElement const& button, std::wstring title, bool hides,
                   std::function<std::vector<Entry>()> entries);
 
-/// Opens the button's menu and leaves it fully open, for the static preview renders.
+/// 静态预览打开菜单；未能匹配按钮或打开失败时抛出异常。
 void open_for_preview(xaml::FrameworkElement const& button);
 
-/// Closes whatever is open. A window losing activation and a preview render both need this.
+/// 收起当前菜单，供交互、窗口失活及预览使用。
 void close();
 
 }  // namespace glass_menu

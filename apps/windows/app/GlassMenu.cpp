@@ -38,8 +38,8 @@ using namespace winrt::Microsoft::UI::Xaml::Controls::Primitives;
 using namespace winrt::Microsoft::UI::Xaml::Media;
 using winrt::Windows::Foundation::Numerics::float2;
 
-constexpr double kGap = 6;       // between the button and the menu
-constexpr double kMargin = 8;    // kept clear of the window edges
+constexpr double kGap = 6;       // 按钮和菜单之间的距离
+constexpr double kMargin = 8;    // 菜单与窗口边缘的最小距离
 constexpr double kMenuRadius = 18;
 constexpr double kRowHeight = 30;
 constexpr double kMinWidth = 150;
@@ -52,8 +52,8 @@ struct Source {
 struct Menu {
     Source source;
     std::vector<Entry> entries;
-    FrameworkElement panel{nullptr};  // the glass, sized and positioned over the window
-    FrameworkElement rows{nullptr};   // measured once, so the panel knows where it is growing to
+    FrameworkElement panel{nullptr};  // 在窗口坐标系中定位的玻璃表面
+    FrameworkElement rows{nullptr};   // 预先测量的内容，决定展开终点
     Border highlight{nullptr};
     StackPanel stack{nullptr};
     winrt::Windows::Foundation::Rect anchor{};
@@ -70,6 +70,7 @@ struct Menu {
     double from_opacity = 1;
     bool closing = false;
     winrt::Microsoft::UI::Composition::CompositionRoundedRectangleGeometry clip{nullptr};
+    winrt::Microsoft::UI::Composition::CompositionGeometricClip visual_clip{nullptr};
     std::chrono::steady_clock::time_point started;
 };
 
@@ -121,7 +122,7 @@ Controls::ControlTemplate picker_template(bool on_glass) {
     return Markup::XamlReader::Load(markup).as<Controls::ControlTemplate>();
 }
 
-/// The button's rectangle in the root's coordinate space.
+/// 按钮在窗口根节点坐标系中的矩形。
 winrt::Windows::Foundation::Rect anchor_of(FrameworkElement const& button) {
     const auto at = button.TransformToVisual(root_).TransformPoint({0, 0});
     return {static_cast<float>(at.X), static_cast<float>(at.Y), static_cast<float>(button.ActualWidth()),
@@ -177,7 +178,7 @@ FrameworkElement build_rows(Menu const& menu) {
             check_column.Width(GridLengthHelper::Auto());
             row.ColumnDefinitions().Append(check_column);
             TextBlock mark;
-            mark.Text(glyph(L"\uE73E"));  // CheckMark
+            mark.Text(glyph(L"\uE73E"));  // 勾选图标
             mark.FontFamily(FontFamily(L"Segoe Fluent Icons, Segoe MDL2 Assets"));
             mark.FontSize(11);
             mark.FontWeight(winrt::Windows::UI::Text::FontWeights::SemiBold());
@@ -241,7 +242,7 @@ FrameworkElement build_rows(Menu const& menu) {
     return items;
 }
 
-/// The one highlight, sliding between rows. -1 clears it.
+/// 只有一块高亮在行间滑动；-1 清除高亮。
 void highlight(int index) {
     if (!open_ || !menu_.rows) return;
     menu_.highlighted = index;
@@ -295,7 +296,7 @@ void show(Source source, std::vector<Entry> entries) {
     Automation::AutomationProperties::SetName(menu_.rows, Automation::AutomationProperties::GetName(button));
     surface.Content(menu_.rows);
     menu_.panel = surface;
-    // Measure off screen: the panel has to know its final size before it starts growing.
+    // 展开前离屏测量，动画开始后不改变最终内容尺寸。
     menu_.panel.Measure({10000, 10000});
     menu_.panel.UpdateLayout();
     const auto desired = menu_.panel.DesiredSize();
@@ -386,16 +387,20 @@ void paint() {
     menu_.rows.Margin({menu_.target.X - rect.X, menu_.target.Y - rect.Y, 0, 0});
     auto visual = Hosting::ElementCompositionPreview::GetElementVisual(menu_.panel);
     auto compositor = visual.Compositor();
-    if (!menu_.clip) menu_.clip = compositor.CreateRoundedRectangleGeometry();
+    if (!menu_.clip) {
+        menu_.clip = compositor.CreateRoundedRectangleGeometry();
+        menu_.visual_clip = compositor.CreateGeometricClip(menu_.clip);
+    }
+    menu_.visual_clip.Geometry(menu_.clip);
     menu_.clip.Size({rect.Width, rect.Height});
     menu_.clip.CornerRadius({static_cast<float>(menu_.radius), static_cast<float>(menu_.radius)});
-    visual.Clip(compositor.CreateGeometricClip(menu_.clip));
+    visual.Clip(menu_.visual_clip);
     auto rows = Hosting::ElementCompositionPreview::GetElementVisual(menu_.rows);
     rows.CenterPoint({menu_.target.Width / 2, menu_.above ? menu_.target.Height : 0, 0});
     const float scale = static_cast<float>(0.9 + 0.1 * menu_.content_opacity);
     rows.Scale({scale, scale, 1});
     if (menu_.source.hides) {
-        if (auto button = menu_.source.button.get()) button.Opacity(menu_.closing ? 1 - menu_.opacity : 0);
+        if (auto button = menu_.source.button.get()) button.Opacity(1 - menu_.opacity);
     }
 }
 
@@ -426,29 +431,33 @@ void animate(bool opening) {
 }
 
 void advance(double elapsed) {
-        if (!menu_.panel) return;
-        const bool opening = !menu_.closing;
-        const auto to = opening ? menu_.target : menu_.anchor;
-        const double radius = opening ? kMenuRadius : std::min(menu_.anchor.Height / 2.0, kMenuRadius);
-        const auto curve = opening ? glass_motion::open : glass_motion::close;
-        const double duration = spring::settle_time(curve);
-        const double progress = elapsed >= duration ? 1 : spring::value(curve, elapsed);
-        const auto lerp = [progress](double a, double b) { return static_cast<float>(a + (b - a) * progress); };
-        menu_.current = {lerp(menu_.from.X, to.X), lerp(menu_.from.Y, to.Y),
-                         lerp(menu_.from.Width, to.Width), lerp(menu_.from.Height, to.Height)};
-        menu_.radius = lerp(menu_.from_radius, radius);
-        menu_.content_opacity = std::clamp(static_cast<double>(lerp(menu_.from_content_opacity, opening ? 1 : 0)), 0.0, 1.0);
-        if (!opening) {
-            const double handoff = std::clamp((elapsed - glass_motion::handoff_delay) / glass_motion::handoff_duration, 0.0, 1.0);
-            const double eased = handoff * handoff * (3 - 2 * handoff);
-            menu_.opacity = menu_.from_opacity * (1 - eased);
-        } else menu_.opacity = std::clamp(static_cast<double>(lerp(menu_.from_opacity, 1)), 0.0, 1.0);
-        paint();
-        if (!opening && elapsed >= glass_motion::handoff_delay + glass_motion::handoff_duration) finish();
-        else if (opening && elapsed >= duration) {
-            stop_rendering();
-            corners::clip(menu_.panel, static_cast<float>(kMenuRadius));
-        }
+    if (!menu_.panel) return;
+    const bool opening = !menu_.closing;
+    const auto to = opening ? menu_.target : menu_.anchor;
+    const double radius = opening ? kMenuRadius : std::min(menu_.anchor.Height / 2.0, kMenuRadius);
+    const auto curve = opening ? glass_motion::open : glass_motion::close;
+    const double duration = spring::settle_time(curve);
+    const double progress = elapsed >= duration ? 1 : spring::value(curve, elapsed);
+    const auto lerp = [progress](double a, double b) { return static_cast<float>(a + (b - a) * progress); };
+    menu_.current = {lerp(menu_.from.X, to.X), lerp(menu_.from.Y, to.Y),
+                     lerp(menu_.from.Width, to.Width), lerp(menu_.from.Height, to.Height)};
+    menu_.radius = lerp(menu_.from_radius, radius);
+    menu_.content_opacity = std::clamp(static_cast<double>(lerp(menu_.from_content_opacity, opening ? 1 : 0)), 0.0, 1.0);
+    if (!opening) {
+        const double handoff = std::clamp((elapsed - glass_motion::handoff_delay) / glass_motion::handoff_duration, 0.0, 1.0);
+        const double eased = handoff * handoff * (3 - 2 * handoff);
+        menu_.opacity = menu_.from_opacity * (1 - eased);
+    } else {
+        menu_.opacity = std::clamp(static_cast<double>(lerp(menu_.from_opacity, 1)), 0.0, 1.0);
+    }
+    paint();
+    if (!opening && elapsed >= glass_motion::handoff_delay + glass_motion::handoff_duration) finish();
+    else if (opening && elapsed >= duration) {
+        stop_rendering();
+        menu_.visual_clip.Geometry(corners::geometry(
+            Hosting::ElementCompositionPreview::GetElementVisual(menu_.panel).Compositor(),
+            {menu_.current.Width, menu_.current.Height}, static_cast<float>(kMenuRadius)));
+    }
 }
 
 void grow() {
@@ -477,6 +486,9 @@ void attach(FrameworkElement const& root) {
         const auto anchor = menu_.anchor;
         if (point.X >= anchor.X && point.X <= anchor.X + anchor.Width &&
             point.Y >= anchor.Y && point.Y <= anchor.Y + anchor.Height) return;
+        const auto panel = menu_.current;
+        if (point.X >= panel.X && point.X <= panel.X + panel.Width &&
+            point.Y >= panel.Y && point.Y <= panel.Y + panel.Height) return;
         close();
     });
     root.SizeChanged([](auto&&, auto&&) { if (open_) close(); });
@@ -569,7 +581,7 @@ FrameworkElement make_picker(std::wstring title, std::vector<std::wstring> optio
     value.FontWeight(winrt::Windows::UI::Text::FontWeights::Medium());
     value.VerticalAlignment(VerticalAlignment::Center);
     FontIcon chevron;
-    chevron.Glyph(glyph(L"\uE70D"));  // ScrollChevronUpDown
+    chevron.Glyph(glyph(L"\uE70D"));  // 上下箭头图标
     chevron.FontSize(9);
     chevron.Foreground(brush(L"MuSecondaryBrush"));
     chevron.VerticalAlignment(VerticalAlignment::Center);

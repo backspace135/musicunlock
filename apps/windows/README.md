@@ -110,6 +110,20 @@ python scripts/screenshot.py --dist [--convert]   # 用分发目录里的 App �
   新场景在 `motion_capture::add` 里注册，动作用 `Driver` 的 `click`、`press`、`release`、`drag`、`key`、`wait`、`capture`；
   动画开始前用 `motion::describe` 给元素起名，改 `Visibility` 后调用 `motion::changed`，日志才会记到隐式动画。
 
+## 玻璃菜单验证（#63）
+
+- 七处窗口内菜单由 `GlassMenu.*` 共享一个窗口级 Popup；行右键菜单和设置对话框中的 ComboBox 保持原生。
+- `screenshot.py` 生成 `glass-{provider,kind,format,naming,queue-more,lyrics-more,accounts}-{light,dark,contrast}.png`
+  及同名 `-a11y.txt`。高对比度仍是画刷模拟，不改变系统设置。
+- 菜单按钮提供 ExpandCollapse，内容提供 Menu/MenuItem 角色；可勾选项提供 Toggle 状态。
+  预览同时通过真实 Invoke 路径验证 LRC→SRT→LRC 的显示值与名称同步，以及展开/收起和勾选状态。
+- `python scripts/screenshot.py --motion glass-menu,glass-menu-reduced` 检查生产几何推进函数中的收起尺寸、
+  不透明度交接、透明移除、中途重开及减少动态效果的瞬时开关。计划任务不继承启动终端的环境变量，
+  因此减少动效场景直接使用现有 `motion::suspend` 开关。这些日志不是像素帧，不能证明实际关闭过程没有闪烁。
+- 当前已知缺口：公共 `GlassSurface` 的应用级画刷查找使强制深色预览出现白底白字（已在 #57 协调，
+  不在菜单分支修改公共材质）；内容模糊 6→0 尚未实现；200% 菜单专项预览、已登录账号菜单预览、
+  真实键盘/焦点与点击穿透、关闭交接观感仍待验收。不能据构建或截图脚本成功认定 #63 完成。
+
 ## 分发目录
 
 `stage_app.py` 把 `build/app-release/` 复制到 `build/dist/MusicUnlock/`，单 exe 启动器打包的就是这个目录。
