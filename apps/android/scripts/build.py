@@ -27,6 +27,11 @@ def gradle(env: dict, *tasks: str) -> None:
     subprocess.run([str(wrapper), *tasks], cwd=ROOT, env=env, check=True)
 
 
+def suffix_property(suffix: str | None) -> list[str]:
+    """The Gradle property giving a debug build its applicationIdSuffix (see app/build.gradle.kts)."""
+    return [f"-Pmusicunlock.suffix={suffix}"] if suffix else []
+
+
 def native_tools(env: dict) -> tuple[Path, Path]:
     """Return the pinned NDK folder and the bin folder of the pinned CMake (which also holds Ninja)."""
     sdk = Path(env["ANDROID_HOME"])
@@ -109,7 +114,11 @@ def main() -> None:
     parser.add_argument("--no-test", action="store_true", help="skip the core tests on the host")
     parser.add_argument("--device", action="store_true", help="also run the core tests on an arm64 emulator")
     parser.add_argument("--serial", help="emulator for --device (default: ANDROID_SERIAL or the only one running)")
+    parser.add_argument("--suffix", help="debug only: install as io.github.backspace135.musicunlock.<suffix>, "
+                        "named 音匣 (<suffix>), next to other branches' builds")
     args = parser.parse_args()
+    if args.suffix and args.config != "debug":
+        parser.error("--suffix 只用于 debug 版")
 
     env = android_environment()
     ndk, cmake_bin = native_tools(env)
@@ -118,7 +127,7 @@ def main() -> None:
     # Choose the emulator before the long build, so a wrong serial fails fast.
     serial = emulator_serial(env, args.serial) if args.device else None
 
-    gradle(env, f":app:assemble{args.config.capitalize()}")
+    gradle(env, f":app:assemble{args.config.capitalize()}", *suffix_property(args.suffix))
     outputs = BUILD / "app" / "outputs" / "apk" / args.config
     apk = outputs / ("app-debug.apk" if args.config == "debug" else "app-release-unsigned.apk")
     if not apk.is_file():
