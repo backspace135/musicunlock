@@ -17,6 +17,8 @@ object MuSpacing {
     val page = 16.dp
     /** Minimum height of a tappable row. */
     val rowHeight = 56.dp
+    /** Minimum height of a row with a subtitle. */
+    val twoLineRowHeight = 64.dp
     /** Minimum touch target for icon buttons. */
     val touchTarget = 48.dp
 }

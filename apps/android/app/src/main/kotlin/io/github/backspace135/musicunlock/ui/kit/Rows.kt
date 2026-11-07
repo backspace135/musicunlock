@@ -179,8 +179,10 @@ fun ListRow(
                 if (current) drawRect(colors.text, size = Size(3.dp.toPx(), size.height))
             }
             .alpha(if (enabled) 1f else DisabledAlpha)
-            .heightIn(min = MuSpacing.rowHeight)
-            .padding(horizontal = MuSpacing.l, vertical = 10.dp),
+            // Two-line rows get a taller minimum so Chinese and Latin rows come out the same height
+            // (the CJK fallback font adds line spacing).
+            .heightIn(min = if (subtitle != null) MuSpacing.twoLineRowHeight else MuSpacing.rowHeight)
+            .padding(horizontal = MuSpacing.l, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AnimatedVisibility(
