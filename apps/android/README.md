@@ -455,6 +455,58 @@ if (AccountStore.isMusicSession(MusicProvider.QQ, cookies)) {
 **退出**：`notice = AccountStore.logout(provider)`（删除会话文件，返回“已退出{平台名}。”）；清除 WebView 里这个平台的
 Cookie 和存储由 #33 做。`Cookie.toString()` 不含值，可以放心记日志；但不要记录 `cookieHeader`。
 
+## 下载目录与格式
+
+2026-11-07 在 g16win 上连着的手机查过（#36）。只查看了 issue 里列出的路径，没有搜索整个 `/sdcard`，没有拉取文件。
+
+手机：Redmi Note 9（`M2007J22C`，`ivpf99sgvkauugdu`），Android 12（SDK 31），MIUI `V14.0.6.0.SJECNXM`
+（`ro.miui.ui.version.name` 为 `V140`）。
+
+网易云音乐（`com.netease.cloudmusic`）和 QQ 音乐（`com.tencent.qqmusic`）都没有安装，所以没有版本号，也没有刚下载的歌。
+
+| App | 版本 | 音质 | 目录 | 可读类别 (a/b/c) | 扩展名 | 核心能否解开 | 备注 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 网易云音乐 | 未安装 | — | 下列路径都不存在 | 无文件，未分类 | — | 未测试 | `dumpsys package`：`Unable to find package` |
+| QQ 音乐 | 未安装 | — | 下列路径都不存在 | 无文件，未分类 | — | 未测试 | 同上 |
+
+`python apps/android/scripts/device.py shell --` 的原文：
+
+```text
+dumpsys package com.netease.cloudmusic
+  Unable to find package: com.netease.cloudmusic
+dumpsys package com.tencent.qqmusic
+  Unable to find package: com.tencent.qqmusic
+pm list packages netease
+pm list packages cloudmusic
+pm list packages qqmusic
+  （三条都没有输出）
+
+ls -la /sdcard/netease/cloudmusic/
+  ls: /sdcard/netease/cloudmusic/: No such file or directory
+ls -la /sdcard/netease/cloudmusic/Music/
+  ls: /sdcard/netease/cloudmusic/Music/: No such file or directory
+ls -la /sdcard/Download/netease/
+  ls: /sdcard/Download/netease/: No such file or directory
+ls -la /sdcard/Android/data/com.netease.cloudmusic/
+  ls: /sdcard/Android/data/com.netease.cloudmusic/: No such file or directory
+ls -la /sdcard/qqmusic/
+  ls: /sdcard/qqmusic/: No such file or directory
+ls -la /sdcard/qqmusic/song/
+  ls: /sdcard/qqmusic/song/: No such file or directory
+ls -la /sdcard/Android/data/com.tencent.qqmusic/
+  ls: /sdcard/Android/data/com.tencent.qqmusic/: No such file or directory
+ls -la /sdcard/Music/
+  total 3
+  drwxrwx--- 2 root everybody 3488 2026-11-06 21:22 .thumbnails
+```
+
+`/sdcard/Music/` 里只有系统的 `.thumbnails`，没有音频文件，没有再进入这个目录。
+
+没有文件可拉，没有创建 `build/device-samples/`，没有需要删除的样本。
+
+这次不能在「只用系统文件选择器」「扫描下载目录并申请 `MANAGE_EXTERNAL_STORAGE`」「改从电脑导入」里选。
+这台手机上只是没装这两个 App，列出的目录不存在，没有文件可以试。不能据此判断 Android 上打得开还是打不开。
+
 ## 环境要求
 
 - Python 3.10+
