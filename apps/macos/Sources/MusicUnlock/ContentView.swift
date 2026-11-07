@@ -31,7 +31,7 @@ struct ContentView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button { model.chooseFiles(folder: true) } label: { Label("添加文件夹", systemImage: "folder.badge.plus") }
                     .disabled(model.importing).help("添加文件夹（⇧⌘O）")
-                Button { model.chooseFiles() } label: { Label("添加文件", systemImage: "plus") }
+                Button { model.chooseFiles() } label: { Label("添加文件", systemImage: "plus").symbolEffect(.bounce, value: model.jobs.count) }
                     .disabled(model.importing).help("添加文件（⌘O）")
             }
         }
@@ -53,7 +53,7 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .liquidSurface(radius: 26, tint: Theme.accent.opacity(0.12))
-        .overlay(RoundedRectangle(cornerRadius: 26).strokeBorder(Theme.accent.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [8, 6])))
+        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Theme.accent.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [8, 6])))
         .padding(12).allowsHitTesting(false)
     }
 
@@ -67,25 +67,23 @@ struct ContentView: View {
                 }
                 Spacer()
                 if !model.jobs.isEmpty { queueFilters.transition(.opacity.combined(with: .scale(scale: 0.95))) }
-                Menu {
-                    Button("清除已完成", action: model.clearCompleted).disabled(model.doneCount == 0)
-                    Button("清空队列", action: model.clearQueue).disabled(model.running || model.jobs.isEmpty)
-                } label: {
-                    Image(systemName: "ellipsis.circle").font(.system(size: 15))
+                GlassMenuButton(title: "整理队列", entries: {
+                    [.item("清除已完成", disabled: model.doneCount == 0, action: model.clearCompleted),
+                     .item("清空队列", disabled: model.running || model.jobs.isEmpty, action: model.clearQueue)]
+                }) {
+                    Image(systemName: "ellipsis.circle").font(.system(size: 15)).frame(width: 24, height: 24).contentShape(Rectangle())
                 }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .foregroundStyle(Theme.secondary)
-                .help("整理队列").accessibilityLabel("整理队列")
+                .buttonStyle(.pressable).foregroundStyle(Theme.secondary).help("整理队列")
             }
             .frame(minHeight: 28)
 
             if let notice = model.notice {
                 HStack(alignment: .top, spacing: 8) {
-                    Image(systemName: "info.circle")
+                    Image(systemName: "info.circle").symbolEffect(.bounce, value: notice)
                     Text(notice).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 4)
                     Button { model.notice = nil } label: { Image(systemName: "xmark") }
-                        .buttonStyle(.plain).help("关闭提示").accessibilityLabel("关闭提示")
+                        .buttonStyle(.pressable).help("关闭提示").accessibilityLabel("关闭提示")
                 }
                 .foregroundStyle(Theme.secondary).padding(12)
                 .liquidSurface(radius: 12, tint: Theme.accent.opacity(0.08))
@@ -124,7 +122,7 @@ struct ContentView: View {
                 ForEach(["NCM", "QMC", "MFLAC", "MGG"], id: \.self) { format in
                     Text(format).font(.system(size: 10, weight: .medium))
                         .padding(.horizontal, 8).padding(.vertical, 4)
-                        .background(Theme.text.opacity(0.055), in: RoundedRectangle(cornerRadius: 5))
+                        .background(Theme.text.opacity(0.055), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                 }
             }
             .foregroundStyle(Theme.secondary).padding(.top, 24)
@@ -133,7 +131,7 @@ struct ContentView: View {
                 .font(.system(size: 11)).foregroundStyle(Theme.secondary).padding(.bottom, 22)
         }
         .frame(maxWidth: .infinity)
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.secondary.opacity(0.28), style: StrokeStyle(lineWidth: 1, dash: [5, 5])).padding(8))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.secondary.opacity(0.28), style: StrokeStyle(lineWidth: 1, dash: [5, 5])).padding(8))
         .liquidSurface(radius: 22)
     }
 
@@ -167,6 +165,7 @@ struct ContentView: View {
                             if job.id != visible.last?.id { Divider().padding(.leading, 68) }
                         }
                         .transition(.settle)
+                        .scrollEdgeSettle()
                     }
                 }
                 .padding(.vertical, 4)
@@ -174,16 +173,12 @@ struct ContentView: View {
             }
             .scrollEdgeEffectStyle(.soft, for: .top)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .liquidSurface(radius: 20)
     }
 
-    /// Native segmented control: the system draws the selection, so the label stays legible on glass.
     private var queueFilters: some View {
-        Picker("筛选队列", selection: $model.filter) {
-            ForEach(QueueFilter.allCases) { item in Text(item.rawValue).tag(item) }
-        }
-        .pickerStyle(.segmented).labelsHidden().fixedSize()
+        GlassSwitch(title: "筛选队列", selection: $model.filter, options: QueueFilter.allCases, label: \.rawValue)
     }
 
     private var inspector: some View {
@@ -194,6 +189,7 @@ struct ContentView: View {
                 Button(action: model.chooseOutput) {
                     HStack(spacing: 10) {
                         Image(systemName: "folder.fill").foregroundStyle(Theme.accent).font(.system(size: 20))
+                            .symbolEffect(.bounce, value: model.outputDirectory)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(model.outputDirectory.lastPathComponent).font(.system(size: 12, weight: .medium)).lineLimit(1)
                             Text(model.outputDirectory.deletingLastPathComponent().path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
@@ -203,26 +199,25 @@ struct ContentView: View {
                         Image(systemName: "chevron.up.chevron.down").font(.system(size: 9)).foregroundStyle(Theme.secondary)
                     }
                     .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.separator))
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.separator))
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain).disabled(model.running)
+                .buttonStyle(.pressable).disabled(model.running)
                 .help(model.outputDirectory.path).accessibilityLabel("更改输出文件夹：\(model.outputDirectory.path)")
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text("文件命名").font(.system(size: 12, weight: .medium))
-                Picker("文件命名", selection: $model.naming) {
-                    ForEach(NamingPolicy.allCases) { policy in Text(policy.rawValue).tag(policy) }
-                }
-                .pickerStyle(.menu).labelsHidden().fixedSize()
-                .frame(maxWidth: .infinity, alignment: .leading).disabled(model.running)
+                GlassMenuPicker(title: "文件命名", selection: $model.naming, options: NamingPolicy.allCases,
+                                label: \.rawValue, onGlass: true)
+                    .frame(maxWidth: .infinity, alignment: .leading).disabled(model.running)
                 Text("同名文件自动编号，源文件保持不变。")
                     .font(.system(size: 11)).foregroundStyle(Theme.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Divider()
             VStack(alignment: .leading, spacing: 10) {
                 Label("保留原始音质", systemImage: "waveform")
+                    .symbolEffect(.variableColor.iterative.dimInactiveLayers, isActive: model.running)
                     .font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.accent)
                 Text("解除文件封装，保留原有编码。输出可能是 FLAC、MP3、OGG 或 M4A，不进行有损转码。")
                     .font(.system(size: 12)).foregroundStyle(Theme.secondary).lineSpacing(4)
@@ -287,7 +282,7 @@ struct ContentView: View {
                         .liquidButton().disabled(model.stopRequested).keyboardShortcut(".", modifiers: .command)
                         .glassEffectID("primary", in: glass)
                 } else {
-                    Button(action: model.start) { Label("开始转换", systemImage: "play.fill").frame(minWidth: 96) }
+                    Button(action: model.start) { Label("开始转换", systemImage: "play.fill").symbolEffect(.bounce, value: model.running).frame(minWidth: 96) }
                         .liquidButton(prominent: true).disabled(model.waitingCount == 0 || model.importing)
                         .keyboardShortcut(.return, modifiers: .command)
                         .glassEffectID("primary", in: glass)
@@ -337,12 +332,12 @@ struct JobRow: View {
                     Image(nsImage: cover).resizable().scaledToFill()
                 } else {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 7).fill(Theme.accent.opacity(0.08))
+                        RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Theme.accent.opacity(0.08))
                         Image(systemName: "music.note").font(.system(size: 17, weight: .medium)).foregroundStyle(Theme.accent)
                     }
                 }
             }
-            .frame(width: 36, height: 40).clipShape(RoundedRectangle(cornerRadius: 7)).accessibilityHidden(true)
+            .frame(width: 36, height: 40).clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous)).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 5) {
                 Text(job.title.isEmpty ? job.source.deletingPathExtension().lastPathComponent : job.title)
                     .font(.system(size: 13, weight: .medium)).lineLimit(1).help(job.source.lastPathComponent)
@@ -378,9 +373,11 @@ struct JobRow: View {
             Group {
                 if let output = job.output {
                     Button { NSWorkspace.shared.activateFileViewerSelecting([output]) } label: { Image(systemName: "magnifyingglass") }
+                        .transition(.scale.combined(with: .opacity))
                         .help("在 Finder 中显示").accessibilityLabel("在 Finder 中显示 \(output.lastPathComponent)")
                 } else {
                     Button(action: remove) { Image(systemName: "xmark") }
+                        .transition(.scale.combined(with: .opacity))
                         .disabled(job.state == .running).help("移出队列").accessibilityLabel("移出队列：\(job.source.lastPathComponent)")
                 }
             }

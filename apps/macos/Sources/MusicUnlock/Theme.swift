@@ -93,12 +93,29 @@ struct LiquidSurface: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if reduceTransparency || staticPreview {
-            content.background(Theme.surface, in: RoundedRectangle(cornerRadius: radius))
-                .overlay(RoundedRectangle(cornerRadius: radius).strokeBorder(Theme.separator))
+            content.background(Theme.surface, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Theme.separator))
         } else {
-            content.glassEffect(Glass.regular.tint(tint).interactive(interactive), in: .rect(cornerRadius: radius))
+            content.glassEffect(Glass.regular.tint(tint).interactive(interactive), in: .rect(cornerRadius: radius, style: .continuous))
         }
     }
+}
+
+/// Springs for the glass controls, tuned to iOS 26 by eye. Apple does not publish these values;
+/// they follow community estimates of the system menu and tab lens, so keep them in one place.
+enum GlassMotion {
+    /// Menu growing out of its button: quick, with a barely visible settle.
+    static let open = Animation.spring(response: 0.32, dampingFraction: 0.78)
+    /// Menu shrinking back: critically damped, so it never dips inside the button. Settles in about 0.2 s.
+    static let close = Animation.spring(response: 0.26, dampingFraction: 1)
+    /// Panel and button swap places over the last stretch of `close`.
+    static let handoff = Animation.easeInOut(duration: 0.08).delay(0.12)
+    /// Switch lens travelling between segments.
+    static let lens = Animation.spring(response: 0.3, dampingFraction: 0.72)
+    /// Lens lifting under the pointer.
+    static let press = Animation.spring(response: 0.22, dampingFraction: 0.6)
+    /// Highlight sliding between rows.
+    static let highlight = Animation.spring(response: 0.2, dampingFraction: 0.85)
 }
 
 /// Implicit animation that respects Reduce Motion and the static renderer.
@@ -121,10 +138,45 @@ struct HoverHighlight: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(Theme.text.opacity(hovering ? 0.045 : 0), in: RoundedRectangle(cornerRadius: radius))
+            .background(Theme.text.opacity(hovering ? 0.045 : 0), in: RoundedRectangle(cornerRadius: radius, style: .continuous))
             .onHover { inside in
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) { hovering = inside }
             }
+    }
+}
+
+/// iOS-style press for plain buttons: the control dips and springs back on release.
+struct PressableButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed && !reduceMotion
+        configuration.label
+            .scaleEffect(pressed ? 0.97 : 1)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.45)
+            .animation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.5), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == PressableButtonStyle {
+    static var pressable: PressableButtonStyle { PressableButtonStyle() }
+}
+
+/// List rows shrink and fade a little as they scroll past the edges, as iOS lists do.
+struct ScrollEdgeSettle: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.staticPreview) private var staticPreview
+
+    func body(content: Content) -> some View {
+        if reduceMotion || staticPreview {
+            content
+        } else {
+            content.scrollTransition(axis: .vertical) { view, phase in
+                view.opacity(phase.isIdentity ? 1 : 0.4)
+                    .scaleEffect(phase.isIdentity ? 1 : 0.96, anchor: phase.value < 0 ? .bottom : .top)
+            }
+        }
     }
 }
 
@@ -137,6 +189,7 @@ extension View {
         modifier(MotionAnimation(animation: animation, value: value))
     }
     func hoverHighlight(radius: CGFloat = 8) -> some View { modifier(HoverHighlight(radius: radius)) }
+    func scrollEdgeSettle() -> some View { modifier(ScrollEdgeSettle()) }
 }
 
 extension AnyTransition {
