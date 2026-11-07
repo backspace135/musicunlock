@@ -3,7 +3,8 @@
 
 The core tests run on the host with the portable AES Android uses (macOS and Linux hosts; Windows covers them with
 apps/windows/scripts/build.py). With --device they are also cross-compiled for arm64 Android and run on an emulator
-through adb, together with the fixtures. Only emulators are accepted, never a connected phone.
+through adb, together with the fixtures, followed by :core's instrumented tests. Only emulators are accepted, never a
+connected phone.
 
 Runs on macOS, Windows and Linux (CI) hosts. The JDK and Android SDK come from JAVA_HOME / ANDROID_HOME when set,
 otherwise from the platform defaults below. The NDK and CMake are the versions pinned in gradle/libs.versions.toml,
@@ -143,11 +144,19 @@ def run_device_tests(env: dict, ndk: Path, cmake_bin: Path, serial: str) -> None
         adb(env, serial, "shell", f"rm -rf {DEVICE_DIR}")
 
 
+def run_instrumented_tests(env: dict, serial: str) -> None:
+    """Run :core's instrumented tests (the JNI bridge and platform code) on the emulator only."""
+    print(f"在模拟器 {serial} 上运行 :core 的 instrumented tests", flush=True)
+    # Gradle's connected tasks install on every online device unless ANDROID_SERIAL names one.
+    gradle(dict(env, ANDROID_SERIAL=serial), ":core:connectedDebugAndroidTest")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", default="debug", choices=["debug", "release"])
     parser.add_argument("--no-test", action="store_true", help="skip the core tests on the host")
-    parser.add_argument("--device", action="store_true", help="also run the core tests on an arm64 emulator")
+    parser.add_argument("--device", action="store_true",
+                        help="also run the core tests and :core's instrumented tests on an arm64 emulator")
     parser.add_argument("--serial", help="emulator for --device (default: ANDROID_SERIAL or the only one running)")
     args = parser.parse_args()
 
@@ -169,6 +178,7 @@ def main() -> None:
         run_host_tests(env, cmake_bin)
     if serial:
         run_device_tests(env, ndk, cmake_bin, serial)
+        run_instrumented_tests(env, serial)
 
 
 if __name__ == "__main__":

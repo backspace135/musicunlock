@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared-storage folders the core writes to directly on Android 9 and older, for "打开" / "分享" when
+     MediaScanner gives no content URI. -->
+<paths>
+    <external-path name="music" path="Music/音匣/" />
+    <external-path name="lyrics" path="Download/音匣/歌词/" />
+</paths>

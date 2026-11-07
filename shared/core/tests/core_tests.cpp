@@ -256,6 +256,24 @@ TEST(export_does_not_overwrite_and_keeps_original) {
     fs::remove_all(removable(folder));
 }
 
+TEST(numbered_names_match_the_export_rule) {
+    CHECK_EQ(mu::numbered_file_name("歌名", "flac", 0), std::string("歌名.flac"), "first name");
+    CHECK_EQ(mu::numbered_file_name("歌名", "flac", 2), std::string("歌名 (2).flac"), "collision suffix");
+}
+
+TEST(convert_data_names_the_output_after_the_source_name) {
+    const fs::path folder = fresh_scratch("convert-data");
+    Bytes encrypted = wave_fixture();
+    for (auto& b : encrypted) b ^= 0xa3;
+    const auto first = mu::convert_data(encrypted, "中文歌曲.UC", folder, mu::NamingPolicy::original);
+    const auto second = mu::convert_data(encrypted, "中文歌曲.UC", folder, mu::NamingPolicy::title);
+    CHECK_EQ(mu::path_to_utf8(first.path.filename()), std::string("中文歌曲.wav"), "stem and sniffed extension");
+    CHECK_EQ(mu::path_to_utf8(second.path.filename()), std::string("中文歌曲 (1).wav"), "no title: original name");
+    CHECK_EQ(mu::detail::read_file(first.path), wave_fixture(), "decoded audio");
+    CHECK_THROWS(mu::convert_data(encrypted, "no-extension", folder, mu::NamingPolicy::original), "unsupported");
+    fs::remove_all(removable(folder));
+}
+
 TEST(long_output_paths_are_writable) {
     // Deeper than MAX_PATH (260) once the 180-unit name is added.
     fs::path folder = fresh_scratch("long");
