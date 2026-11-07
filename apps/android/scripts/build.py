@@ -104,11 +104,13 @@ def run_device_tests(env: dict, ndk: Path, cmake_bin: Path, serial: str, device_
         adb(env, serial, "shell", f"rm -rf {device_dir}")
 
 
-def run_instrumented_tests(env: dict, serial: str) -> None:
+def run_instrumented_tests(env: dict, serial: str, live: bool) -> None:
     """Run :core's instrumented tests (the JNI bridge and platform code) on the emulator only."""
     print(f"在模拟器 {serial} 上运行 :core 的 instrumented tests", flush=True)
+    # Like MUSICUNLOCK_LIVE_TESTS on Windows: the checks against the real platforms only run when asked for.
+    arguments = ["-Pandroid.testInstrumentationRunnerArguments.musicunlockLive=1"] if live else []
     # Gradle's connected tasks install on every online device unless ANDROID_SERIAL names one.
-    gradle(dict(env, ANDROID_SERIAL=serial), ":core:connectedDebugAndroidTest")
+    gradle(dict(env, ANDROID_SERIAL=serial), ":core:connectedDebugAndroidTest", *arguments)
 
 
 def main() -> None:
@@ -117,6 +119,8 @@ def main() -> None:
     parser.add_argument("--no-test", action="store_true", help="skip the core tests on the host")
     parser.add_argument("--device", action="store_true",
                         help="also run the core tests and :core's instrumented tests on an arm64 emulator")
+    parser.add_argument("--live", action="store_true",
+                        help="with --device, also check lyrics and QR login against the real platforms (network)")
     parser.add_argument("--serial", help="emulator for --device (default: ANDROID_SERIAL or the only one running)")
     parser.add_argument("--info", action="store_true", help="run Gradle with --info (shows the paths it uses)")
     parser.add_argument("--suffix", help="debug only: install as io.github.backspace135.musicunlock.<suffix>, "
@@ -143,7 +147,7 @@ def main() -> None:
         run_host_tests(env, cmake_bin)
     if serial:
         run_device_tests(env, ndk, cmake_bin, serial)
-        run_instrumented_tests(env, serial)
+        run_instrumented_tests(env, serial, args.live)
 
 
 if __name__ == "__main__":
