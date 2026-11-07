@@ -121,6 +121,24 @@
     <string name="settings_theme_light">浅色</string>
     <string name="settings_theme_dark">深色</string>
     <string name="settings_theme_footer">深色模式只用灰阶，不跟随系统动态取色。</string>
+    <string name="settings_about_header">关于</string>
+    <string name="settings_about_entry">关于音匣与开源许可</string>
     <string name="settings_debug_header">开发</string>
     <string name="settings_playground_entry">组件演示与动画调参</string>
+
+    <!-- about -->
+    <string name="about_title">关于音匣</string>
+    <string name="about_version_format">版本 %1$s</string>
+    <string name="about_body">解除音乐平台下载文件的封装，恢复为普通播放器也能打开的音频；查找、编辑并导出歌词。所有文件只在手机上处理。</string>
+    <string name="about_licenses_entry">开源许可</string>
+    <string name="about_source_entry">源代码</string>
+
+    <!-- licenses -->
+    <string name="licenses_title">开源许可</string>
+    <string name="licenses_app">音匣（MIT）</string>
+    <string name="licenses_app_subtitle">本应用自身的代码</string>
+    <string name="licenses_notices">第三方声明</string>
+    <string name="licenses_notices_subtitle">解码算法来源、歌词工作流参考与随附的第三方库</string>
+    <string name="licenses_android">AndroidX、Jetpack Compose、Kotlin（Apache 2.0）</string>
+    <string name="licenses_android_subtitle">界面框架与运行库；图标来自 Material Icons</string>
 </resources>

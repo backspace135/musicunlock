@@ -49,7 +49,7 @@ import io.github.backspace135.musicunlock.ui.unlock.OutputSettingsSection
  * | 输出（文件夹、命名） | ui/unlock/OutputSettingsSection.kt | #31 |
  * | 歌词导出 | ui/lyrics/LyricsExportSettingsSection.kt | #32 |
  * | 账号 | ui/accounts/AccountSettingsSection.kt | #33 |
- * | 外观、开发 | this file | #30 |
+ * | 外观、关于、开发 | this file | #30 |
  */
 @Composable
 fun SettingsScreen() {
@@ -62,6 +62,9 @@ fun SettingsScreen() {
             LyricsExportSettingsSection()
             AccountSettingsSection()
             AppearanceSection()
+            ListGroup(header = stringResource(R.string.settings_about_header)) {
+                NavigationRow(stringResource(R.string.settings_about_entry), onClick = { navigator.push(Route.About) }, icon = MuIcons.Info)
+            }
             if (DebugTools.available) {
                 ListGroup(header = stringResource(R.string.settings_debug_header)) {
                     NavigationRow(stringResource(R.string.settings_playground_entry), onClick = { navigator.push(Route.Playground) }, icon = MuIcons.Settings)
