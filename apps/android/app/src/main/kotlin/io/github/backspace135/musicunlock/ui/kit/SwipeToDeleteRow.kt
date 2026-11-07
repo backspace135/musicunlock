@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -70,12 +71,18 @@ fun SwipeToDeleteRow(
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     val currentOnDelete by rememberUpdatedState(onDelete)
+    val currentEnabled by rememberUpdatedState(enabled)
     val actionWidth = with(LocalDensity.current) { 88.dp.toPx() }
     var width by remember { mutableFloatStateOf(0f) }
     var offset by remember { mutableFloatStateOf(0f) }
     var armed by remember { mutableStateOf(false) }
     var settle: Job? by remember { mutableStateOf(null) }
     val iconScale by animateFloatAsState(if (armed) 1.15f else 1f, MuMotion.toggle(), label = "deleteArmed")
+
+    // Disabled while shifted (for example the job just started): spring back.
+    LaunchedEffect(enabled) {
+        if (!enabled && offset != 0f) animate(offset, 0f, 0f, MuMotion.pageSettle()) { value, _ -> offset = value }
+    }
 
     fun slideOut(velocity: Float) {
         settle = scope.launch {
@@ -126,10 +133,10 @@ fun SwipeToDeleteRow(
             Modifier
                 .graphicsLayer { translationX = offset }
                 .background(background)
-                .pointerInput(enabled) {
-                    if (!enabled) return@pointerInput
+                .pointerInput(Unit) {
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
+                        if (!currentEnabled) return@awaitEachGesture
                         val tracker = VelocityTracker()
                         tracker.addPointerInputChange(down)
                         val drag = awaitHorizontalTouchSlopOrCancellation(down.id) { change, over ->
@@ -141,7 +148,7 @@ fun SwipeToDeleteRow(
                             }
                         } ?: return@awaitEachGesture
                         tracker.addPointerInputChange(drag)
-                        horizontalDrag(drag.id) { change ->
+                        val completed = horizontalDrag(drag.id) { change ->
                             tracker.addPointerInputChange(change)
                             offset = (offset + change.positionChange().x).coerceIn(-width, 0f)
                             val nowArmed = -offset > actionWidth
@@ -153,7 +160,7 @@ fun SwipeToDeleteRow(
                         }
                         val velocity = tracker.calculateVelocity().x
                         val fling = velocity < -1500f && -offset > actionWidth / 3
-                        if (armed || fling) {
+                        if (completed && currentEnabled && (armed || fling)) {
                             slideOut(velocity)
                         } else {
                             settle = scope.launch { animate(offset, 0f, velocity, MuMotion.pageSettle()) { value, _ -> offset = value } }
