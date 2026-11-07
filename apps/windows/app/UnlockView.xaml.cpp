@@ -200,7 +200,12 @@ void UnlockView::PreviewRowMenu(uint32_t index) {
 }
 
 void UnlockView::SetOutputDirectory(std::filesystem::path directory) {
+    const bool changed = directory != output_directory_;
     output_directory_ = std::move(directory);
+    if (changed) {
+        motion::describe(L"输出文件夹");
+        motion::bounce(OutputIcon());
+    }
     OutputName().Text(output_directory_.filename().c_str());
     OutputParent().Text(output_directory_.parent_path().c_str());
     ToolTipService::SetToolTip(OutputButton(), box_value(hstring(output_directory_.c_str())));
@@ -219,11 +224,20 @@ void UnlockView::Refresh() {
     const auto failed = queue_.count(mu::JobState::failed);
     const auto waiting = queue_.count(mu::JobState::waiting);
 
+    if (queue_.jobs().size() != shown_jobs_) {
+        shown_jobs_ = queue_.jobs().size();
+        if (queue_changed_) queue_changed_();
+    }
     CountText().Text(empty ? hstring() : to_hstring(std::to_string(queue_.jobs().size()) + " 个文件"));
     FilterBar().Visibility(shown(!empty));
     FitQueueHeader();
     const hstring notice = to_hstring(notice_);
-    if (!notice.empty() && (notice != Notice().Message() || Notice().Visibility() == Visibility::Collapsed)) Announce(notice);
+    if (!notice.empty() && (notice != Notice().Message() || Notice().Visibility() == Visibility::Collapsed)) {
+        Announce(notice);
+        // InfoBar does not expose its icon, so the whole banner takes the bounce.
+        motion::describe(L"队列提示");
+        motion::bounce(Notice());
+    }
     if (!notice.empty()) Notice().Message(notice);  // keeps the text while the banner fades out
     Notice().Visibility(shown(!notice.empty()));
     motion::changed(Notice());
@@ -264,6 +278,11 @@ void UnlockView::Refresh() {
     StartButton().IsEnabled(waiting > 0 && imports_ == 0);
     FooterActions().Update();
     FitFooter();
+    if (running != shown_running_) {
+        shown_running_ = running;
+        motion::describe(L"开始转换");
+        motion::bounce(StartIcon());
+    }
     OutputButton().IsEnabled(!running);
     NamingBox().IsEnabled(!running);
     ChooseFilesButton().IsEnabled(imports_ == 0);

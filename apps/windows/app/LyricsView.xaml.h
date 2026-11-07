@@ -91,7 +91,9 @@ private:
     mu::CancelToken lyrics_cancel_;
     mu::CancelToken export_cancel_;
     mu::LyricTab tab_ = mu::LyricTab::original;
-    std::string shown_song_;  // the song the editor tabs were last reset for
+    std::string shown_song_;   // the song the editor tabs were last reset for
+    std::size_t shown_songs_ = 0;  // result count last drawn, so the search icon bounces only when it changes
+    bool shown_exporting_ = false;  // whether an export was on screen, so its icon dips at both ends
     bool persist_ = true;     // preview renders never touch the saved settings
     bool syncing_ = false;    // controls are being updated from the model
     Windows::Foundation::Collections::IObservableVector<IInspectable> rows_ =

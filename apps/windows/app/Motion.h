@@ -56,6 +56,12 @@ void overlay(xaml::UIElement const& element);
 void enter(xaml::UIElement const& element);
 /// A state glyph that changed: grows in from 60 %; `bounce` overshoots once (finished jobs).
 void pop(xaml::UIElement const& element, bool bounce);
+/// An icon acknowledging a change: dips to 82 % and springs back to full size, around its own centre.
+void bounce(xaml::UIElement const& element);
+/// An icon replaced by another: the old one shrinks to 60 % and fades out, the new one grows in from 60 %.
+void replace(xaml::UIElement const& outgoing, xaml::UIElement const& incoming);
+/// An export starting or finishing: the icon drops 3 px and springs back up.
+void dip(xaml::UIElement const& element);
 /// The empty-state disc while files hover: lifted to 110 % and tilted, or back.
 void lift(xaml::UIElement const& element, bool lifted);
 

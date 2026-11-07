@@ -66,6 +66,9 @@ void sample(Animation const& animation, spring::Spring spring, Value from, Value
         std::chrono::duration<double>(spring::settle_time(spring))));
 }
 
+/// .easeOut(duration:): the cubic (0, 0, 0.58, 1). The icon bounce dips on it before the spring brings it back.
+CubicBezierEasingFunction ease_out(Compositor const& c) { return c.CreateCubicBezierEasingFunction({0.f, 0.f}, {0.58f, 1.f}); }
+
 int milliseconds(winrt::Windows::Foundation::TimeSpan duration) {
     return static_cast<int>(std::chrono::duration_cast<std::chrono::milliseconds>(duration).count());
 }
@@ -350,6 +353,82 @@ void pop(UIElement const& element, bool bounce) {
            milliseconds(scale.Duration()));
     element.StartAnimation(scale);
     element.StartAnimation(fade(c, 0.f, 1.f, spring_40));
+}
+
+void bounce(UIElement const& element) {
+    pivot_properties(element);
+    if (!enabled()) {
+        element.Scale(uniform(1.f));
+        return;
+    }
+    // .easeOut(duration: 0.08) down to 82 %, then .spring(response: 0.35, dampingFraction: 0.45) back to 1.
+    auto c = compositor();
+    constexpr spring::Spring rebound{0.35, 0.45};
+    auto scale = c.CreateVector3KeyFrameAnimation();
+    scale.Target(L"Scale");
+    scale.InsertKeyFrame(0.f, uniform(1.f));
+    const float dip_at = static_cast<float>(0.08 / (0.08 + spring::settle_time(rebound)));
+    scale.InsertKeyFrame(dip_at, uniform(0.82f), ease_out(c));
+    const auto frames = spring::keyframes(rebound);
+    for (const auto& [progress, position] : frames) {
+        if (progress <= 0.f) continue;
+        const float at = dip_at + (1.f - dip_at) * progress;
+        scale.InsertKeyFrame(at, uniform(0.82f) + (uniform(1.f) - uniform(0.82f)) * static_cast<float>(position));
+    }
+    scale.Duration(std::chrono::milliseconds(80) +
+                   std::chrono::duration_cast<winrt::Windows::Foundation::TimeSpan>(
+                       std::chrono::duration<double>(spring::settle_time(rebound))));
+    record(L"Scale", L"1 -> 0.82 -> 1", L"ease-out, spring 0.35/0.45", milliseconds(scale.Duration()));
+    element.StartAnimation(scale);
+}
+
+void replace(UIElement const& outgoing, UIElement const& incoming) {
+    pivot_properties(outgoing);
+    pivot_properties(incoming);
+    if (!enabled()) {
+        outgoing.Opacity(0);
+        outgoing.Scale(uniform(0.6f));
+        incoming.Opacity(1);
+        incoming.Scale(uniform(1.f));
+        return;
+    }
+    auto c = compositor();
+    constexpr spring::Spring swap{0.25, 1};
+    auto shrink = c.CreateVector3KeyFrameAnimation();
+    shrink.Target(L"Scale");
+    sample(shrink, swap, outgoing.Scale(), uniform(0.6f));
+    auto grow = c.CreateVector3KeyFrameAnimation();
+    grow.Target(L"Scale");
+    sample(grow, swap, uniform(0.6f), uniform(1.f));
+    record(L"Scale", L"1 -> 0.6, 0.6 -> 1", spring_label(swap).c_str(), milliseconds(shrink.Duration()));
+    outgoing.StartAnimation(shrink);
+    outgoing.StartAnimation(fade(c, static_cast<float>(outgoing.Opacity()), 0.f, swap));
+    incoming.StartAnimation(grow);
+    incoming.StartAnimation(fade(c, 0.f, 1.f, swap));
+}
+
+void dip(UIElement const& element) {
+    ElementCompositionPreview::SetIsTranslationEnabled(element, true);
+    if (!enabled()) {
+        element.Translation({0, 0, 0});
+        return;
+    }
+    // Down 3 px and straight back. .spring(response: 0.3, dampingFraction: 0.6) gives one small bounce.
+    constexpr spring::Spring drop{0.3, 0.6};
+    auto c = compositor();
+    auto animation = c.CreateVector3KeyFrameAnimation();
+    animation.Target(L"Translation");
+    const auto frames = spring::keyframes(drop);
+    animation.InsertKeyFrame(0.f, {0, 0, 0});
+    animation.InsertKeyFrame(0.5f, {0, 3, 0});
+    for (const auto& [progress, position] : frames) {
+        if (progress < 0.5f) continue;
+        animation.InsertKeyFrame(progress, float3{0, 3, 0} * static_cast<float>(1.0 - position));
+    }
+    animation.Duration(std::chrono::duration_cast<winrt::Windows::Foundation::TimeSpan>(
+        std::chrono::duration<double>(spring::settle_time(drop))));
+    record(L"Translation", L"0 -> 0,3 -> 0", spring_label(drop).c_str(), milliseconds(animation.Duration()));
+    element.StartAnimation(animation);
 }
 
 void lift(UIElement const& element, bool lifted) {

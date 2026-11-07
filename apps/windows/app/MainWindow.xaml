@@ -53,7 +53,7 @@
                             <Button Click="OnAddFiles" Background="Transparent" BorderThickness="0" Width="36" Height="30" Padding="0"
                                     ToolTipService.ToolTip="添加文件（Ctrl+O）" AutomationProperties.Name="添加文件"
                                     AutomationProperties.AcceleratorKey="Ctrl+O" local:Press.Scale="0.96">
-                                <FontIcon Glyph="&#xE710;" FontSize="13" Foreground="{ThemeResource MuTextBrush}" />
+                                <FontIcon x:Name="AddFilesIcon" Glyph="&#xE710;" FontSize="13" Foreground="{ThemeResource MuTextBrush}" />
                             </Button>
                         </StackPanel>
                     </local:GlassSurface>

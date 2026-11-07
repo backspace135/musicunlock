@@ -277,7 +277,7 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <FontIcon Glyph="&#xE8B7;" FontSize="20" VerticalAlignment="Center" />
+                                    <FontIcon x:Name="OutputIcon" Glyph="&#xE8B7;" FontSize="20" VerticalAlignment="Center" />
                                     <StackPanel Grid.Column="1" Spacing="3">
                                         <TextBlock x:Name="OutputName" FontSize="12" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
                                         <TextBlock x:Name="OutputParent" FontSize="11" Foreground="{ThemeResource MuSecondaryBrush}"
@@ -385,7 +385,7 @@
                             ToolTipService.ToolTip="开始转换（Ctrl+Enter）" AutomationProperties.Name="开始转换"
                             AutomationProperties.AcceleratorKey="Ctrl+Enter" local:Press.Scale="0.96" local:Press.Glass="0.06">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon Glyph="&#xE768;" FontSize="13" />
+                            <FontIcon x:Name="StartIcon" Glyph="&#xE768;" FontSize="13" />
                             <TextBlock Text="开始转换" />
                         </StackPanel>
                     </Button>

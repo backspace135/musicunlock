@@ -68,7 +68,7 @@
                         <Button x:Name="SearchButton" Style="{StaticResource MuProminentButtonStyle}" MinWidth="96" Click="OnSearch"
                                 local:Press.Scale="0.96" local:Press.Glass="0.06">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE721;" FontSize="13" />
+                                <FontIcon x:Name="SearchIcon" Glyph="&#xE721;" FontSize="13" />
                                 <TextBlock Text="搜索" />
                             </StackPanel>
                         </Button>
@@ -330,10 +330,11 @@
                     <StackPanel x:Name="FormatPanel" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                         <ComboBox x:Name="FormatBox" MinWidth="92" AutomationProperties.Name="导出格式" SelectionChanged="OnFormatChanged" />
                         <local:GlassSurface Kind="Control" Radius="-1" local:Press.Scale="0.96" local:Press.Glass="0.06">
-                            <Button Background="Transparent" BorderThickness="0" Style="{StaticResource MuCapsuleButtonStyle}"
-                                    Foreground="{ThemeResource MuTextBrush}" Click="OnShowSettings" AutomationProperties.Name="导出设置">
+                            <Button x:Name="ExportSettingsButton" Background="Transparent" BorderThickness="0"
+                                    Style="{StaticResource MuCapsuleButtonStyle}" Foreground="{ThemeResource MuTextBrush}"
+                                    Click="OnShowSettings" AutomationProperties.Name="导出设置">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon Glyph="&#xE713;" FontSize="13" />
+                                    <FontIcon x:Name="ExportSettingsIcon" Glyph="&#xE713;" FontSize="13" />
                                     <TextBlock Text="导出设置" />
                                 </StackPanel>
                             </Button>
@@ -377,7 +378,7 @@
                                 Click="OnExportCurrent" ToolTipService.ToolTip="导出当前歌词（Ctrl+S）"
                                 local:Press.Scale="0.96" local:Press.Glass="0.06">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE896;" FontSize="13" />
+                                <FontIcon x:Name="ExportCurrentIcon" Glyph="&#xE896;" FontSize="13" />
                                 <TextBlock Text="导出当前歌词" />
                             </StackPanel>
                         </Button>

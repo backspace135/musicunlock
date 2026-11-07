@@ -50,6 +50,8 @@ struct UnlockView : UnlockViewT<UnlockView> {
     /// Stops after the current file (Ctrl+.).
     void Stop();
     bool Busy() const { return queue_.running(); }
+    /// Called when the number of queued files changes, so the title bar can bounce its add-files icon.
+    void OnQueueChanged(std::function<void()> handler) { queue_changed_ = std::move(handler); }
     bool Idle() const { return imports_ == 0 && !queue_.running(); }
     /// Preview renders of a real conversion write here instead of the user's folder (and save it, so the
     /// render also checks the settings file in MUSICUNLOCK_DATA_DIR).
@@ -120,6 +122,9 @@ private:
     mu::AudioQueue queue_;
     mu::QueueFilter filter_ = mu::QueueFilter::all;
     std::string notice_;
+    std::size_t shown_jobs_ = 0;  // queue length last drawn
+    std::function<void()> queue_changed_;  // the title bar bounces its add-files icon when the queue length changes
+    bool shown_running_ = false;    // whether a conversion was on screen, so the start icon bounces at both ends
     std::filesystem::path output_directory_;
     Windows::Foundation::Collections::IObservableVector<IInspectable> items_ =
         single_threaded_observable_vector<IInspectable>();

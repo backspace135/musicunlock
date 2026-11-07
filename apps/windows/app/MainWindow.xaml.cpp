@@ -97,6 +97,10 @@ void MainWindow::InitializeComponent() {
         args.Cancel(true);
         ConfirmClose();
     });
+    Audio().OnQueueChanged([this] {
+        motion::describe(L"添加文件");
+        motion::bounce(AddFilesIcon());
+    });
     Audio().OnFindLyricsRequested([this](std::string title) {
         ShowWorkspace(false);
         Lyrics().SearchForAudio(std::move(title));

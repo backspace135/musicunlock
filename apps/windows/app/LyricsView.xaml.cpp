@@ -181,6 +181,8 @@ void LyricsView::ReadOptions() {
 
 fire_and_forget LyricsView::OnShowSettings(IInspectable const&, RoutedEventArgs const&) {
     auto strong = get_strong();
+    motion::describe(L"导出设置");
+    motion::bounce(ExportSettingsIcon());
     SyncOptions();
     SettingsDialog().XamlRoot(XamlRoot());
     try {
@@ -188,6 +190,9 @@ fire_and_forget LyricsView::OnShowSettings(IInspectable const&, RoutedEventArgs 
     } catch (hresult_error const&) {
         // Another dialog is already open.
     }
+    // Closing the dialog bounces the icon again, the same as opening it.
+    motion::describe(L"导出设置");
+    motion::bounce(ExportSettingsIcon());
 }
 
 void LyricsView::Refresh() {
@@ -207,11 +212,21 @@ void LyricsView::Refresh() {
     SessionGlyph().Glyph(signed_in ? L"\xEA18" : L"\xE774");  // Shield / Globe
     SessionText().Text(signed_in ? L"登录会话已保存" : L"公开内容可免登录读取");
 
-    Notice().Message(to_hstring(workspace_.notice()));
-    Notice().IsOpen(!workspace_.notice().empty());
-    Notice().Visibility(shown(!workspace_.notice().empty()));
+    const hstring notice = to_hstring(workspace_.notice());
+    if (!notice.empty() && (notice != Notice().Message() || Notice().Visibility() == Visibility::Collapsed)) {
+        motion::describe(L"歌词提示");
+        motion::bounce(Notice());
+    }
+    Notice().Message(notice);
+    Notice().IsOpen(!notice.empty());
+    Notice().Visibility(shown(!notice.empty()));
 
     const bool nothing = workspace_.songs().empty() && workspace_.collections().empty();
+    if (workspace_.songs().size() != shown_songs_) {
+        shown_songs_ = workspace_.songs().size();
+        motion::describe(L"搜索");
+        motion::bounce(SearchIcon());
+    }
     ResultsTitle().Text(to_hstring(workspace_.results_title()));
     ResultsSubtitle().Text(to_hstring(workspace_.results_subtitle()));
     SelectAllButton().Visibility(shown(!workspace_.songs().empty()));
@@ -257,6 +272,11 @@ void LyricsView::RefreshFooter() {
     ExportCurrentButton().Visibility(shown(!exporting));
     ExportCurrentButton().IsEnabled(workspace_.can_export_current());
     ExportActions().Update();
+    if (exporting != shown_exporting_) {
+        shown_exporting_ = exporting;
+        motion::describe(L"导出当前歌词");
+        motion::dip(ExportCurrentIcon());
+    }
 }
 
 /// Patches the bound list in place so rows keep their containers (and focus) across updates.
