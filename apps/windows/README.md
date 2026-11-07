@@ -17,14 +17,14 @@ Windows 原生版本的开发目录，与 macOS 版本在同一个 Git 仓库维
 
 ## 目录
 
-C++ 核心与它的测试、第三方库放在仓库根目录的 `shared/core/`，Android 版也将共用：
+C++ 核心与它的测试、第三方库放在仓库根目录的 `shared/core/`，与 Android 版共用：
 
 ```text
 shared/core/
 ├── include/       公共头文件 musicunlock/*.h
 ├── src/           纯 C++20 静态库：解密、标签、命名、歌词解析与导出、登录会话、网易云 / QQ 音乐接口
 │   └── platform/  平台实现：win/（CNG、DPAPI、WinHTTP、系统 ICU）、apple/（Mac 开发机：CommonCrypto、CoreFoundation）、
-│                  portable/（纯 C++ AES-128-ECB，Android 使用；CMake 选项 MU_PORTABLE_AES 让其他平台也换成它）
+│                  portable/（纯 C++ AES-128-ECB 和文字转换占位，Android 与 Linux CI 使用；CMake 选项 MU_PORTABLE_AES 让其他平台也换用这个 AES）
 ├── tests/         核心、账号、导入、队列、歌词与歌词工作区测试，读取 ../../tests/fixtures/qmc
 ├── third_party/   nlohmann/json 3.12.0（单头文件，MIT）、nayuki QR-Code-generator 1.8.0（MIT）
 └── CMakeLists.txt musicunlock_core 与 musicunlock_core_tests，按平台选择 src/platform/ 下的实现

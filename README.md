@@ -30,7 +30,7 @@ musicunlock/
 └── README.md
 ```
 
-`shared/` 下是多个平台共用的代码，目前是 C++ 核心（Windows 版在用，Android 版也将共用它）。
+`shared/` 下是多个平台共用的代码，目前是 C++ 核心（Windows 版和 Android 版共用）。
 平台源码、测试和打包脚本归各自目录管理。构建产物写入对应平台的 `build/`，不提交到 Git。
 解密逻辑已移植为原生 Swift 实现。仓库不保留上游参考源码，仅保留必需数据和测试向量；克隆后即可构建 macOS 版。
 
