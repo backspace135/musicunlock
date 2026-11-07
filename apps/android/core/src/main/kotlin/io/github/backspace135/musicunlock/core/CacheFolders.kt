@@ -18,6 +18,9 @@ internal object CacheFolders {
 
     val imports: File get() = File(current, "imports")
 
+    /** The lyric workspace's output folder in the core's eyes; exports write to staging folders and publish. */
+    val lyricExports: File get() = File(current, "lyrics")
+
     /** Runs [block] with a new, empty staging folder and deletes the folder afterwards. */
     inline fun <T> withStaging(block: (File) -> T): T {
         val folder = newStaging()

@@ -59,5 +59,7 @@ class LyricsTest {
         assertEquals(MusicLink(MusicProvider.NETEASE, SearchKind.PLAYLIST, "123"),
             Lyrics.parseLink("分享歌单 https://music.163.com/playlist?id=123 (来自网易云音乐)", MusicProvider.QQ, SearchKind.SONG))
         assertNull(Lyrics.parseLink("https://example.com/abc", MusicProvider.NETEASE, SearchKind.SONG))
+        assertEquals("周杰伦", LyricWorkspace.songArtist(song))
+        assertEquals("周杰伦 / 叶惠美", LyricWorkspace.songDetail(song))
     }
 }
