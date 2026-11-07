@@ -29,6 +29,9 @@ class AudioQueueTest {
         assertFalse(AudioFormats.isSupportedFileName(".ncm"))  // a dot file has no extension
         assertFalse(AudioFormats.isSupportedFileName("notes.txt"))
         assertEquals("网易云", AudioFormats.platformFor("ncm"))
+        assertTrue("mflac" in AudioFormats.qqExtensions && "ncm" !in AudioFormats.qqExtensions)
+        assertEquals("flac", AudioFormats.sniffAudio("fLaC".toByteArray()))
+        assertEquals(null, AudioFormats.sniffAudio(ByteArray(4)))
         assertEquals(listOf("a2", "A10", "b"), listOf("b", "A10", "a2").sortedWith(AudioFormats.naturalOrder))
         assertEquals(listOf("2.ncm", "10.ncm"), AudioFormats.sortedNaturally(listOf("10.ncm", "2.ncm")) { it })
         assertEquals("28.4 MB", AudioFormats.formatFileSize(28_400_000))
