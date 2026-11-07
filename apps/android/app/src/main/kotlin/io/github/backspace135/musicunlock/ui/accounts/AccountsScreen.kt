@@ -1,10 +1,7 @@
 package io.github.backspace135.musicunlock.ui.accounts
 
 import android.Manifest
-import android.content.ActivityNotFoundException
-import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -216,19 +213,8 @@ private fun QrLoginSheet(vm: AccountsViewModel, onOfficial: (relogin: Boolean) -
                 onClick = { onOfficial(signedIn[MusicProvider.NETEASE] == true) },
                 modifier = Modifier.fillMaxWidth(),
             )
-            val url = update?.url
-            if (url != null && (state == QrLoginState.WAITING || state == QrLoginState.SCANNED)) {
-                SecondaryButton(
-                    text = stringResource(R.string.accounts_qr_open_action),
-                    onClick = {
-                        try {
-                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                        } catch (_: ActivityNotFoundException) {
-                            AccountFeedback.show(context.getString(R.string.accounts_qr_open_failed))
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            // "在网易云音乐中打开" was removed: on this phone ACTION_VIEW opens the browser, not the NetEase app.
+            if (update?.url != null && (state == QrLoginState.WAITING || state == QrLoginState.SCANNED)) {
                 SecondaryButton(
                     text = stringResource(R.string.accounts_qr_save_action),
                     onClick = {
@@ -298,7 +284,7 @@ private fun StatusLine(update: QrLoginUpdate?) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(MuSpacing.s)) {
         if (state == QrLoginState.LOADING) {
             MuSpinner(size = 16.dp)
-        } else {
+        } else if (state != QrLoginState.WAITING) {
             Icon(qrIcon(state), contentDescription = null, modifier = Modifier.size(16.dp), tint = MuTheme.colors.text)
         }
         Text(message, style = MuTheme.type.body, textAlign = TextAlign.Center)
@@ -306,7 +292,7 @@ private fun StatusLine(update: QrLoginUpdate?) {
 }
 
 private fun qrIcon(state: QrLoginState): ImageVector = when (state) {
-    QrLoginState.LOADING, QrLoginState.WAITING -> MuIcons.QrCode
+    QrLoginState.LOADING, QrLoginState.WAITING -> MuIcons.Phone
     QrLoginState.SCANNED -> MuIcons.Phone
     QrLoginState.CONFIRMED -> MuIcons.Check
     QrLoginState.EXPIRED -> MuIcons.Refresh

@@ -89,16 +89,6 @@ object MuIcons {
                 "M17,6v8.18c-0.31,-0.11 -0.65,-0.18 -1,-0.18 -1.66,0 -3,1.34 -3,3s1.34,3 3,3 3,-1.34 3,-3V8h3V6h-5z",
         )
     }
-    /** QR code, for the NetEase login status row. */
-    val QrCode: ImageVector by lazy {
-        material(
-            "QrCode",
-            "M3,11h8V3H3V11zM5,5h4v4H5V5zM3,21h8v-8H3V21zM5,15h4v4H5V15zM13,3v8h8V3H13zM19,9h-4V5h4V9z" +
-                "M13,13h2v2h-2V13zM15,15h2v2h-2V15zM13,17h2v2h-2V17zM17,13h2v2h-2V13zM19,15h2v2h-2V15z" +
-                "M17,17h2v2h-2V17zM19,19h2v2h-2V19zM15,19h2v2h-2V19z",
-        )
-    }
-
     /** Phone, for "scanned, confirm on the phone". */
     val Phone: ImageVector by lazy {
         material(
