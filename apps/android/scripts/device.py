@@ -5,6 +5,7 @@
     python apps/android/scripts/device.py pair <ip:port> <pairing code>
     python apps/android/scripts/device.py connect <ip:port>
     python apps/android/scripts/device.py install               # build this branch's debug APK, install, start it
+    python apps/android/scripts/device.py start                 # bring this branch's installed app to the front
     python apps/android/scripts/device.py uninstall
     python apps/android/scripts/device.py logcat [--dump]       # only this branch's app
     python apps/android/scripts/device.py screenshot <name>     # build/screenshots/<name>.png
@@ -115,7 +116,16 @@ def install(env: dict, serial: str, suffix: str) -> None:
     if adb(env, serial, "install", "-r", str(apk)).returncode != 0:
         sys.exit("安装失败。签名不一致（INSTALL_FAILED_UPDATE_INCOMPATIBLE）时先运行 device.py uninstall；"
                  "INSTALL_FAILED_USER_RESTRICTED 是手机拒绝了 USB 安装，需要在手机上确认（小米：开发者选项 → USB 安装）")
-    adb(env, serial, "shell", "am", "start", "-n", f"{package}/{APPLICATION_ID}.MainActivity", check=True)
+    start(env, serial, package)
+
+
+def start(env: dict, serial: str, package: str) -> None:
+    result = adb(env, serial, "shell", "am", "start", "-W", "-n", f"{package}/{APPLICATION_ID}.MainActivity",
+                 capture_output=True)
+    print(result.stdout.strip(), flush=True)
+    # am start reports a missing activity on stdout with exit code 0.
+    if result.returncode != 0 or "Error" in result.stdout:
+        sys.exit(f"无法启动 {package}；没有安装时先运行 device.py install")
 
 
 INPUT_ACTIONS = {"tap", "swipe", "text", "keyevent"}
@@ -160,6 +170,7 @@ def main() -> None:
     connect = commands.add_parser("connect", help="connect to a paired phone over Wi-Fi")
     connect.add_argument("address", help="ip:port shown under Wireless debugging")
     commands.add_parser("install", help="build this branch's debug APK, install it and start it")
+    commands.add_parser("start", help="start this branch's installed app, or bring it to the front")
     commands.add_parser("uninstall", help="uninstall this branch's app")
     logcat = commands.add_parser("logcat", help="show this branch's app's log")
     logcat.add_argument("--dump", action="store_true", help="print the current log and exit instead of following")
@@ -195,6 +206,8 @@ def main() -> None:
     package = f"{APPLICATION_ID}.{suffix}"
     if args.command == "install":
         install(env, serial, suffix)
+    elif args.command == "start":
+        start(env, serial, package)
     elif args.command == "uninstall":
         sys.exit(adb(env, serial, "uninstall", package).returncode)
     elif args.command == "logcat":

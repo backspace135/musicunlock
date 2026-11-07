@@ -526,6 +526,7 @@ python3 apps/android/scripts/device.py devices                    # 已连接的
 python3 apps/android/scripts/device.py pair <ip:port> <配对码>     # 无线调试首次配对（手机：开发者选项 → 无线调试 → 使用配对码配对）
 python3 apps/android/scripts/device.py connect <ip:port>          # 连接已配对的手机
 python3 apps/android/scripts/device.py install                    # 编当前分支的 debug 版，安装并启动
+python3 apps/android/scripts/device.py start                      # 启动已装的当前分支那一份（或切回前台），不重新编译
 python3 apps/android/scripts/device.py uninstall                  # 卸载当前分支装的那一份
 python3 apps/android/scripts/device.py logcat [--dump]            # 只看当前分支那一份 App 的日志；--dump 输出现有日志后退出
 python3 apps/android/scripts/device.py screenshot <名字>           # 截图存到 build/screenshots/<名字>.png
