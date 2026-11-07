@@ -22,7 +22,8 @@ apps/android/
 │   ├── src/androidTest/  instrumented tests（在模拟器上跑）
 │   └── consumer-rules.pro  R8 保留清单：C++ 按名字调用的 Kotlin 类和方法
 ├── gradle/        Gradle wrapper 与版本目录 libs.versions.toml（NDK、CMake 的版本也写在这里）
-└── scripts/       build.py：编译 APK，在主机和模拟器上跑核心测试
+└── scripts/       build.py：编译 APK、跑核心测试；device.py：装到设备和调试；setup_toolchain.py：安装工具链；
+                   android_env.py：三者共用的环境设置
 ```
 
 ## 架构
@@ -256,27 +257,50 @@ val needed = OutputFolders.requiredPermissions(settings.outputFolder)
 
 ## 环境要求
 
-- JDK 21
-- Android SDK：`platforms;android-37.0`、`build-tools`、`platform-tools`；在模拟器上运行还需要
-  `emulator` 和 `system-images;android-37.0;google_apis;arm64-v8a`
-- NDK 和 CMake：版本固定在 `gradle/libs.versions.toml`（`ndk`、`cmake`），用 sdkmanager 装进上面的 SDK：
-
-  ```sh
-  sdkmanager "ndk;30.0.16248370" "cmake;4.1.2"
-  ```
-
-  CMake 自带 Ninja；`build.py` 编核心测试时也用这两个版本，不用系统里的。
-- 在主机上跑核心测试需要 C++20 编译器（Mac 用 Xcode 命令行工具的 clang）
 - Python 3.10+
+- JDK 21、Android SDK（`platforms;android-37.0`、`platform-tools`），以及固定在 `gradle/libs.versions.toml` 里的
+  build-tools、NDK 和 CMake（`buildTools`、`ndk`、`cmake`）。CMake 自带 Ninja；`build.py` 编核心测试时也用这两个
+  版本，不用系统里的。都由 `scripts/setup_toolchain.py` 安装，见下一节。
+- 在模拟器上运行还需要 `emulator` 和 `system-images;android-37.0;google_apis;arm64-v8a`（只在 Mac 上用）
+- 在主机上跑核心测试需要 C++20 编译器（Mac 用 Xcode 命令行工具的 clang）
 
-`build.py` 优先使用环境变量 `JAVA_HOME` 和 `ANDROID_HOME`，没有设置时：
+## 工具链
 
-| 主机 | JDK | Android SDK |
-| --- | --- | --- |
-| macOS | `~/jdk/jdk-21.0.11+10/Contents/Home` | `~/Library/Android/sdk` |
-| Windows | 必须设置 `JAVA_HOME` | `%LOCALAPPDATA%\Android\Sdk` |
+```sh
+python apps/android/scripts/setup_toolchain.py             # Windows：装仓库内工具链
+python3 apps/android/scripts/setup_toolchain.py            # Mac：把缺的包装进 ~/Library/Android/sdk
+python3 apps/android/scripts/setup_toolchain.py --in-repo  # Mac / Linux：也改用仓库内工具链
+```
 
-Windows 主机上 Gradle 和 SDK 工具的缓存（`GRADLE_USER_HOME`、`ANDROID_USER_HOME`）放在 `build/` 下，不写用户目录。
+可以重复运行，已经装好的部分直接跳过。
+
+**仓库内工具链**放在**主检出**的 `build/android-toolchain/`（`git rev-parse --git-common-dir` 的上一级），同一个仓库的
+所有工作树共用一份，NDK 只下载一次，调试签名和 adb 配对也只有一套：
+
+| 目录 | 内容 |
+| --- | --- |
+| `jdk-21.0.11+10/` | Temurin JDK 21，下载后按脚本里写死的 SHA-256 校验 |
+| `sdk/` | Android SDK：命令行工具 23.0（同样校验 SHA-256），再由它装 platform-tools 和版本目录里固定的包，许可由脚本同意 |
+| `gradle-home/` | `GRADLE_USER_HOME`：Gradle 发行版、依赖缓存、守护进程 |
+| `android-user-home/` | `ANDROID_USER_HOME`：调试签名 `debug.keystore`、SDK 工具的设置和 Android CLI |
+| `adb-home/` | adb 的日志；Mac / Linux 上 adb 的 `HOME`，密钥在 `adb-home/.android/` |
+| `downloads/` | 下载的压缩包 |
+| `tmp/` | `TMP` / `TEMP` |
+
+`scripts/android_env.py` 是 `build.py`、`device.py`、`setup_toolchain.py` 共用的环境设置：Windows 上总是用仓库内
+工具链；Mac 和 Linux 上装过 `--in-repo` 就用它，否则用 `JAVA_HOME` / `ANDROID_HOME`，没有设置时用
+`~/jdk/jdk-21.0.11+10/Contents/Home` 和 `~/Library/Android/sdk`。用仓库内工具链时 Kotlin 在 Gradle 进程里编译
+（单独的 Kotlin 守护进程会往用户的应用数据目录写文件），临时文件（`TMP` / `TEMP`）也放在工具链的 `tmp/`：
+所有工作树共用一个 Gradle 守护进程，它会一直占着启动时那个临时目录里的文件，放在工作树里就删不掉那个工作树。
+不用仓库内工具链时，临时文件在当前检出的 `apps/android/build/tmp/`。环境变量 `MUSICUNLOCK_ANDROID_TOOLCHAIN` 可以把工具链换到别的目录。
+
+`build.py` 和 `setup_toolchain.py` 开头会打印 `JAVA_HOME`、`ANDROID_HOME`、`GRADLE_USER_HOME`、`ANDROID_USER_HOME`、
+`TMP`，确认缓存位置看这几行（或 Gradle `--info` 输出里的路径）即可。
+
+adb 不认 `ANDROID_USER_HOME`。Mac / Linux 上脚本只给 adb 子进程改 `HOME`；Windows 上 adb 通过系统接口
+（`SHGetFolderPath(CSIDL_PROFILE)`）取用户目录，`USERPROFILE` 等环境变量都改不了，它的密钥和配置只能放在
+`%USERPROFILE%\.android\`（g16win 上的例外见下文）。adb 的后台服务从工具链目录启动，日志也写在那里，不会占住
+要删除的工作树。
 
 ## 构建
 
@@ -287,17 +311,65 @@ python3 apps/android/scripts/build.py                   # debug APK + 主机上�
 python3 apps/android/scripts/build.py --config release  # release APK（未签名）+ 主机上的核心测试
 python3 apps/android/scripts/build.py --no-test         # 只编 APK
 python3 apps/android/scripts/build.py --device --serial emulator-5554  # 另外在 arm64 模拟器上跑核心测试
+python3 apps/android/scripts/build.py --suffix unlock   # debug 版带后缀：io.github.backspace135.musicunlock.unlock
 ```
 
 产物在 `apps/android/build/app/outputs/apk/<debug|release>/`。所有构建产物、临时文件都写在 `apps/android/build/`，
 不提交到 Git。
 
-装到正在运行的模拟器上（连着多台设备时用 `-s` 指定）：
+## 在设备上安装和调试
+
+`scripts/device.py` 通过 adb 操作手机或模拟器（在仓库根目录运行；Windows 用 `python`）：
 
 ```sh
-adb -s emulator-5554 install -r apps/android/build/app/outputs/apk/debug/app-debug.apk
-adb -s emulator-5554 shell am start -n io.github.backspace135.musicunlock/.MainActivity
+python3 apps/android/scripts/device.py devices                    # 已连接的设备
+python3 apps/android/scripts/device.py pair <ip:port> <配对码>     # 无线调试首次配对（手机：开发者选项 → 无线调试 → 使用配对码配对）
+python3 apps/android/scripts/device.py connect <ip:port>          # 连接已配对的手机
+python3 apps/android/scripts/device.py install                    # 编当前分支的 debug 版，安装并启动
+python3 apps/android/scripts/device.py uninstall                  # 卸载当前分支装的那一份
+python3 apps/android/scripts/device.py logcat [--dump]            # 只看当前分支那一份 App 的日志；--dump 输出现有日志后退出
+python3 apps/android/scripts/device.py screenshot <名字>           # 截图存到 build/screenshots/<名字>.png
+python3 apps/android/scripts/device.py test                       # instrumented tests，然后是 musicunlock_core_tests
+python3 apps/android/scripts/device.py pull <手机路径> build/<目录>/  # 只能拉到仓库根目录的 build/ 下
+python3 apps/android/scripts/device.py shell -- <命令>             # 在设备上运行命令
 ```
+
+- **每个分支装自己的一份**：分支名最后一段做 applicationIdSuffix 和桌面名称，`android/unlock` 装成
+  `io.github.backspace135.musicunlock.unlock`，显示为“音匣 (unlock)”，几个会话可以同时装在一台手机上。
+  不合法的字符换成 `_`（`android/device-survey` → `.device_survey`）。`--suffix` 可以直接指定；工作树处于
+  detached HEAD 时用环境变量 `MUSICUNLOCK_ANDROID_BRANCH` 给出分支名（`remote.py` 会设置）。release 版不加后缀。
+- 连着多台设备时用 `--serial` 指定（放在子命令前面，如 `device.py --serial emulator-5554 install`），
+  否则用 `ANDROID_SERIAL`，再没有就要求恰好只有一台在线。
+- `logcat` 按 App 的 uid 过滤（Android 11 以下按当前进程）。
+- `test` 用 Gradle 的 `connectedDebugAndroidTest`（只在选中的设备上跑），核心测试推到
+  `/data/local/tmp/musicunlock-core-tests-<后缀>/`，跑完删除。Gradle 跑完 instrumented tests 会卸载它装的 App，
+  之后需要的话重新 `install`。
+- 小米手机安装时报 `INSTALL_FAILED_USER_RESTRICTED`：需要在手机上确认，或者打开“开发者选项 → USB 安装”。
+
+## 在 g16win 上远程编译
+
+**访问范围的唯一例外（2026-11-07 用户批准）：** g16win 上只能动 `D:\project\musicunlock` 和开发工具链，缓存、下载、
+临时文件都在仓库 `build/` 下。adb 是例外：Windows 版 adb 只认用户目录，允许它在 `%USERPROFILE%\.android\` 下写
+配对密钥（`adbkey`、`adbkey.pub`）和它自己的少量配置（如无线调试记录 `adb_known_hosts.pb`）。这个目录里的其他
+东西不读、不改，也不要手动查看或清理它；其余访问规则不变。
+
+Mac 上的会话可以用 `apps/windows/scripts/remote.py` 把当前工作区同步到 g16win 的独立工作树
+（`D:\project\musicunlock\.worktrees\<分支>`），在那里编译、装到连着 g16win 的手机：
+
+```sh
+python3 apps/windows/scripts/remote.py android-setup               # 在 g16win 上装仓库内工具链（所有工作树共用）
+python3 apps/windows/scripts/remote.py android-build [-- --no-test]  # build.py
+python3 apps/windows/scripts/remote.py android-install             # device.py install，后缀取 Mac 上的分支名
+python3 apps/windows/scripts/remote.py android-screenshot <名字>    # 截图并取回到 Mac 的 build/screenshots/
+python3 apps/windows/scripts/remote.py android-device -- logcat --dump  # 其他 device.py 命令
+python3 apps/windows/scripts/remote.py remove                      # 用完删掉 g16win 上的工作树
+```
+
+在最深的工作树路径（如 `.worktrees\g16-android-device-survey`）里编译和跑 `device.py test` 都没问题，但 AGP 的
+中间文件路径会超过 260 个字符（实测最长 262，在 `build\core\intermediates\desugar_graph\debugAndroidTest\…`）。
+Java 能处理这么长的路径，git 默认处理不了，所以删除工作树要用
+`git -c core.longpaths=true worktree remove --force <工作树>`（`remote.py remove` 已经这样做），不需要改系统的
+长路径设置。
 
 ## 核心测试
 

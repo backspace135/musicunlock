@@ -7,11 +7,19 @@
     python3 apps/windows/scripts/remote.py screenshot [--convert] [--dist|--single [--shortcut plain|app-id]]
     python3 apps/windows/scripts/remote.py list | remove
 
+    python3 apps/windows/scripts/remote.py android-setup           # setup_toolchain.py (shared by all worktrees)
+    python3 apps/windows/scripts/remote.py android-build [-- <build.py options>]
+    python3 apps/windows/scripts/remote.py android-install         # device.py install on the phone at g16win
+    python3 apps/windows/scripts/remote.py android-screenshot <name>
+    python3 apps/windows/scripts/remote.py android-device -- <device.py command>
+
 Each branch gets D:\\project\\musicunlock\\.worktrees\\<branch>, so parallel sessions never share a
 checkout, a build folder or (with screenshot.py's per-checkout names) a render desktop. Syncing commits
 a snapshot of the whole working tree (tracked and untracked files, minus .gitignore) through a temporary
 index, pushes it to refs/heads/wt/<branch> and checks it out there; your index and branches are left
-alone. Commands run in <worktree>/apps/windows with NuGet packages in a store shared by all worktrees.
+alone. Commands run in <worktree>/apps/windows with NuGet packages in a store shared by all worktrees;
+Android commands run at the worktree root and pass the branch name on, since the worktree is detached and
+device.py names the installed copy after the branch.
 """
 from pathlib import Path
 import argparse
@@ -50,8 +58,9 @@ def windows_path(posix: str) -> str:
 
 
 class Remote:
-    def __init__(self, remote: str, name: str):
+    def __init__(self, remote: str, name: str, branch: str):
         self.remote = remote
+        self.branch = branch
         self.host, self.repo = remote_location(remote)
         self.name = name
         self.ref = f"wt/{name}"
@@ -94,6 +103,20 @@ echo "synced {commit[:10]} to {self.worktree}"
                   + shlex.join(command))
         return self.ssh(script, check=False).returncode
 
+    def run_android(self, script: str, *args: str) -> int:
+        """Run apps/android/scripts/<script> with args from the worktree root."""
+        command = (f"cd {shlex.quote(self.worktree)} && "
+                   f"export MUSICUNLOCK_ANDROID_BRANCH={shlex.quote(self.branch)} PYTHONUTF8=1 && "
+                   + shlex.join(["python", f"apps/android/scripts/{script}", *args]))
+        return self.ssh(command, check=False).returncode
+
+    def fetch(self, path: str, local: Path) -> Path:
+        """Copy a file from the worktree (path relative to its root)."""
+        data = self.ssh(f"cat {shlex.quote(self.worktree + '/' + path)}", capture_output=True).stdout
+        local.parent.mkdir(parents=True, exist_ok=True)
+        local.write_bytes(data)
+        return local
+
     def fetch_previews(self) -> Path:
         local = WINDOWS / "build" / "previews"
         shutil.rmtree(local, ignore_errors=True)
@@ -105,7 +128,8 @@ echo "synced {commit[:10]} to {self.worktree}"
 
     def remove(self) -> None:
         wt = shlex.quote(self.worktree)
-        self.ssh(f"cd {shlex.quote(self.repo)} && git worktree remove --force {wt}; "
+        # Android builds leave paths longer than 260 characters, which git deletes only with core.longpaths.
+        self.ssh(f"cd {shlex.quote(self.repo)} && git -c core.longpaths=true worktree remove --force {wt}; "
                  f"git branch -q -D {self.ref} 2>/dev/null; git worktree prune; true")
 
 
@@ -126,6 +150,14 @@ def main() -> None:
     shape.add_argument("--single", action="store_true", help="pack build/dist/MusicUnlock.exe and render through it")
     shot.add_argument("--shortcut", choices=["plain", "app-id"],
                       help="with --single: start it from a shortcut without or with the app's AppUserModelID")
+    commands.add_parser("android-setup", help="sync, then install the Android toolchain into the repository")
+    android_build = commands.add_parser("android-build", help="sync, then apps/android/scripts/build.py")
+    android_build.add_argument("argv", nargs=argparse.REMAINDER)
+    commands.add_parser("android-install", help="sync, then install this branch's debug build on the phone")
+    android_shot = commands.add_parser("android-screenshot", help="screenshot the phone into build/screenshots/")
+    android_shot.add_argument("shot", metavar="name")  # not "name": that is the worktree option
+    android_device = commands.add_parser("android-device", help="sync, then run a device.py command")
+    android_device.add_argument("argv", nargs=argparse.REMAINDER)
     commands.add_parser("list", help="list worktrees on the Windows machine")
     commands.add_parser("remove", help="delete this branch's worktree")
     args = parser.parse_args()
@@ -133,7 +165,7 @@ def main() -> None:
     branch = args.name or git("rev-parse", "--abbrev-ref", "HEAD")
     if branch == "HEAD":
         sys.exit("当前不在分支上，请用 --name 指定工作树名称")
-    remote = Remote(args.remote, re.sub(r"[^A-Za-z0-9._-]+", "-", branch).strip("-"))
+    remote = Remote(args.remote, re.sub(r"[^A-Za-z0-9._-]+", "-", branch).strip("-"), branch)
 
     if args.command == "list":
         remote.ssh(f"git -C {shlex.quote(remote.repo)} worktree list")
@@ -144,6 +176,24 @@ def main() -> None:
     remote.sync()
     if args.command == "sync":
         return
+    if args.command.startswith("android-"):
+        extra = getattr(args, "argv", [])
+        extra = extra[1:] if extra[:1] == ["--"] else extra
+        if args.command == "android-setup":
+            sys.exit(remote.run_android("setup_toolchain.py"))
+        if args.command == "android-build":
+            sys.exit(remote.run_android("build.py", *extra))
+        if args.command == "android-install":
+            sys.exit(remote.run_android("device.py", "install"))
+        if args.command == "android-device":
+            if not extra:
+                sys.exit("请在 -- 后面给出 device.py 的命令")
+            sys.exit(remote.run_android("device.py", *extra))
+        name = args.shot.removesuffix(".png")
+        code = remote.run_android("device.py", "screenshot", name)
+        if code == 0:
+            print(f"截图已取回：{remote.fetch(f'build/screenshots/{name}.png', ROOT / 'build' / 'screenshots' / f'{name}.png')}")
+        sys.exit(code)
     if args.command == "run":
         command = args.argv[1:] if args.argv[:1] == ["--"] else args.argv
         if not command:
