@@ -404,5 +404,5 @@ JAVA_HOME=~/jdk/jdk-21.0.11+10/Contents/Home ANDROID_HOME=~/Library/Android/sdk 
 
 ## CI
 
-`.github/workflows/android.yml` 在 Ubuntu 上装固定版本的 NDK 和 CMake，编 debug / release APK，并在主机上跑核心测试
-（portable AES），上传 debug APK。改动 `apps/android/`、`shared/`、`tests/fixtures/` 或 `resources/kgm.mask` 时触发。
+`.github/workflows/android.yml` 在 Ubuntu 上装固定版本的 NDK 和 CMake，编 debug / release APK，在主机上跑核心测试
+（portable AES）和 `:app` 的 JVM 单元测试，上传 debug APK。`:core` 只有 instrumented tests，需要模拟器，CI 不跑。改动 `apps/android/`、`shared/`、`tests/fixtures/` 或 `resources/kgm.mask` 时触发。
