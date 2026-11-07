@@ -228,6 +228,29 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
 - `screenshot.py` 的计划任务名和桌面名带有按工作树路径算出的后缀，两个工作树可以同时截图。
 - 工作树目录已加入 `.gitignore`，远端主检出也在 `.git/info/exclude` 里忽略它。
 
+## 玻璃界面基础
+
+液态玻璃界面（总控 #57）的三套公共接口在 `app/` 下，签名在 #59 里定死。A–F 只调用这些接口；真正的玻璃材质由 #60 填进 `GlassSurface`，连续曲率由 #61 填进 `corners`，两边都不改签名。
+
+- `SpringCurve.h`：SwiftUI `spring(response:dampingFraction:)` 的单位质量阻尼谐振子，纯 C++20，Mac 上的 `python scripts/build.py` 也会跑 `tests/ui_math_tests.cpp`。`value` 给出从 0 走到 1 的位移，`settle_time` 是之后与终值的差恒小于 ε 的最早时刻，`keyframes` 按帧采样成归一化关键帧。
+- `GlassMotion.h`：唯一的参数表，与 macOS `Theme.swift` 的 `GlassMotion` 一一对应。数值是社区对 iOS 26 的估算，不是实测，改动时两端一起改：
+
+  | 名称 | 用途 | response | damping |
+  | --- | --- | --- | --- |
+  | `open` | 菜单从按钮长出 | 0.32 | 0.78 |
+  | `close` | 菜单缩回按钮 | 0.26 | 1 |
+  | `lens` | 切换开关透镜移动 | 0.3 | 0.72 |
+  | `press` | 透镜按下放大 | 0.22 | 0.6 |
+  | `highlight` | 菜单行高亮滑动 | 0.2 | 0.85 |
+  | `workspace` | 工作区切换 | 0.5 | 0.85 |
+  | `pressable` | 普通按钮按下回弹 | 0.3 | 0.5 |
+  | `footer` | 底栏按钮出现、消失、变形 | 0.45 | 0.8 |
+  | `selection` | 歌词结果选中高亮滑动 | 0.35 | 0.8 |
+
+  `handoff` 不是弹簧：菜单面板与按钮交叉淡化，easeInOut 0.08 秒，相对 `close` 开始延迟 0.12 秒。`scalar` / `vector2` / `vector3` 用 `SpringCurve` 的关键帧生成组合动画，起点取属性当前值，所以中途被打断不会跳；`motion::enabled()` 为 false 时返回空，调用方直接设终值。不用 `SpringNaturalMotionAnimation`，它的 `Period` 与 `response` 没有文档化的换算。
+- `GlassSurface`（`GlassSurface.idl`）：所有玻璃表面的控件，派生自 `ContentControl`（`Border` 不是可组合的运行时类）。`Kind` 区分面板、控件和弹出菜单，`Radius` 为负时是高度一半的胶囊，`TintOpacity` 叠加 `MuTextColor`，`OnGlass` 表示已经放在另一块玻璃上。内容放在 `ContentPresenter` 里，背景由控件模板绘制，不参与内容的布局。现在是占位：面板用 `MuPanelBrush`，控件、菜单和 `OnGlass` 用不透明的 `MuSurfaceBrush`，都加 1px `MuSeparatorBrush` 描边，菜单另加阴影。画刷用 `ThemeResource`，跟随元素请求的主题。目前只替换了音乐解锁工作区的底栏，观感与原来的 `MuPanelStyle` 一致。
+- `Corners.h`：`geometry`、`clip`、`stroke` 三个入口。`radius` 夹到 `min(w, h) / 2`，到达时是正圆端的胶囊。占位实现是普通圆弧圆角。`GlassSurface` 的占位外观沿用 `Border` 的圆角和描边，没有调用 `clip`：组合裁剪会把 `Border` 的描边一并切掉，真正的超椭圆由 #61 连同描边一起替换。
+
 ## 界面设计对应
 
 布局、文案和交互沿用 [macOS 版 DESIGN.md](../macos/DESIGN.md)：左侧转换队列，右侧 268 px 导出设置，底栏显示状态与操作。
