@@ -13,7 +13,7 @@ data class MuColors(
     val background: Color,
     /** Cards, row groups, the bottom navigation and footers. */
     val surface: Color,
-    /** Bottom sheets, dialogs and menus, which float above surfaces. */
+    /** Dialogs and menus, which float above surfaces. (Bottom sheets use [background], like a page.) */
     val elevated: Color,
     /** Main text, primary actions and state glyphs. */
     val text: Color,

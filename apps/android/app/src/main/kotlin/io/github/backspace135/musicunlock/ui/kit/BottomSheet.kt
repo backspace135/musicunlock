@@ -63,7 +63,8 @@ import kotlinx.coroutines.launch
  * the finger's velocity and snaps open or closed; the scrim darkens and clears with the sheet's position.
  * Tapping the scrim, dragging it down, or system back calls [onDismissRequest]; set [visible] to false
  * there. The sheet is at most 92 % of the screen tall; put long content in a `LazyColumn` or
- * `Column(Modifier.verticalScroll(...))`.
+ * `Column(Modifier.verticalScroll(...))`. The sheet has the page background, so [ListGroup]s inside it look
+ * the same as on a page.
  */
 @Composable
 fun MuBottomSheet(
@@ -143,7 +144,7 @@ fun MuBottomSheet(
                         alpha = if (state.height == 0f) 0f else 1f
                     }
                     .clip(MuShapes.sheet)
-                    .background(colors.elevated)
+                    .background(colors.background)
                     .semantics { if (title != null) paneTitle = title }
                     .nestedScroll(connection)
                     .draggable(
