@@ -69,6 +69,8 @@ def android_environment(base: dict | None = None, check: bool = True) -> dict:
         java, sdk = TOOLCHAIN_JDK, TOOLCHAIN_SDK
         env["GRADLE_USER_HOME"] = str(TOOLCHAIN / "gradle-home")
         env["ANDROID_USER_HOME"] = str(TOOLCHAIN / "android-user-home")
+        # A separate Kotlin daemon would keep its run files in the user's application data folder.
+        env["ORG_GRADLE_PROJECT_kotlin.compiler.execution.strategy"] = "in-process"
         for legacy in ["ANDROID_SDK_HOME", "ANDROID_PREFS_ROOT"]:
             env.pop(legacy, None)
         setup = "python apps/android/scripts/setup_toolchain.py"
