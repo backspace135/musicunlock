@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include <winrt/MusicUnlock.h>
 #include "GlassSurface.h"
 #if __has_include("GlassSurface.g.cpp")
 #include "GlassSurface.g.cpp"
@@ -48,6 +49,8 @@ GlassSurface::GlassSurface() {
     // A panel is not a control of its own; only its content belongs in the tab order.
     IsTabStop(false);
     Loaded({this, &GlassSurface::OnLoaded});
+    // 胶囊半径需要随布局高度更新。
+    SizeChanged({this, &GlassSurface::OnSized});
 }
 
 void GlassSurface::Kind(MusicUnlock::GlassKind value) { SetValue(kind_property_, box_value(value)); }
@@ -80,16 +83,17 @@ void GlassSurface::Apply() {
     if (!IsLoaded()) return;
     // Placeholder paints, matching MuPanelStyle until issue #60 supplies the material. Panel keeps the
     // translucent brush from the template; controls, menus and anything already on glass are opaque.
-    if (auto plate = GetTemplateChild(L"Plate").try_as<Controls::Border>()) {
-        if (kind_ != MusicUnlock::GlassKind::Panel || on_glass_) {
-            plate.Background(Application::Current().Resources().TryLookup(box_value(L"MuSurfaceBrush")).try_as<Media::Brush>());
-        }
+    auto plate = GetTemplateChild(L"Plate").try_as<Controls::Border>();
+    if (plate && (kind_ != MusicUnlock::GlassKind::Panel || on_glass_)) {
+        plate.Background(Application::Current().Resources().TryLookup(box_value(L"MuSurfaceBrush")).try_as<Media::Brush>());
     }
 
     // A negative radius is a capsule: half the laid-out height, the panel radius until the first layout.
     const double height = ActualHeight();
     const float radius = radius_ < 0 && height > 0 ? static_cast<float>(height / 2.0) : static_cast<float>(std::max(radius_, 0.0));
     CornerRadius(CornerRadiusHelper::FromRadii(radius, radius, radius, radius));
+    // 与普通元素共用裁剪和描边；负半径明确要求正圆端胶囊。
+    if (plate) MusicUnlock::Corners::SetRadius(plate, radius_ < 0 ? radius + 1.f : radius);
 
     if (kind_ == MusicUnlock::GlassKind::Menu && !on_glass_) {
         if (!menu_shadow_) menu_shadow_ = Media::ThemeShadow();
@@ -111,5 +115,7 @@ void GlassSurface::Apply() {
 }
 
 void GlassSurface::OnLoaded(IInspectable const&, RoutedEventArgs const&) { Apply(); }
+
+void GlassSurface::OnSized(IInspectable const&, SizeChangedEventArgs const&) { Apply(); }
 
 }  // namespace winrt::MusicUnlock::implementation

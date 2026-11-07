@@ -41,6 +41,7 @@ private:
 
     void Apply();
     void OnLoaded(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
+    void OnSized(IInspectable const&, Microsoft::UI::Xaml::SizeChangedEventArgs const&);
 
     MusicUnlock::GlassKind kind_ = MusicUnlock::GlassKind::Panel;
     double radius_ = 20.0;
