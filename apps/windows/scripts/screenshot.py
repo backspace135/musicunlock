@@ -119,6 +119,8 @@ def check_taskbar(output: Path, single_exe: Path | None) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--convert", action="store_true", help="import and convert sample files, then capture")
+    parser.add_argument("--motion", metavar="SCENARIO",
+                        help="record the named motion scenarios (comma separated, or 'all') instead of the still previews")
     shape = parser.add_mutually_exclusive_group()
     shape.add_argument("--dist", action="store_true", help="run build/dist/MusicUnlock from stage_app.py")
     shape.add_argument("--single", action="store_true", help="run the single build/dist/MusicUnlock.exe from pack.py")
@@ -152,6 +154,9 @@ def main() -> None:
             dropped.parent.mkdir(parents=True)
             dropped.write_bytes(bytes(b ^ 0xA3 for b in audio))
             arguments.append(str(dropped))
+    if args.motion:
+        # Last, so desktop_shot can tell it apart from a file to convert.
+        arguments += ["--motion", args.motion]
     definition = BUILD / "tmp" / f"{TASK}.xml"
     definition.write_text(task_xml(helper, arguments, os.environ["USERNAME"]), encoding="utf-16")
     subprocess.run(["schtasks", "/Create", "/TN", TASK, "/XML", str(definition), "/F"], check=True, capture_output=True)
@@ -166,6 +171,9 @@ def main() -> None:
         subprocess.run(["schtasks", "/Delete", "/TN", TASK, "/F"], capture_output=True)
     if not done.exists():
         sys.exit("截图超时；计划任务已删除")
+    query = subprocess.run(["schtasks", "/Query", "/TN", TASK], capture_output=True)
+    if query.returncode == 0:
+        sys.exit("计划任务没有删除干净")
     exit_code = done.read_text().strip()
     print("app exit:", exit_code)
     log = output / "app.log"
@@ -173,6 +181,15 @@ def main() -> None:
         print(log.read_text(encoding="utf-8-sig"))
     if exit_code != "0x00000000":
         sys.exit(f"App 异常退出（{exit_code}），见上面 app.log 里的 crash 记录")
+    if args.motion:
+        # No still previews and no WebView2 in a motion run; the logs are the whole result.
+        logs = sorted((output / "motion").glob("*.log"))
+        if not logs:
+            sys.exit("动效场景没有输出")
+        for log in logs:
+            print(f"\n== {log.relative_to(output)}")
+            print(log.read_text(encoding="utf-8"))
+        return
     if args.single:
         launcher_log = output / "launcher.log"
         text = launcher_log.read_text(encoding="utf-8-sig") if launcher_log.exists() else ""

@@ -74,6 +74,8 @@ GitHub Actions（`.github/workflows/windows.yml`）在 windows-2022 上执行同
 python scripts/build_app.py          # 恢复 NuGet 包并用 MSBuild 编译，产物在 build/app-release/
 python scripts/screenshot.py         # 两个工作区、弹出层、大字体、高对比度与账号登录对话框的预览，输出到 build/previews/
 python scripts/screenshot.py --convert   # 另外导入并实际转换示例文件，逐字节核对输出
+python scripts/screenshot.py --motion all            # 记录全部动效场景，输出到 build/previews/motion/
+python scripts/screenshot.py --motion workspace,drop  # 只记录列出的场景
 python scripts/stage_app.py [--zip]  # 整理分发目录 build/dist/MusicUnlock/，--zip 另外打包并报告体积
 python scripts/screenshot.py --dist [--convert]   # 用分发目录里的 App 渲染预览
 ```
@@ -100,6 +102,13 @@ python scripts/screenshot.py --dist [--convert]   # 用分发目录里的 App �
 - App 崩溃时（访问冲突等 XAML 收不到的异常）把异常代码、出错模块和调用栈（`模块+偏移`，可对照 PDB）追加到
   `MUSICUNLOCK_LOG`；没设这个变量时写到数据目录的 `crash.log`（`%LOCALAPPDATA%\MusicUnlock\crash.log`）。
 - 预览是静态的，和 macOS 的 PreviewRenderer 一样不播放动效；`--convert` 的端到端转换保留动效，顺带检查动效代码。
+- `--motion <场景>` 记录动效而不是截图。独立桌面上 `Windows.Graphics.Capture` 拒绝窗口
+  （`CreateForWindow` 返回 `E_INVALIDARG`，窗口不在输入桌面上），`RenderTargetBitmap.RenderAsync` 也永远不返回，
+  而切到输入桌面或抓屏幕都不允许，所以每个场景写一份日志 `build/previews/motion/<场景>-<浅色|深色>.log`：
+  场景做了什么、每个动画的目标元素、变化的属性、起止值、曲线名和时长。场景名用逗号分隔，`all` 跑全部。
+  自带 `workspace`（Ctrl+2 再 Ctrl+1 切换工作区）、`notice`（提示条出现和关闭）、`drop`（拖入覆盖层出现和消失）。
+  新场景在 `motion_capture::add` 里注册，动作用 `Driver` 的 `click`、`press`、`release`、`drag`、`key`、`wait`、`capture`；
+  动画开始前用 `motion::describe` 给元素起名，改 `Visibility` 后调用 `motion::changed`，日志才会记到隐式动画。
 
 ## 分发目录
 
@@ -213,7 +222,7 @@ App 实际运行的是 `runtime\<版本>\MusicUnlock.exe`。不做处理的话�
 ```sh
 python3 apps/windows/scripts/remote.py build                  # 核心、测试与命令行冒烟测试
 python3 apps/windows/scripts/remote.py app                    # 编译界面
-python3 apps/windows/scripts/remote.py screenshot [--convert] # 编译界面并渲染预览，取回到 build/previews/
+python3 apps/windows/scripts/remote.py screenshot [--convert] [--motion 场景|all] # 编译界面并渲染预览，取回到 build/previews/
 python3 apps/windows/scripts/remote.py screenshot --dist      # 同上，但先整理分发目录，用它渲染
 python3 apps/windows/scripts/remote.py screenshot --single    # 同上，但先生成单 exe，通过它启动 App
 python3 apps/windows/scripts/remote.py screenshot --single --shortcut plain   # 同上，从快捷方式启动

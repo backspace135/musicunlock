@@ -145,6 +145,7 @@ def main() -> None:
     commands.add_parser("app", help="sync, then scripts/build_app.py")
     shot = commands.add_parser("screenshot", help="sync, build the app, render previews and fetch them")
     shot.add_argument("--convert", action="store_true", help="also convert sample files end to end")
+    shot.add_argument("--motion", metavar="SCENARIO", help="record motion scenarios (a name, comma separated, or all)")
     shape = shot.add_mutually_exclusive_group()
     shape.add_argument("--dist", action="store_true", help="stage build/dist/MusicUnlock and render that instead")
     shape.add_argument("--single", action="store_true", help="pack build/dist/MusicUnlock.exe and render through it")
@@ -213,6 +214,7 @@ def main() -> None:
             code = remote.run(["python", "scripts/pack.py"])
         if code == 0:
             code = remote.run(["python", "scripts/screenshot.py", *(["--convert"] if args.convert else []),
+                               *(["--motion", args.motion] if args.motion else []),
                                *(["--dist"] if args.dist else []), *(["--single"] if args.single else []),
                                *(["--shortcut", args.shortcut] if args.shortcut else [])])
         if code == 0:

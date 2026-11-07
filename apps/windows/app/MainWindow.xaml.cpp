@@ -5,6 +5,7 @@
 #include "Accounts.h"
 #include "AccountsDialog.xaml.h"
 #include "Motion.h"
+#include "MotionCapture.h"
 #include "Preview.h"
 #include "Shell.h"
 #include "Taskbar.h"
@@ -63,8 +64,10 @@ void log_error(std::wstring_view where, hresult code, std::wstring_view message)
 
 void MainWindow::InitializeComponent() {
     const auto render_directory = environment(L"MUSICUNLOCK_RENDER_DIR");
-    // Previews are static like the macOS renderer; the end-to-end render keeps motion to exercise it.
-    motion::suspend(!render_directory.empty() && environment(L"MUSICUNLOCK_RENDER_CONVERT").empty());
+    const auto render_motion = environment(L"MUSICUNLOCK_RENDER_MOTION");
+    // Previews are static like the macOS renderer; the end-to-end render and motion capture keep motion.
+    motion::suspend(!render_directory.empty() && environment(L"MUSICUNLOCK_RENDER_CONVERT").empty() && render_motion.empty());
+    if (!render_motion.empty()) motion::capture(true);
     MainWindowT::InitializeComponent();
     ExtendsContentIntoTitleBar(true);
     SetTitleBar(AppTitleBar());
@@ -108,7 +111,10 @@ void MainWindow::InitializeComponent() {
         SolidBackdrop().Visibility(Visibility::Visible);
         if (environment(L"MUSICUNLOCK_RENDER_CONVERT").empty()) Audio().UsePreviewData();
         Lyrics().UsePreviewData();
-        Root().Loaded([this, render_directory](auto&&, auto&&) { RenderPreviews(render_directory); });
+        Root().Loaded([this, render_directory, render_motion](auto&&, auto&&) {
+            if (render_motion.empty()) RenderPreviews(render_directory);
+            else RenderMotion(render_directory, render_motion);
+        });
     }
 }
 
@@ -127,10 +133,15 @@ void MainWindow::UseBackdrop() {
 }
 
 void MainWindow::ApplyMotion() {
+    motion::describe(L"音乐解锁工作区");
     motion::crossfade(AudioView());
+    motion::describe(L"歌词工作区");
     motion::crossfade(LyricsWorkspace());
+    motion::describe(L"音乐解锁操作");
     motion::crossfade(AudioActions());
+    motion::describe(L"歌词操作");
     motion::crossfade(LyricsActions());
+    motion::describe({});
     Audio().ApplyMotion();
 }
 
@@ -142,6 +153,10 @@ void MainWindow::OnWorkspaceChanged(Controls::SelectorBar const&, Controls::Sele
     AudioActions().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     LyricsActions().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
     LyricsWorkspace().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
+    motion::changed(AudioView());
+    motion::changed(AudioActions());
+    motion::changed(LyricsActions());
+    motion::changed(LyricsWorkspace());
 }
 
 fire_and_forget MainWindow::ShowAccounts(mu::MusicProvider provider) {
@@ -198,12 +213,9 @@ void MainWindow::OnAddFiles(IInspectable const&, RoutedEventArgs const&) { Audio
 void MainWindow::OnAddFolder(IInspectable const&, RoutedEventArgs const&) { Audio().ChooseFiles(true); }
 void MainWindow::OnOpenLyrics(IInspectable const&, RoutedEventArgs const&) { Lyrics().OpenLocal(); }
 
-void MainWindow::OnAcceleratorInvoked(Xaml::Input::KeyboardAccelerator const& accelerator,
-                                      Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args) {
-    args.Handled(true);
-    const bool shift = (accelerator.Modifiers() & Windows::System::VirtualKeyModifiers::Shift) !=
-                       Windows::System::VirtualKeyModifiers::None;
-    switch (accelerator.Key()) {
+void MainWindow::HandleAccelerator(Windows::System::VirtualKey key, Windows::System::VirtualKeyModifiers modifiers) {
+    const bool shift = (modifiers & Windows::System::VirtualKeyModifiers::Shift) != Windows::System::VirtualKeyModifiers::None;
+    switch (key) {
         case Windows::System::VirtualKey::O:
             // Like the macOS menu: Ctrl+O opens lyrics in the lyrics workspace and adds files otherwise.
             if (!shift && LyricsWorkspace().Visibility() == Visibility::Visible) {
@@ -225,11 +237,18 @@ void MainWindow::OnAcceleratorInvoked(Xaml::Input::KeyboardAccelerator const& ac
         case Windows::System::VirtualKey::S:
             if (LyricsWorkspace().Visibility() == Visibility::Visible) Lyrics().ExportCurrent();
             break;
-        default:  // Ctrl+. stops the visible workspace's batch
-            if (LyricsWorkspace().Visibility() == Visibility::Visible) Lyrics().StopExport();
-            else Audio().Stop();
-            break;
     }
+}
+
+void MainWindow::OnAcceleratorInvoked(Xaml::Input::KeyboardAccelerator const& accelerator,
+                                      Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args) {
+    args.Handled(true);
+    if (accelerator.Key() == static_cast<Windows::System::VirtualKey>(VK_OEM_PERIOD)) {
+        if (LyricsWorkspace().Visibility() == Visibility::Visible) Lyrics().StopExport();
+        else Audio().Stop();
+        return;
+    }
+    HandleAccelerator(accelerator.Key(), accelerator.Modifiers());
 }
 
 fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
@@ -339,6 +358,33 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
     // Last: moving focus through everything scrolls the settings panel.
     preview::write_tab_order(Root(), folder / L"tab-order.txt");
     Application::Current().Exit();
+}
+
+void MainWindow::RenderMotion(std::wstring directory, std::wstring scenarios) {
+    // The three scenarios that prove the capture works. C–F register their own beside these.
+    motion_capture::set_key_handler([this](auto key, auto modifiers) { HandleAccelerator(key, modifiers); });
+    motion_capture::add(L"workspace", [this](motion_capture::Driver& driver) {
+        driver.capture(1200);
+        driver.key(Windows::System::VirtualKey::Number2, Windows::System::VirtualKeyModifiers::Control);
+        driver.wait(400);
+        driver.key(Windows::System::VirtualKey::Number1, Windows::System::VirtualKeyModifiers::Control);
+        driver.wait(400);
+    });
+    motion_capture::add(L"notice", [this](motion_capture::Driver& driver) {
+        driver.capture(1400);
+        Audio().ShowNotice("这是一条示例提示");
+        driver.wait(400);
+        Audio().DismissNotice();
+        driver.wait(300);
+    });
+    motion_capture::add(L"drop", [this](motion_capture::Driver& driver) {
+        driver.capture(1400);
+        Audio().PreviewDropTarget(true);
+        driver.wait(400);
+        Audio().PreviewDropTarget(false);
+        driver.wait(300);
+    });
+    motion_capture::run(Root(), std::move(scenarios), std::move(directory));
 }
 
 Windows::Foundation::IAsyncAction MainWindow::RenderAccountPreviews(std::filesystem::path directory) {

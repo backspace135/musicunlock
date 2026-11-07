@@ -109,9 +109,13 @@ void UnlockView::ApplyMotion() {
                                      UIElement(StartButton())}) {
         motion::crossfade(element);
     }
+    motion::describe(L"提示条");
     motion::settle(Notice());
+    motion::describe(L"导入中");
     motion::settle(ImportingPanel());
+    motion::describe(L"拖入覆盖层");
     motion::overlay(DropOverlay());
+    motion::describe({});
     // Rows drop in from above (motion::enter, per row) and fade out in place as they leave.
     Media::Animation::TransitionCollection transitions;
     if (motion::enabled()) transitions.Append(Media::Animation::AddDeleteThemeTransition());
@@ -209,6 +213,7 @@ void UnlockView::Refresh() {
     if (!notice.empty() && (notice != Notice().Message() || Notice().Visibility() == Visibility::Collapsed)) Announce(notice);
     if (!notice.empty()) Notice().Message(notice);  // keeps the text while the banner fades out
     Notice().Visibility(shown(!notice.empty()));
+    motion::changed(Notice());
     ImportingPanel().Visibility(shown(imports_ > 0));
 
     const bool no_matches = !empty && queue_.visible(filter_).empty();
@@ -512,9 +517,14 @@ void UnlockView::OnDragLeave(DragEventArgs const&) { ShowDropTarget(false); }
 void UnlockView::ShowDropTarget(bool visible) {
     if ((DropOverlay().Visibility() == Visibility::Visible) == visible) return;
     DropOverlay().Visibility(shown(visible));
+    motion::changed(DropOverlay());
+    motion::describe(L"空状态唱片");
     motion::lift(DiscLift(), visible);
+    motion::describe({});
+    motion::describe(L"拖入图标");
     if (visible) hop_.start();
     else hop_.stop();
+    motion::describe({});
 }
 
 fire_and_forget UnlockView::ReceiveDrop(DragEventArgs args) {

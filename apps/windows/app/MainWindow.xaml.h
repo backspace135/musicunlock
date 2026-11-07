@@ -22,6 +22,8 @@ struct MainWindow : MainWindowT<MainWindow> {
     void OnAccounts(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { ShowAccounts(mu::MusicProvider::netease); }
     void OnAcceleratorInvoked(Microsoft::UI::Xaml::Input::KeyboardAccelerator const& accelerator,
                               Microsoft::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args);
+    /// What an accelerator does, also reached by motion capture (which has no real keyboard).
+    void HandleAccelerator(Windows::System::VirtualKey key, Windows::System::VirtualKeyModifiers modifiers);
 
     /// 账号登录 on the provider's tab (the title bar button, or a lyrics request that needs a login).
     fire_and_forget ShowAccounts(mu::MusicProvider provider);
@@ -52,6 +54,8 @@ private:
     Windows::Foundation::IAsyncAction RenderLogin(std::filesystem::path directory);
     /// One PNG of the window content, with open dialogs drawn over it.
     Windows::Foundation::IAsyncAction SavePreview(std::filesystem::path file);
+    /// Frame capture (MUSICUNLOCK_RENDER_MOTION): runs the named scenarios and exits.
+    void RenderMotion(std::wstring directory, std::wstring scenarios);
 };
 
 }  // namespace winrt::MusicUnlock::implementation

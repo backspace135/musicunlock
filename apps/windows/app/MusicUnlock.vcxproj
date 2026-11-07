@@ -127,6 +127,7 @@
       <DependentUpon>GlassSurface.idl</DependentUpon>
     </ClInclude>
     <ClInclude Include="Motion.h" />
+    <ClInclude Include="MotionCapture.h" />
     <ClInclude Include="SpringCurve.h" />
     <ClInclude Include="Preview.h" />
     <ClInclude Include="Settings.h" />
@@ -165,6 +166,7 @@
       <DependentUpon>GlassSurface.idl</DependentUpon>
     </ClCompile>
     <ClCompile Include="Motion.cpp" />
+    <ClCompile Include="MotionCapture.cpp" />
     <ClCompile Include="SpringCurve.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
