@@ -30,12 +30,11 @@ struct WorkspaceView: View {
         .motion(.smooth(duration: 0.4), value: model.workspace)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Picker("工作区", selection: $model.workspace) {
-                    ForEach(AppWorkspace.allCases) { workspace in
-                        Label(workspace.rawValue, systemImage: workspace.symbol).tag(workspace)
-                    }
-                }.pickerStyle(.segmented).labelsHidden().frame(width: 224)
+                GlassSwitch(title: "工作区", selection: $model.workspace, options: AppWorkspace.allCases,
+                            label: \.rawValue, symbol: \.symbol)
             }
+            // The switch draws its own glass track; the shared toolbar capsule would put glass on glass.
+            .sharedBackgroundVisibility(.hidden)
         }
     }
 }
