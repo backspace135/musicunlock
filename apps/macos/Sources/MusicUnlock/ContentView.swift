@@ -67,15 +67,13 @@ struct ContentView: View {
                 }
                 Spacer()
                 if !model.jobs.isEmpty { queueFilters.transition(.opacity.combined(with: .scale(scale: 0.95))) }
-                Menu {
-                    Button("清除已完成", action: model.clearCompleted).disabled(model.doneCount == 0)
-                    Button("清空队列", action: model.clearQueue).disabled(model.running || model.jobs.isEmpty)
-                } label: {
-                    Image(systemName: "ellipsis.circle").font(.system(size: 15))
+                GlassMenuButton(title: "整理队列", entries: {
+                    [.item("清除已完成", disabled: model.doneCount == 0, action: model.clearCompleted),
+                     .item("清空队列", disabled: model.running || model.jobs.isEmpty, action: model.clearQueue)]
+                }) {
+                    Image(systemName: "ellipsis.circle").font(.system(size: 15)).frame(width: 24, height: 24).contentShape(Rectangle())
                 }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                .foregroundStyle(Theme.secondary)
-                .help("整理队列").accessibilityLabel("整理队列")
+                .buttonStyle(.pressable).foregroundStyle(Theme.secondary).help("整理队列")
             }
             .frame(minHeight: 28)
 
@@ -210,11 +208,9 @@ struct ContentView: View {
             }
             VStack(alignment: .leading, spacing: 8) {
                 Text("文件命名").font(.system(size: 12, weight: .medium))
-                Picker("文件命名", selection: $model.naming) {
-                    ForEach(NamingPolicy.allCases) { policy in Text(policy.rawValue).tag(policy) }
-                }
-                .pickerStyle(.menu).labelsHidden().fixedSize()
-                .frame(maxWidth: .infinity, alignment: .leading).disabled(model.running)
+                GlassMenuPicker(title: "文件命名", selection: $model.naming, options: NamingPolicy.allCases,
+                                label: \.rawValue, onGlass: true)
+                    .frame(maxWidth: .infinity, alignment: .leading).disabled(model.running)
                 Text("同名文件自动编号，源文件保持不变。")
                     .font(.system(size: 11)).foregroundStyle(Theme.secondary).fixedSize(horizontal: false, vertical: true)
             }

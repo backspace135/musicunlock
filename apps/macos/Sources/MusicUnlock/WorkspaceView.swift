@@ -26,6 +26,8 @@ struct WorkspaceView: View {
         }
         // One shared backdrop, so switching workspaces does not flash the colour field.
         .background { AmbientBackground().ignoresSafeArea() }
+        // Glass menus float above every card, so they are hosted once for the whole window.
+        .glassMenuHost()
         // Let the colour field run under the titlebar so the toolbar glass has something to refract.
         .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
         .motion(.spring(duration: 0.5, bounce: 0.15), value: model.workspace)

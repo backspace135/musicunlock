@@ -40,18 +40,8 @@ struct LyricsView: View {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button { model.importLyrics() } label: { Label("打开歌词", systemImage: "doc.badge.plus") }
                     .disabled(model.exporting).help("打开本地 LRC 或 TXT")
-                Menu {
-                    ForEach(MusicProvider.allCases) { provider in
-                        if accounts.signedIn.contains(provider) {
-                            Text("\(provider.title)：会话已保存")
-                            Button("重新登录\(provider.title)") { accounts.loginProvider = provider }
-                            Button("退出\(provider.title)") { accounts.logout(provider) }
-                        } else {
-                            Button("登录\(provider.title)") { accounts.loginProvider = provider }
-                        }
-                        if provider != MusicProvider.allCases.last { Divider() }
-                    }
-                } label: {
+                // The toolbar draws this button's glass, so the menu grows from behind it instead of replacing it.
+                GlassMenuButton(title: "账号登录", hidesWhileOpen: false, entries: accountEntries) {
                     Label("账号登录", systemImage: accounts.signedIn.isEmpty ? "person.crop.circle" : "person.crop.circle.badge.checkmark")
                         .contentTransition(.symbolEffect(.replace))
                 }
@@ -76,12 +66,10 @@ struct LyricsView: View {
                     .contentTransition(.symbolEffect(.replace))
             }
             HStack(spacing: 10) {
-                Picker("音乐来源", selection: $model.provider) {
-                    ForEach(MusicProvider.allCases) { source in Text(source.title).tag(source) }
-                }.labelsHidden().frame(width: 136)
-                Picker("搜索类型", selection: $model.kind) {
-                    ForEach(MusicSearchKind.allCases) { kind in Text(kind.rawValue).tag(kind) }
-                }.labelsHidden().frame(width: 82)
+                GlassMenuPicker(title: "音乐来源", selection: $model.provider, options: MusicProvider.allCases,
+                                label: \.title, minWidth: 92)
+                GlassMenuPicker(title: "搜索类型", selection: $model.kind, options: MusicSearchKind.allCases,
+                                label: \.rawValue, minWidth: 40)
                 TextField("歌曲、歌手，或粘贴歌曲 / 歌单 / 专辑链接", text: $model.query)
                     .textFieldStyle(.roundedBorder).focused($searchFocused)
                     .onSubmit { model.search() }.disabled(model.exporting)
@@ -284,6 +272,20 @@ struct LyricsView: View {
         .motion(.smooth(duration: 0.3), value: model.loadingLyrics)
     }
 
+    private func accountEntries() -> [GlassMenuEntry] {
+        MusicProvider.allCases.enumerated().flatMap { index, provider -> [GlassMenuEntry] in
+            var entries: [GlassMenuEntry] = index > 0 ? [.divider] : []
+            if accounts.signedIn.contains(provider) {
+                entries += [.note("\(provider.title)：会话已保存"),
+                            .item("重新登录\(provider.title)") { accounts.loginProvider = provider },
+                            .item("退出\(provider.title)") { accounts.logout(provider) }]
+            } else {
+                entries.append(.item("登录\(provider.title)") { accounts.loginProvider = provider })
+            }
+            return entries
+        }
+    }
+
     private var editorBinding: Binding<String> {
         Binding(get: {
             switch editor {
@@ -319,21 +321,22 @@ struct LyricsView: View {
                         ProgressView(value: Double(model.progress), total: Double(max(1, model.exportTotal)))
                     }.frame(width: 190).transition(.blurReplace)
                 } else {
-                    Picker("导出格式", selection: $model.options.format) {
-                        ForEach(LyricFormat.allCases) { format in Text(format.rawValue).tag(format) }
-                    }.labelsHidden().frame(width: 78)
+                    GlassMenuPicker(title: "导出格式", selection: $model.options.format, options: LyricFormat.allCases,
+                                    label: \.rawValue, minWidth: 36)
                     Button { model.showSettings = true } label: { Label("导出设置", systemImage: "slider.horizontal.3").symbolEffect(.bounce, value: model.showSettings) }.liquidButton()
                         .transition(.blurReplace)
                 }
                 Spacer(minLength: 0)
                 if !model.exporting {
-                    Menu {
-                        Button("复制歌词", action: model.copyPreview).disabled(model.preview.isEmpty)
-                        Button("打开输出文件夹", action: model.revealOutput)
-                        Button("更改输出文件夹", action: model.chooseOutput)
-                    } label: { Image(systemName: "ellipsis.circle") }
-                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().help("更多歌词操作").accessibilityLabel("更多歌词操作")
-                        .transition(.opacity)
+                    GlassMenuButton(title: "更多歌词操作", entries: {
+                        [.item("复制歌词", disabled: model.preview.isEmpty, action: model.copyPreview),
+                         .item("打开输出文件夹", action: model.revealOutput),
+                         .item("更改输出文件夹", action: model.chooseOutput)]
+                    }) {
+                        Image(systemName: "ellipsis.circle").frame(width: 24, height: 24).contentShape(Rectangle())
+                    }
+                    .buttonStyle(.pressable).help("更多歌词操作")
+                    .transition(.opacity)
                 }
                 GlassCluster {
                     if model.exporting {
