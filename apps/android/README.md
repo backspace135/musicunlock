@@ -63,9 +63,10 @@ python3 apps/android/scripts/setup_toolchain.py --in-repo  # Mac / Linux：也�
 `build.py` 和 `setup_toolchain.py` 开头会打印 `JAVA_HOME`、`ANDROID_HOME`、`GRADLE_USER_HOME`、`ANDROID_USER_HOME`、
 `TMP`，确认缓存位置看这几行（或 Gradle `--info` 输出里的路径）即可。
 
-adb 不认 `ANDROID_USER_HOME`。Mac / Linux 上脚本只给 adb 子进程改 `HOME`；Windows 上 adb 通过系统接口取用户目录，
-任何环境变量都改不了，它的密钥 `adbkey` 和无线调试记录在用户目录的 `.android\` 下。adb 的后台服务从工具链目录
-启动，日志也写在那里，不会占住要删除的工作树。
+adb 不认 `ANDROID_USER_HOME`。Mac / Linux 上脚本只给 adb 子进程改 `HOME`；Windows 上 adb 通过系统接口
+（`SHGetFolderPath(CSIDL_PROFILE)`）取用户目录，`USERPROFILE` 等环境变量都改不了，它的密钥和配置只能放在
+`%USERPROFILE%\.android\`（g16win 上的例外见下文）。adb 的后台服务从工具链目录启动，日志也写在那里，不会占住
+要删除的工作树。
 
 ## 构建
 
@@ -112,6 +113,11 @@ python3 apps/android/scripts/device.py shell -- <命令>             # 在设备
 - 小米手机安装时报 `INSTALL_FAILED_USER_RESTRICTED`：需要在手机上确认，或者打开“开发者选项 → USB 安装”。
 
 ## 在 g16win 上远程编译
+
+**访问范围的唯一例外（2026-11-07 用户批准）：** g16win 上只能动 `D:\project\musicunlock` 和开发工具链，缓存、下载、
+临时文件都在仓库 `build/` 下。adb 是例外：Windows 版 adb 只认用户目录，允许它在 `%USERPROFILE%\.android\` 下写
+配对密钥（`adbkey`、`adbkey.pub`）和它自己的少量配置（如无线调试记录 `adb_known_hosts.pb`）。这个目录里的其他
+东西不读、不改，也不要手动查看或清理它；其余访问规则不变。
 
 Mac 上的会话可以用 `apps/windows/scripts/remote.py` 把当前工作区同步到 g16win 的独立工作树
 （`D:\project\musicunlock\.worktrees\<分支>`），在那里编译、装到连着 g16win 的手机：
