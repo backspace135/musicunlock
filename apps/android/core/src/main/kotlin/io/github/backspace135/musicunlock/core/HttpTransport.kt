@@ -78,4 +78,10 @@ internal object CoreCallbacks {
         val response = transport.execute(HttpRequest(url, method, pairs, body))
         return NativeHttpResult(response.status, response.body, response.setCookies.toTypedArray())
     }
+
+    @JvmStatic
+    fun seal(cipher: SessionCipher, plain: ByteArray): ByteArray = cipher.seal(plain)
+
+    @JvmStatic
+    fun open(cipher: SessionCipher, sealed: ByteArray): ByteArray? = cipher.open(sealed)
 }
