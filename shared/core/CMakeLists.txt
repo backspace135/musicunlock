@@ -1,4 +1,4 @@
-# The C++ core shared by the Windows app and CLI (and, from phase 1, the Android app), with its tests.
+# The C++ core shared by the Windows app and CLI and the Android app, with its tests.
 # Included with add_subdirectory; the including project sets the language standard and compile options.
 # src/ holds portable code only; platform implementations live in src/platform/<platform>/, so a project that
 # compiles src/*.cpp (like the WinUI 3 app's MSBuild project) adds just its own platform folder.
@@ -44,15 +44,23 @@ elseif(APPLE)
     target_sources(musicunlock_core PRIVATE src/platform/apple/crypto_commoncrypto.cpp)
   endif()
   target_link_libraries(musicunlock_core PUBLIC "-framework CoreFoundation")
-elseif(ANDROID)
-  # Placeholder: phase 1 adds the Android platform implementations.
-  message(FATAL_ERROR "The Android platform implementations are not there yet.")
+elseif(ANDROID OR CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  # Android, and Linux as the Android CI host: portable AES, no HTTP transport or session cipher in native code,
+  # and no platform text conversion until phase 2 bridges Android's through JNI.
+  set(MU_PORTABLE_AES ON)
+  set(mu_no_platform_text ON)
+  target_sources(musicunlock_core PRIVATE src/platform/portable/platform_text_none.cpp)
 else()
-  message(FATAL_ERROR "Only Windows (product) and macOS (development) are supported.")
+  message(FATAL_ERROR "Only Windows and Android (products), macOS (development) and Linux (CI) are supported.")
 endif()
 if(MU_PORTABLE_AES)
   target_sources(musicunlock_core PRIVATE src/platform/portable/crypto_portable.cpp)
 endif()
+
+# The tests read fixtures and write scratch files at these paths; a cross-compiled test binary points them at the
+# folders its runner copies to the device.
+set(MU_TEST_FIXTURES_DIR "${MU_REPO_ROOT}/tests/fixtures/qmc" CACHE PATH "Fixtures the core tests read")
+set(MU_TEST_SCRATCH_DIR "${CMAKE_CURRENT_BINARY_DIR}/test-scratch" CACHE PATH "Scratch folder for the core tests")
 
 enable_testing()
 add_executable(musicunlock_core_tests tests/core_tests.cpp tests/account_tests.cpp tests/import_tests.cpp
@@ -61,9 +69,12 @@ target_link_libraries(musicunlock_core_tests PRIVATE musicunlock_core)
 target_include_directories(musicunlock_core_tests PRIVATE src)
 target_compile_definitions(musicunlock_core_tests PRIVATE
   _CRT_SECURE_NO_WARNINGS  # std::getenv for the opt-in live tests
-  MU_FIXTURES_DIR="${MU_REPO_ROOT}/tests/fixtures/qmc"
-  MU_TEST_SCRATCH="${CMAKE_CURRENT_BINARY_DIR}/test-scratch")
+  MU_FIXTURES_DIR="${MU_TEST_FIXTURES_DIR}"
+  MU_TEST_SCRATCH="${MU_TEST_SCRATCH_DIR}")
 if(MU_PORTABLE_AES)
   target_compile_definitions(musicunlock_core_tests PRIVATE MU_PORTABLE_AES)
+endif()
+if(mu_no_platform_text)
+  target_compile_definitions(musicunlock_core_tests PRIVATE MU_NO_PLATFORM_TEXT)
 endif()
 add_test(NAME core COMMAND musicunlock_core_tests)
