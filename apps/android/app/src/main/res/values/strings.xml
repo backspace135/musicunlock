@@ -133,6 +133,31 @@
     <string name="accounts_signed_out">未登录</string>
     <string name="accounts_sign_in_action">登录</string>
     <string name="accounts_storage_hint">登录信息用 Android 密钥库加密，只保存在这台手机上。</string>
+    <string name="accounts_saved_title_format">%1$s：会话已保存</string>
+    <string name="accounts_reading">正在读取账号信息…</string>
+    <string name="accounts_session_hint">会话的有效期由平台决定。如果歌词搜索提示需要登录，请重新登录。</string>
+    <string name="accounts_relogin_action">重新登录</string>
+    <string name="accounts_logout_format">退出%1$s</string>
+    <string name="accounts_signed_in_both">网易云音乐、QQ 音乐</string>
+    <string name="accounts_qr_title">登录网易云音乐</string>
+    <string name="accounts_qr_refresh_action">刷新二维码</string>
+    <string name="accounts_qr_regenerate_action">重新生成二维码</string>
+    <string name="accounts_qr_web_action">使用官方登录页</string>
+    <string name="accounts_qr_open_action">在网易云音乐中打开</string>
+    <string name="accounts_qr_save_action">保存二维码到相册</string>
+    <string name="accounts_qr_saved_hint">已保存。打开网易云音乐 → 扫一扫 → 相册，选择这张图片。</string>
+    <string name="accounts_qr_permission_hint">没有存储权限，请改用其他方式登录。</string>
+    <string name="accounts_qr_save_failed">二维码没有保存，请改用其他方式登录。</string>
+    <string name="accounts_qr_open_failed">无法打开网易云音乐，请改用其他方式登录。</string>
+    <string name="accounts_qr_description">网易云音乐登录二维码</string>
+    <string name="accounts_qr_scan_hint">打开手机网易云音乐，使用扫一扫并确认登录。</string>
+    <string name="accounts_qr_invalid">平台没有返回有效登录，请使用官方登录页重试。</string>
+    <string name="accounts_web_title_format">登录%1$s</string>
+    <string name="accounts_web_refresh_action">刷新页面</string>
+    <string name="accounts_web_native_action">改用原生扫码</string>
+    <string name="accounts_web_loading">正在打开官方登录页…</string>
+    <string name="accounts_web_failed">无法打开官方登录页，请检查网络后点击刷新页面。</string>
+    <string name="accounts_web_hint">完成扫码或账号登录后会自动保存会话。若没有反应，请点击刷新页面。</string>
 
     <!-- settings: 设置页。每个区块的标题在这里，区块内容由对应 issue 填写 -->
     <string name="settings_title">设置</string>
