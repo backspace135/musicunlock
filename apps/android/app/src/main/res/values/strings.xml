@@ -10,6 +10,7 @@
     <string name="app_name">音匣</string>
 
     <!-- common -->
+    <string name="common_cancel">取消</string>
     <string name="common_clear">清除</string>
     <string name="common_close">关闭</string>
     <string name="common_delete">删除</string>
