@@ -12,7 +12,7 @@ public/static/kgm.mask (copied into the app by the build script)
 
 These are original upstream paths, not directories included in this repository.
 The implementations have been ported to native Swift (macOS) and to C++20
-(Windows, apps/windows/core). The upstream source tree
+(the shared core in shared/core, used by Windows). The upstream source tree
 has been removed; only required KGM data (resources/kgm.mask) and test vectors
 (tests/fixtures/qmc) are retained with attribution. The project's own code is
 licensed under the root MIT LICENSE; the notices below continue to apply to
@@ -32,17 +32,17 @@ is redistributed with this app. Music platform requests go directly to their
 first-party endpoints. Apple WebKit is used only for account authorization.
 
 The Windows build includes JSON for Modern C++ (nlohmann/json) v3.12.0 as a
-single header, apps/windows/third_party/nlohmann/json.hpp, under the MIT License:
+single header, shared/core/third_party/nlohmann/json.hpp, under the MIT License:
 https://github.com/nlohmann/json
 Copyright (c) 2013-2025 Niels Lohmann
-Its full license text is reproduced in apps/windows/third_party/nlohmann/LICENSE.MIT
+Its full license text is reproduced in shared/core/third_party/nlohmann/LICENSE.MIT
 and in the nlohmann/json section at the end of this file.
 
 The Windows build includes the QR Code generator library (C++) v1.8.0 by
-Project Nayuki, apps/windows/third_party/qrcodegen/qrcodegen.{hpp,cpp}, under
+Project Nayuki, shared/core/third_party/qrcodegen/qrcodegen.{hpp,cpp}, under
 the MIT License, to draw the NetEase Cloud Music login QR code:
 https://github.com/nayuki/QR-Code-generator
-Its license text is reproduced in apps/windows/third_party/qrcodegen/LICENSE.MIT
+Its license text is reproduced in shared/core/third_party/qrcodegen/LICENSE.MIT
 and in the QR Code generator section at the end of this file.
 
 MIT License
@@ -101,7 +101,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 --------------------------------------------------------------------------
 
-nlohmann/json v3.12.0 (apps/windows/third_party/nlohmann/json.hpp)
+nlohmann/json v3.12.0 (shared/core/third_party/nlohmann/json.hpp)
 
 MIT License
 
@@ -127,7 +127,7 @@ SOFTWARE.
 
 --------------------------------------------------------------------------
 
-QR Code generator library (C++) v1.8.0 (apps/windows/third_party/qrcodegen)
+QR Code generator library (C++) v1.8.0 (shared/core/third_party/qrcodegen)
 
 MIT License
 

@@ -17,16 +17,27 @@ Windows 原生版本的开发目录，与 macOS 版本在同一个 Git 仓库维
 
 ## 目录
 
+C++ 核心与它的测试、第三方库放在仓库根目录的 `shared/core/`，Android 版也将共用：
+
+```text
+shared/core/
+├── include/       公共头文件 musicunlock/*.h
+├── src/           纯 C++20 静态库：解密、标签、命名、歌词解析与导出、登录会话、网易云 / QQ 音乐接口
+│   └── platform/  平台实现：win/（CNG、DPAPI、WinHTTP、系统 ICU）、apple/（Mac 开发机：CommonCrypto、CoreFoundation）
+├── tests/         核心、账号、导入、队列、歌词与歌词工作区测试，读取 ../../tests/fixtures/qmc
+├── third_party/   nlohmann/json 3.12.0（单头文件，MIT）、nayuki QR-Code-generator 1.8.0（MIT）
+└── CMakeLists.txt musicunlock_core 与 musicunlock_core_tests，按平台选择 src/platform/ 下的实现
+```
+
+`CMakeLists.txt` 用 `add_subdirectory` 引入核心；界面工程只编译 `src/*.cpp` 和 `src/platform/win/`。
+
 ```text
 apps/windows/
-├── core/          纯 C++20 静态库：解密、标签、命名、歌词解析与导出、登录会话、网易云 / QQ 音乐接口
-│                  （Windows 用 CNG、WinHTTP、系统 ICU；Mac 开发机用 CommonCrypto、CoreFoundation）
 ├── cli/           musicunlock.exe，用法与 macOS CLI 相同；静态 CRT，kgm.mask 以资源内嵌
 ├── app/           WinUI 3 界面（C++/WinRT，未打包、Windows App SDK 自包含、静态 CRT）
 ├── launcher/      单 exe 启动器（纯 Win32、静态 CRT）与打包工具 launcher_pack
 ├── tools/         desktop_shot.cpp：在独立桌面上运行界面预览渲染
-├── tests/         core、歌词与启动器测试，读取 ../../tests/fixtures/qmc
-├── third_party/   nlohmann/json 3.12.0（单头文件，MIT）、nayuki QR-Code-generator 1.8.0（MIT）
+├── tests/         启动器测试与 smoke_launcher.py 用的替身程序 launcher_probe
 └── scripts/       build.py：核心、命令行与启动器；smoke_cli.py / smoke_launcher.py：冒烟测试；
                    restore.py / build_app.py：界面；stage_app.py：整理分发目录；pack.py：生成单 exe；
                    screenshot.py：界面预览与端到端转换检查；remote.py：在 Windows 机器的独立工作树里构建
