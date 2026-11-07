@@ -10,6 +10,7 @@
 
 #include <winrt/Windows.ApplicationModel.DataTransfer.h>
 
+#include "Motion.h"
 #include "Accounts.h"
 #include "Settings.h"
 #include "Shell.h"
@@ -74,6 +75,7 @@ void LyricsView::InitializeComponent() {
     for (auto layout : lyric_layouts) LayoutOption().Items().Append(box_value(to_hstring(mu::layout_label(layout))));
     ShowTab(mu::LyricTab::original);
     ResultList().ItemsSource(rows_);
+    motion::scroll_edge(ResultList());
     const auto saved = settings::load_lyrics();
     workspace_.set_options(saved.options);
     workspace_.set_output_directory(saved.output_directory.value_or(shell::downloads_folder() / L"音匣输出" / L"歌词"));

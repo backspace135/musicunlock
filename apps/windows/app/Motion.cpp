@@ -5,6 +5,7 @@
 #include "GlassMotion.h"
 
 #include <map>
+#include <vector>
 
 #include <winrt/Microsoft.UI.Xaml.Hosting.h>
 #include <winrt/Windows.Foundation.Numerics.h>
@@ -226,6 +227,69 @@ void workspace(UIElement const& outgoing, UIElement const& incoming, bool toward
     const float arriving = toward_lyrics ? 40.f : -40.f;
     place(outgoing, 0.f, leaving, 1.f, 0.98f, 1.f, 0.f);
     place(incoming, arriving, 0.f, 0.98f, 1.f, 0.f, 1.f);
+}
+
+winrt::Microsoft::UI::Xaml::Controls::ScrollViewer list_viewer(winrt::Microsoft::UI::Xaml::Controls::ListView const& list) {
+    using namespace winrt::Microsoft::UI::Xaml;
+    using namespace winrt::Microsoft::UI::Xaml::Controls;
+    ScrollViewer viewer{nullptr};
+    std::vector<DependencyObject> pending{list};
+    while (!pending.empty() && !viewer) {
+        auto from = pending.back();
+        pending.pop_back();
+        const int count = Media::VisualTreeHelper::GetChildrenCount(from);
+        for (int i = 0; i < count && !viewer; ++i) {
+            auto child = Media::VisualTreeHelper::GetChild(from, i);
+            if (auto found = child.try_as<ScrollViewer>()) viewer = found;
+            else pending.push_back(child);
+        }
+    }
+    return viewer;
+}
+
+void scroll_edge(winrt::Microsoft::UI::Xaml::Controls::ListView const& list) {
+    using namespace winrt::Microsoft::UI::Xaml;
+    using namespace winrt::Microsoft::UI::Xaml::Controls;
+    // The list's own ScrollViewer reports the offset. The manipulation property set would have been the direct way,
+    // but WinUI 3 leaves its Translation at zero however far the list scrolls. The viewer only exists once the list
+    // has loaded, so attach then.
+    auto viewer = list_viewer(list);
+    if (!viewer) {
+        auto token = std::make_shared<winrt::event_token>();
+        *token = list.LayoutUpdated([list, token](auto&&, auto&&) {
+            if (!list_viewer(list)) return;
+            list.LayoutUpdated(*token);
+            scroll_edge(list);
+        });
+        return;
+    }
+    auto apply = [list, viewer](auto&&, auto&&) {
+        if (!enabled()) return;
+        const double viewport = viewer.ViewportHeight();
+        for (uint32_t i = 0; i < list.Items().Size(); ++i) {
+            auto container = list.ContainerFromIndex(i).try_as<UIElement>();
+            if (!container) continue;
+            auto visual = ElementCompositionPreview::GetElementVisual(container);
+            const double height = container.ActualSize().y;
+            if (height <= 0) continue;
+            // The row's position in the viewport, not its layout position: ActualOffset ignores the scroll, and the
+            // manipulation property set that would have carried it stays at zero under WinUI 3.
+            const auto top = container.TransformToVisual(viewer).TransformPoint({0, 0}).Y;
+            const double above = std::max(0.0, -static_cast<double>(top));
+            const double below = std::max(0.0, top + height - viewport);
+            const double clipped = std::min(1.0, std::max(above, below) / height);
+            // Past the top edge the row shrinks toward its bottom edge, and the other way round.
+            visual.CenterPoint({container.ActualSize().x / 2, above > below ? static_cast<float>(height) : 0.f, 0.f});
+            const float scale = static_cast<float>(1.0 - clipped * 0.04);
+            visual.Scale({scale, scale, 1.f});
+            visual.Opacity(static_cast<float>(1.0 - clipped * 0.6));
+        }
+        record(L"Opacity", L"1 -> 0.4 at the edges", L"scroll", 0);
+    };
+    viewer.ViewChanged(apply);
+    // A resize moves the edges over the rows without a scroll, so it has to settle them too.
+    viewer.SizeChanged([apply](auto&&, auto&&) { apply(nullptr, nullptr); });
+    apply(nullptr, nullptr);
 }
 
 void settle(UIElement const& element) {

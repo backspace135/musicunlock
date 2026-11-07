@@ -120,6 +120,7 @@ void UnlockView::ApplyMotion() {
     Media::Animation::TransitionCollection transitions;
     if (motion::enabled()) transitions.Append(Media::Animation::AddDeleteThemeTransition());
     JobList().ItemContainerTransitions(transitions);
+    motion::scroll_edge(JobList());
     if (!motion::enabled()) drift_.stop();
     else if (queue_.jobs().empty()) drift_.start();
 }

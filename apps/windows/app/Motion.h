@@ -12,6 +12,7 @@
 namespace motion {
 
 namespace xaml = winrt::Microsoft::UI::Xaml;
+namespace controls = winrt::Microsoft::UI::Xaml::Controls;
 
 bool enabled();
 /// Static renders, like the macOS PreviewRenderer.
@@ -38,6 +39,12 @@ void crossfade(xaml::UIElement const& element, spring::Spring spring);
 /// direction of the switch, so the lyrics workspace owns the right side. Plays on the elements' handoff visuals,
 /// so call it when the visibility is about to change, and call it again after the change so the arrival runs.
 void workspace(xaml::UIElement const& outgoing, xaml::UIElement const& incoming, bool toward_lyrics);
+
+/// Rows shrink and fade as they scroll past the list's edges, the way iOS lists do: fully inside a row is
+/// unchanged, and one clipped by the top or bottom edge eases to 40 % opacity and 96 % scale, pivoted on the
+/// edge it is leaving. The scroll manipulation property set never updates under WinUI 3, so this follows the
+/// ScrollViewer's ViewChanged instead of an expression. Call it once; it keeps up with virtualization itself.
+void scroll_edge(controls::ListView const& list);
 /// Banners: drop in from 8 px above and fade in; shrink in place and fade out.
 void settle(xaml::UIElement const& element);
 /// The drop overlay: fade in while shrinking from 103 %, the reverse when it leaves.
