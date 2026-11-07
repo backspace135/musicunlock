@@ -47,6 +47,13 @@ shared/core（C++，和 Windows 共用）：解封装、队列、歌词、登录
 - **线程**：`AudioQueue` 和核心一样不是线程安全的，只能在创建它的线程（主线程）上调用，换线程调用会抛
   `IllegalStateException`。耗时的调用（转换、扫描、网络）都是 `suspend` 函数，内部切到 `Dispatchers.IO`。C++
   回调 Kotlin 时，如果当前线程是 C++ 自己开的，会先挂到 JVM 上，结束时卸下（`jni_support.h` 的 `ThreadEnv`）。
+- **网络**：核心的请求经 `HttpTransport` 回调 Kotlin，App 用 `OkHttpTransport`（和 Windows 的 WinHTTP 规则一样：只走
+  HTTPS、不存 Cookie、不缓存、25 秒超时、响应最多读 20 MB）。`CancelToken` 取消时，核心在请求之间停下，正在进行的
+  OkHttp 请求也一起取消；取消调用它的协程也会取消 token。
+- **会话加密**：`KeystoreSessionCipher` 在 Android 密钥库里生成不可导出的 AES-256-GCM 密钥，实现核心的
+  `SessionCipher`（seal / open），`SessionStore` 用它读写会话文件。
+- **R8**：C++ 按名字找的类和方法（异常、回调、`NativeHttpResult`、`ConvertedAudio`，以及所有 `native` 方法）都列在
+  `core/consumer-rules.pro`，App 开启混淆后照样能用；`JNI_OnLoad` 找不到时直接中止，问题会在启动时暴露。
 - **初始化**：`:core` 的 Manifest 里有一个 `CoreInitializer`（ContentProvider），进程启动时把 Context 交给核心，
   并清理上次运行留下的缓存。功能代码不用调用任何初始化函数。
 
@@ -255,6 +262,196 @@ try {
 val needed = OutputFolders.requiredPermissions(settings.outputFolder)
 ```
 
+### 歌词（#32）
+
+| 类 | 作用 |
+| --- | --- |
+| `LyricWorkspace` | 核心的歌词工作区：搜索结果、勾选、预览、编辑、导出批次和全部文案。只在主线程用 |
+| `MusicApi` | 在后台执行工作区给的请求：`runSearch`、`lyrics`、`exportSong`；`MusicApi.shared` 走 OkHttp |
+| `CancelToken` | 取消一个请求（连同正在进行的 HTTP 请求）。每个新请求换一个新的 |
+| `LyricSettings` | 导出设置（`lyrics.json`：`options` + `outputDirectory`，和 Windows 一样） |
+| `LocalLyrics` | “打开本地歌词”：读取并解码选中的文件 |
+| `Lyrics` | 核心的歌词函数（`renderLyrics`、`parseLink`、`pinyinSupported` 等） |
+| `LyricOptions`、`LyricFormat`、`LyricLayout`、`LyricEncoding`、`LyricTab`、`MusicProvider`、`SearchKind` | 模型和枚举，`label` / `title` 是核心文案 |
+
+**请求循环**：工作区返回请求，后台执行，结果交回工作区。三种请求各用一个 `CancelToken`：
+
+```kotlin
+class LyricsViewModel : ViewModel() {
+    val workspace = LyricWorkspace()                  // 主线程创建，只在主线程调用
+    val tick = workspace.changes                      // 界面收集它，再读 workspace 的属性
+    private var searchToken = CancelToken()
+    private var lyricsToken = CancelToken()
+    private var exportToken = CancelToken()
+    private val api = MusicApi.shared
+
+    init {
+        workspace.options = LyricSettings.values.value.options
+    }
+
+    fun search(more: Boolean = false) {
+        val request = workspace.search(more) ?: return    // 为空时 workspace.notice 已经说明原因
+        searchToken.cancel(); searchToken = CancelToken()
+        if (!more) cancelLyrics()                         // 新搜索同时取消取歌词
+        val token = searchToken
+        viewModelScope.launch {
+            try {
+                val result = api.runSearch(request, AccountStore.cookieHeader(request.provider), token)
+                workspace.searchFinished(request, result)?.let(::fetch)   // 自动选中第一首，取它的歌词
+            } catch (_: CoreCancelledException) {
+            } catch (error: CoreException) {
+                workspace.searchFailed(request, error.message)
+            }
+        }
+    }
+
+    fun select(songId: String, reload: Boolean = false) { workspace.select(songId, reload)?.let(::fetch) }
+
+    private fun fetch(request: LyricsRequest) {
+        cancelLyrics()
+        val token = lyricsToken
+        viewModelScope.launch {
+            try {
+                workspace.lyricsLoaded(request, api.lyrics(request.song, AccountStore.cookieHeader(request.song.provider), token))
+            } catch (_: CoreCancelledException) {
+            } catch (error: CoreException) {
+                workspace.lyricsFailed(request, error.message)
+            }
+        }
+    }
+
+    private fun cancelLyrics() { lyricsToken.cancel(); lyricsToken = CancelToken() }
+
+    fun export(checked: Boolean, context: Context) {
+        val batch = (if (checked) workspace.exportChecked() else workspace.exportCurrent()) ?: return
+        cancelLyrics()
+        exportToken = CancelToken()
+        val token = exportToken
+        val folder = LyricSettings.values.value.outputFolder
+        val cookies = MusicProvider.entries.associateWith { AccountStore.cookieHeader(it) }  // 整批用同一份
+        val task = ProcessingService.Task.LYRICS
+        ProcessingService.start(context, task, ProcessingService.Progress(workspace.progressText, 0, batch.jobs.size))
+        appScope.launch {                                 // 应用级 scope：切到后台也继续
+            for (job in batch.jobs) {
+                if (token.isCancelled) break
+                try {
+                    workspace.exportSucceeded(job, api.exportSong(job, batch.options, folder, cookies.getValue(job.song.provider), token))
+                } catch (_: CoreCancelledException) {
+                    break
+                } catch (error: CoreException) {
+                    workspace.exportFailed(job, error.message)
+                }
+                ProcessingService.update(task, ProcessingService.Progress(workspace.progressText, workspace.progress, workspace.exportTotal))
+            }
+            workspace.endExport()                         // notice 变成“导出完成：成功 18 首…”
+            ProcessingService.stop(context, task)
+        }
+    }
+
+    fun stopExport() { workspace.requestStop(); exportToken.cancel() }
+
+    override fun onCleared() { searchToken.cancel(); lyricsToken.cancel(); workspace.close() }
+}
+```
+
+和解封装一样，导出要在“不保留活动”下继续，工作区和导出循环需要放在应用级对象里（上面的 `appScope` 指应用级的
+`MainScope()`），ViewModel 只转发。
+
+**界面读什么**：`workspace.notice`（`dismissNotice()` 关闭）、`resultsTitle`、`resultsSubtitle`、`loadingText`、
+`songs`、`collections`、`selected`、`isChecked(id)`、`allChecked`、`hasMore`、`searching`、`loadingLyrics`、
+`text(tab)`、`lineCount`、`preview`、`previewError`、`canRetry`、`canExportCurrent`、`exporting`、`progressText`、
+`progress` / `exportTotal`、`failuresTitle`、`failures`、`exportCheckedLabel`、`exported`（导出的文件，带 URI）；歌曲行用
+`LyricWorkspace.songArtist(song)`、`songDetail(song)`、`song.duration`。编辑框改动调用 `workspace.edit(tab, text)`（换行统一
+`\n`）；程序更新文字框时不要再调用 `edit`。
+
+**打开本地歌词**：
+
+```kotlin
+val pickLyrics = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    if (uri != null) scope.launch {
+        if (!LocalLyrics.isLyricFile(LocalLyrics.displayName(uri))) return@launch   // 只接受 .lrc / .txt
+        try {
+            val file = LocalLyrics.read(uri)                     // 核心解码：UTF-8 / UTF-16 / GBK，最大 5 MB
+            if (workspace.importLocal(file.title, file.text)) openEditor()
+        } catch (error: LyricException) {
+            workspace.showNotice(error.message)
+        }
+    }
+}
+pickLyrics.launch(arrayOf("text/*", "application/octet-stream"))
+```
+
+**导出设置**：
+
+```kotlin
+val settings by LyricSettings.values.collectAsState()
+LyricSettings.setOptions(settings.options.copy(format = LyricFormat.SRT))   // 立即保存
+workspace.options = LyricSettings.values.value.options                      // 同步给工作区
+// 选项文字：LyricFormat.entries.map { it.label }、LyricEncoding…、LyricLayout…
+// Android 9 及以下没有系统拼音：隐藏“中文拼音（系统转换）”
+if (!Lyrics.pinyinSupported) { /* 不显示这一项；LyricSettings 读取时已把它取消 */ }
+// 输出文件夹：默认 OutputFolder.DefaultLyrics（Download/音匣/歌词），更改和解封装一样用 OutputFolders.remember
+LyricSettings.setOutputFolder(OutputFolders.remember(tree, settings.outputFolder))
+```
+
+### 账号登录（#33）
+
+| 类 | 作用 |
+| --- | --- |
+| `AccountStore` | 已保存的登录：`signedIn`、`cookieHeader`、`accept`、`logout`、`nickname`、`signedInState`（`StateFlow`） |
+| `QrLogin` | 网易云扫码登录：`start()` 返回 `Flow<QrLoginUpdate>`（状态、文案、`QrMatrix`、确认后的 Cookie） |
+| `QrMatrix` | 二维码模块；`toBitmap()` 画成白底黑码（带留白），可显示也可存相册 |
+| `KeystoreSessionCipher` | Android 密钥库里的 AES-GCM 密钥（不可导出），`AccountStore` 用它加密会话文件 |
+
+会话文件在 App 私有目录 `files/sessions/<netease|qq>.bin`，内容是核心 `cookies_to_json` 的结果经 AES-256-GCM 加密。
+
+**登录状态（歌词工作台顶栏、账号页）**：
+
+```kotlin
+val signedIn by AccountStore.signedInState.collectAsState()
+val netease = signedIn.getValue(MusicProvider.NETEASE)   // 登录或退出后立即更新
+// 账号行：先显示“正在读取账号信息…”，再显示 nickname 返回的整行文字（四种之一，和 Windows 一样）
+LaunchedEffect(netease) { if (netease) accountLine = AccountStore.nickname(MusicProvider.NETEASE) }
+```
+
+**网易云扫码**：
+
+```kotlin
+private var qrJob: Job? = null
+
+fun startQr() {
+    qrJob?.cancel()                                     // 刷新、关闭、切到网页登录前都先取消上一轮
+    qrJob = viewModelScope.launch {
+        QrLogin().start().collect { update ->
+            qrState = update                            // update.state / update.message / update.matrix / update.url
+            if (update.state == QrLoginState.CONFIRMED) {
+                notice = AccountStore.accept(MusicProvider.NETEASE, update.session)
+                    ?: "平台没有返回有效登录，请使用官方登录页重试。"
+                delay(800)
+                closeSheet()
+            }
+        }
+    }
+}
+// 画二维码：Image(update.matrix!!.toBitmap().asImageBitmap(), "网易云音乐登录二维码", filterQuality = FilterQuality.None)
+// “在网易云音乐中打开”：Intent(Intent.ACTION_VIEW, Uri.parse(update.url))
+```
+
+**网页登录读 Cookie**（QQ 音乐，以及网易云官方登录页）：
+
+```kotlin
+val header = CookieManager.getInstance().getCookie("https://y.qq.com/")
+val cookies = AccountStore.cookiesFromCookieManager("y.qq.com", header)   // 网易云用 "music.163.com"
+if (AccountStore.isMusicSession(MusicProvider.QQ, cookies)) {
+    if (++validReads >= 2) notice = AccountStore.accept(MusicProvider.QQ, cookies)   // 连续两次有效才接受
+} else {
+    validReads = 0
+}
+```
+
+**退出**：`notice = AccountStore.logout(provider)`（删除会话文件，返回“已退出{平台名}。”）；清除 WebView 里这个平台的
+Cookie 和存储由 #33 做。`Cookie.toString()` 不含值，可以放心记日志；但不要记录 `cookieHeader`。
+
 ## 环境要求
 
 - Python 3.10+
@@ -381,9 +578,12 @@ Java 能处理这么长的路径，git 默认处理不了，所以删除工作�
 - **模拟器**（`--device`）：用 NDK 交叉编译成 arm64 可执行文件（`build/core-tests-android/`），和 `tests/fixtures/qmc`
   一起推到 `/data/local/tmp/musicunlock-core-tests/` 运行，结束后删除。只接受 `emulator-*` 且 `ro.kernel.qemu` 为 1
   的设备，不会碰连着的真机；没给 `--serial` 时用 `ANDROID_SERIAL`，再没有就要求恰好只有一台模拟器在线。
-
 - **instrumented tests**（`--device`，在核心测试之后）：`:core:connectedDebugAndroidTest`，测 JNI 桥接和平台实现。
-  Gradle 的 connected 任务默认装到所有在线设备上，`build.py` 用 `ANDROID_SERIAL` 把它限定在选中的模拟器。
+  Gradle 的 connected 任务默认装到所有在线设备上，`build.py` 用 `ANDROID_SERIAL` 把它限定在选中的模拟器。网络相关的
+  测试用预设响应（`ScriptedTransport`）和本机 HTTPS 测试服务器，不连外网。
+- **真实接口检查**（`--device --live`）：和 Windows 的 `MUSICUNLOCK_LIVE_TESTS` 一样，只在手动开启时运行
+  `LiveTest`：在网易云和 QQ 音乐上真实搜索“晴天 周杰伦”、取歌词、导出 SRT（和核心渲染逐字节比较）、解析链接，并向
+  网易云申请一个登录二维码。需要模拟器能联网。
 
 平台文字转换（拼音、GBK）在 App 里由 JNI 调 Android 的 API 实现（`platform_text_jni.cpp` → `PlatformText.kt`）：
 拼音用 `android.icu.text.Transliterator` 的 `Han-Latin`（API 29 起，结果和 macOS、Windows 一致；API 26–28 返回
