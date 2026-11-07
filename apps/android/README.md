@@ -25,12 +25,13 @@ apps/android/
 ## 环境要求
 
 - JDK 21
-- Android SDK：`platforms;android-37.0`、`build-tools`、`platform-tools`；在模拟器上运行还需要
+- Android SDK：`platforms;android-37.0`、`platform-tools`；在模拟器上运行还需要
   `emulator` 和 `system-images;android-37.0;google_apis;arm64-v8a`
-- NDK 和 CMake：版本固定在 `gradle/libs.versions.toml`（`ndk`、`cmake`），用 sdkmanager 装进上面的 SDK：
+- build-tools、NDK 和 CMake：版本固定在 `gradle/libs.versions.toml`（`buildTools`、`ndk`、`cmake`），用 sdkmanager
+  装进上面的 SDK：
 
   ```sh
-  sdkmanager "ndk;30.0.16248370" "cmake;4.1.2"
+  sdkmanager "build-tools;36.0.0" "ndk;30.0.16248370" "cmake;4.1.2"
   ```
 
   CMake 自带 Ninja；`build.py` 编核心测试时也用这两个版本，不用系统里的。

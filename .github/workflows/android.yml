@@ -36,11 +36,12 @@ jobs:
           distribution: temurin
           java-version: "21"
       - uses: gradle/actions/setup-gradle@v6
-      - name: Install the pinned NDK and CMake
+      - name: Install the pinned SDK packages
         run: |
           version() { sed -n "s/^$1 = \"\(.*\)\"$/\1/p" apps/android/gradle/libs.versions.toml; }
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
-            "platforms;android-$(version compileSdk).0" "ndk;$(version ndk)" "cmake;$(version cmake)" > /dev/null
+            "platforms;android-$(version compileSdk).0" "build-tools;$(version buildTools)" \
+            "ndk;$(version ndk)" "cmake;$(version cmake)" > /dev/null
       - name: Build the debug APK and run the core tests on the host (portable AES)
         run: python3 apps/android/scripts/build.py
       - name: Build the release APK
