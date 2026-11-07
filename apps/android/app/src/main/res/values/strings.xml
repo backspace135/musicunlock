@@ -63,6 +63,30 @@
     <string name="unlock_export_settings_title">导出设置</string>
     <string name="unlock_default_folder">音匣</string>
     <string name="unlock_naming_original">保留原文件名</string>
+    <string name="unlock_scanning">正在扫描文件…</string>
+    <string name="unlock_stopping_action">正在停止…</string>
+    <string name="unlock_output_unwritable_format">无法写入输出文件夹：%1$s</string>
+    <string name="unlock_output_fallback_format">之前选择的输出文件夹已失效，已改回默认的“%1$s”。</string>
+    <string name="unlock_view_in_files_action">在文件管理中查看</string>
+    <string name="unlock_view_in_files_failed_format">请在文件管理中打开 %1$s</string>
+    <string name="unlock_open_action">打开</string>
+    <string name="unlock_share_action">分享</string>
+    <string name="unlock_open_unavailable">没有可以打开这个文件的应用</string>
+    <string name="unlock_naming_hint">同名文件自动编号，源文件保持不变。</string>
+    <string name="unlock_quality_title">保留原始音质</string>
+    <string name="unlock_quality_body">解除文件封装，保留原有编码。输出可能是 FLAC、MP3、OGG 或 M4A，不进行有损转码。</string>
+    <string name="unlock_sources_title">支持的来源</string>
+    <string name="unlock_sources_netease">网易云</string>
+    <string name="unlock_sources_netease_formats">NCM / UC</string>
+    <string name="unlock_sources_qq">QQ 音乐</string>
+    <string name="unlock_sources_qq_formats">QMC / MFLAC / MGG</string>
+    <string name="unlock_sources_more">更多</string>
+    <string name="unlock_sources_more_formats">KWM / KGM v3 / XM</string>
+    <string name="unlock_sources_hint">新版外置密钥格式可能无法转换，结果会显示在对应文件下方。</string>
+    <string name="unlock_chip_ncm">NCM</string>
+    <string name="unlock_chip_qmc">QMC</string>
+    <string name="unlock_chip_mflac">MFLAC</string>
+    <string name="unlock_chip_mgg">MGG</string>
 
     <!-- lyrics: 歌词工作区（#32） -->
     <string name="lyrics_title">歌词工作台</string>
