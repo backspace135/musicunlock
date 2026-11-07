@@ -5,6 +5,7 @@
 #include "Accounts.h"
 #include "AccountsDialog.xaml.h"
 #include "GlassMotion.h"
+#include "GlassMenu.h"
 #include "Motion.h"
 #include "MotionCapture.h"
 #include "Preview.h"
@@ -104,6 +105,33 @@ void MainWindow::InitializeComponent() {
     Audio().OnFindLyricsRequested([this](std::string title) {
         ShowWorkspace(false);
         Lyrics().SearchForAudio(std::move(title));
+    });
+    glass_menu::attach(Root());
+    AccountsButton().Flyout(nullptr);
+    AccountsButton().Click([this](auto&&, auto&&) {
+        glass_menu::show_entries(AccountsButton(), L"账号登录", false, [this] {
+            std::vector<glass_menu::Entry> entries;
+            bool first = true;
+            for (const auto provider : mu::all_providers) {
+                if (!first) entries.push_back({glass_menu::Entry::Kind::divider, {}, false, true, {}});
+                first = false;
+                const std::wstring title(to_hstring(mu::provider_title(provider)));
+                if (accounts::signed_in(provider)) {
+                    entries.push_back({glass_menu::Entry::Kind::note, title + L"：会话已保存", false, true, {}});
+                    entries.push_back({glass_menu::Entry::Kind::item, L"重新登录" + title, false, true,
+                                       [this, provider] { ShowAccounts(provider); }});
+                    entries.push_back({glass_menu::Entry::Kind::item, L"退出" + title, false, true, [this, provider] {
+                                           accounts::logout(provider);
+                                           UpdateAccountsButton();
+                                           Lyrics().AccountsChanged();
+                                       }});
+                } else {
+                    entries.push_back({glass_menu::Entry::Kind::item, L"登录" + title, false, true,
+                                       [this, provider] { ShowAccounts(provider); }});
+                }
+            }
+            return entries;
+        });
     });
     ApplyMotion();
     // "Animation effects" may have been switched in Settings while the window was in the background.

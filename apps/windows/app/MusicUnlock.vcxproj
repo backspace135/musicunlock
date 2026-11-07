@@ -122,6 +122,7 @@
     </ClInclude>
     <ClInclude Include="Accounts.h" />
     <ClInclude Include="Corners.h" />
+    <ClInclude Include="GlassMenu.h" />
     <ClInclude Include="GlassMotion.h" />
     <ClInclude Include="GlassSurface.h">
       <DependentUpon>GlassSurface.idl</DependentUpon>
@@ -167,6 +168,7 @@
     </ClCompile>
     <ClCompile Include="Accounts.cpp" />
     <ClCompile Include="Corners.cpp" />
+    <ClCompile Include="GlassMenu.cpp" />
     <ClCompile Include="GlassMotion.cpp" />
     <ClCompile Include="GlassSurface.cpp">
       <DependentUpon>GlassSurface.idl</DependentUpon>

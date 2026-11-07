@@ -13,6 +13,7 @@
 #include <winrt/Windows.ApplicationModel.DataTransfer.h>
 #include <winrt/Windows.Storage.h>
 
+#include "GlassMenu.h"
 #include "Settings.h"
 #include "Shell.h"
 #include "detail.h"
@@ -84,9 +85,32 @@ void UnlockView::InitializeComponent() {
     FilterBar().SelectedItem(FilterBar().Items().GetAt(0));
     const auto saved = settings::load();
     naming_ = saved.naming;
-    for (auto policy : naming_policies) NamingBox().Items().Append(box_value(to_hstring(mu::naming_label(policy))));
-    NamingBox().SelectedIndex(static_cast<int32_t>(std::find(std::begin(naming_policies), std::end(naming_policies), naming_) -
-                                                   std::begin(naming_policies)));
+    std::vector<std::wstring> policies;
+    for (auto policy : naming_policies) policies.emplace_back(to_hstring(mu::naming_label(policy)));
+    NamingHost().Child(glass_menu::make_picker(L"文件命名", policies,
+        static_cast<int>(std::find(std::begin(naming_policies), std::end(naming_policies), naming_) - std::begin(naming_policies)),
+        0, true, [this](int index) {
+            if (naming_policies[index] == naming_) return;
+            naming_ = naming_policies[index];
+            SaveSettings();
+        }));
+    auto queue_more = glass_menu::make_button(L"整理队列", [this] {
+        return std::vector<glass_menu::Entry>{
+            {glass_menu::Entry::Kind::item, L"清除已完成", false, queue_.count(mu::JobState::done) > 0,
+             [this] { OnClearCompleted(nullptr, nullptr); }},
+            {glass_menu::Entry::Kind::item, L"清空队列", false, !queue_.running() && !queue_.jobs().empty(),
+             [this] { OnClearQueue(nullptr, nullptr); }},
+        };
+    });
+    queue_more.Width(32);
+    queue_more.Height(32);
+    queue_more.Padding(ThicknessHelper::FromUniformLength(0));
+    FontIcon queue_glyph;
+    queue_glyph.Glyph(L"\uE712");
+    queue_glyph.FontSize(15);
+    queue_more.Content(queue_glyph);
+    Controls::ToolTipService::SetToolTip(queue_more, box_value(L"整理队列"));
+    MoreHost().Child(queue_more);
     JobList().ItemsSource(items_);
     drift_ = motion::Loop::drift(Disc());
     hop_ = motion::Loop::hop(DropGlyph());
@@ -157,7 +181,7 @@ void UnlockView::FitQueueHeader() {
     const Windows::Foundation::Size unbounded{std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()};
     double needed = 0;
     for (const FrameworkElement& element : {FrameworkElement(QueueTitle()), FrameworkElement(CountText()),
-                                            FrameworkElement(FilterBar()), FrameworkElement(MoreButton())}) {
+                                            FrameworkElement(FilterBar()), FrameworkElement(MoreHost())}) {
         if (element.Visibility() == Visibility::Collapsed) continue;
         element.Measure(unbounded);
         needed += element.DesiredSize().Width + QueueHeader().ColumnSpacing();
@@ -249,8 +273,7 @@ void UnlockView::Refresh() {
     EmptyFilterGlyph().Glyph(filter_ == mu::QueueFilter::done ? L"\xE73E" : L"\xE7B8");
     SyncItems();
 
-    ClearCompletedItem().IsEnabled(done > 0);
-    ClearQueueItem().IsEnabled(!running && !empty);
+    (void)done;
 
     if (const hstring title = to_hstring(queue_.status_title()); title != status_title_) {
         status_title_ = title;
@@ -285,7 +308,8 @@ void UnlockView::Refresh() {
         else wave_.stop();
     }
     OutputButton().IsEnabled(!running);
-    NamingBox().IsEnabled(!running);
+    NamingHost().IsHitTestVisible(!running);
+    NamingHost().Opacity(running ? 0.45 : 1);
     ChooseFilesButton().IsEnabled(imports_ == 0);
 }
 
@@ -517,12 +541,7 @@ void UnlockView::OnChooseOutput(IInspectable const&, RoutedEventArgs const&) {
     }
 }
 
-void UnlockView::OnNamingChanged(IInspectable const&, SelectionChangedEventArgs const&) {
-    const int index = NamingBox().SelectedIndex();
-    if (index < 0 || naming_policies[index] == naming_) return;
-    naming_ = naming_policies[index];
-    SaveSettings();
-}
+void UnlockView::OnNamingChanged(IInspectable const&, SelectionChangedEventArgs const&) {}
 
 void UnlockView::OnRetry(IInspectable const&, RoutedEventArgs const&) {
     if (!queue_.retry_failed()) return;
