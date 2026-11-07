@@ -160,9 +160,10 @@
     <ClCompile Include="Taskbar.cpp" />
     <ClCompile Include="$(GeneratedFilesDir)module.g.cpp" />
   </ItemGroup>
-  <!-- The shared core, compiled with the app's settings (static CRT, no precompiled header). -->
+  <!-- The shared core's portable code and Windows implementations, compiled with the app's settings
+       (static CRT, no precompiled header). -->
   <ItemGroup>
-    <ClCompile Include="..\..\..\shared\core\src\*.cpp" Exclude="..\..\..\shared\core\src\*_mac.cpp;..\..\..\shared\core\src\crypto_commoncrypto.cpp">
+    <ClCompile Include="..\..\..\shared\core\src\*.cpp;..\..\..\shared\core\src\platform\win\*.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\..\..\shared\core\third_party\qrcodegen\qrcodegen.cpp">
