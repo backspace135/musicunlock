@@ -128,6 +128,24 @@ struct HoverHighlight: ViewModifier {
     }
 }
 
+/// iOS-style press for plain buttons: the control dips and springs back on release.
+struct PressableButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        let pressed = configuration.isPressed && !reduceMotion
+        configuration.label
+            .scaleEffect(pressed ? 0.97 : 1)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.8 : 1) : 0.45)
+            .animation(reduceMotion ? nil : .spring(duration: 0.3, bounce: 0.5), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == PressableButtonStyle {
+    static var pressable: PressableButtonStyle { PressableButtonStyle() }
+}
+
 extension View {
     func liquidSurface(radius: CGFloat = 22, tint: Color? = nil, interactive: Bool = false) -> some View {
         modifier(LiquidSurface(radius: radius, tint: tint, interactive: interactive))

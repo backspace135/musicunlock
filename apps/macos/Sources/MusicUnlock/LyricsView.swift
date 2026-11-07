@@ -21,7 +21,7 @@ struct LyricsView: View {
                     Button {
                         model.notice = nil; accounts.message = nil
                     } label: { Image(systemName: "xmark") }
-                    .buttonStyle(.plain).accessibilityLabel("关闭提示")
+                    .buttonStyle(.pressable).accessibilityLabel("关闭提示")
                 }.foregroundStyle(Theme.secondary).padding(12)
                     .liquidSurface(radius: 12, tint: Theme.accent.opacity(0.08))
                     .transition(.settle)
@@ -142,7 +142,7 @@ struct LyricsView: View {
                                     }.frame(maxWidth: .infinity, alignment: .leading)
                                     Image(systemName: "chevron.right").font(.system(size: 10)).foregroundStyle(Theme.secondary)
                                 }.padding(14).contentShape(Rectangle())
-                            }.buttonStyle(.plain).disabled(model.exporting)
+                            }.buttonStyle(.pressable).disabled(model.exporting)
                             .hoverHighlight(radius: 14).padding(.horizontal, 6)
                             .transition(.settle)
                             Divider().padding(.leading, 54)
@@ -181,7 +181,7 @@ struct LyricsView: View {
                         if song.duration > 0 { Text(String(format: "%d:%02d", song.duration / 60_000, song.duration / 1000 % 60)).monospacedDigit() }
                     }.font(.system(size: 10)).foregroundStyle(Theme.secondary)
                 }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
-            }.buttonStyle(.plain).disabled(model.exporting)
+            }.buttonStyle(.pressable).disabled(model.exporting)
         }
         .padding(.horizontal, 10).padding(.vertical, 13)
         .hoverHighlight(radius: 14)

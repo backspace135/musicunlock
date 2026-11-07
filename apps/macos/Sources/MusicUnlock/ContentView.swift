@@ -85,7 +85,7 @@ struct ContentView: View {
                     Text(notice).font(.system(size: 12)).fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 4)
                     Button { model.notice = nil } label: { Image(systemName: "xmark") }
-                        .buttonStyle(.plain).help("关闭提示").accessibilityLabel("关闭提示")
+                        .buttonStyle(.pressable).help("关闭提示").accessibilityLabel("关闭提示")
                 }
                 .foregroundStyle(Theme.secondary).padding(12)
                 .liquidSurface(radius: 12, tint: Theme.accent.opacity(0.08))
@@ -203,7 +203,7 @@ struct ContentView: View {
                     .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.separator))
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain).disabled(model.running)
+                .buttonStyle(.pressable).disabled(model.running)
                 .help(model.outputDirectory.path).accessibilityLabel("更改输出文件夹：\(model.outputDirectory.path)")
             }
             VStack(alignment: .leading, spacing: 8) {
@@ -366,7 +366,6 @@ struct JobRow: View {
                     Image(systemName: job.state.symbol).font(.system(size: 12))
                         .contentTransition(.symbolEffect(.replace.downUp))
                         .symbolEffect(.bounce, value: job.state == .done)
-                        .transition(.scale.combined(with: .opacity))
                 }
                 Text(job.state.label).font(.system(size: 11)).contentTransition(.interpolate)
             }
