@@ -87,6 +87,9 @@
     <string name="unlock_chip_qmc">QMC</string>
     <string name="unlock_chip_mflac">MFLAC</string>
     <string name="unlock_chip_mgg">MGG</string>
+    <string name="unlock_scan_downloads_action">扫描下载目录</string>
+    <string name="unlock_scan_empty">没有找到网易云或 QQ 音乐的下载文件。</string>
+    <string name="unlock_scan_permission">需要允许访问所有文件，才能扫描音乐 App 的下载目录。</string>
 
     <!-- lyrics: 歌词工作区（#32） -->
     <string name="lyrics_title">歌词工作台</string>

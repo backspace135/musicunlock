@@ -8,6 +8,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -121,6 +123,29 @@ fun UnlockScreen(vm: UnlockViewModel = viewModel()) {
     val askStorage = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         vm.start(context)
     }
+    val askAllFiles = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (canReadDownloads()) vm.scanDownloads(context) else vm.showNotice(context.getString(R.string.unlock_scan_permission))
+    }
+    val askReadStorage = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) vm.scanDownloads(context) else vm.showNotice(context.getString(R.string.unlock_scan_permission))
+    }
+    fun scanDownloads() {
+        if (scanning) return
+        when {
+            Build.VERSION.SDK_INT >= 30 && !Environment.isExternalStorageManager() -> {
+                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                    .setData(Uri.parse("package:${context.packageName}"))
+                try {
+                    askAllFiles.launch(intent)
+                } catch (_: ActivityNotFoundException) {
+                    askAllFiles.launch(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION))
+                }
+            }
+            Build.VERSION.SDK_INT < 30 && !context.granted(android.Manifest.permission.READ_EXTERNAL_STORAGE) ->
+                askReadStorage.launch(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+            else -> vm.scanDownloads(context)
+        }
+    }
     fun chooseFiles() {
         if (!scanning) pickFiles.launch(arrayOf("*/*"))
     }
@@ -172,6 +197,7 @@ fun UnlockScreen(vm: UnlockViewModel = viewModel()) {
                                 stringResource(R.string.unlock_clear_queue_action),
                                 enabled = !running && jobs.isNotEmpty(),
                             ) { confirmClear = true },
+                            MenuItem(stringResource(R.string.unlock_scan_downloads_action), enabled = !scanning, onClick = ::scanDownloads),
                         ),
                     )
                     IconAction(MuIcons.Settings, stringResource(R.string.nav_settings_description), onClick = {
@@ -217,7 +243,7 @@ fun UnlockScreen(vm: UnlockViewModel = viewModel()) {
                 }
                 item(key = "output") { OutputStrip { showExportSettings = true } }
                 when {
-                    jobs.isEmpty() -> item(key = "empty") { QueueEmptyState(scanning, ::chooseFiles, ::chooseFolder) }
+                    jobs.isEmpty() -> item(key = "empty") { QueueEmptyState(scanning, ::chooseFiles, ::chooseFolder, ::scanDownloads) }
                     visible.isEmpty() -> item(key = "filterEmpty") {
                         EmptyState(
                             title = stringResource(R.string.unlock_filter_empty_format, vm.filter.label),
@@ -422,7 +448,7 @@ private fun OutputStrip(onClick: () -> Unit) {
 }
 
 @Composable
-private fun QueueEmptyState(scanning: Boolean, onFiles: () -> Unit, onFolder: () -> Unit) {
+private fun QueueEmptyState(scanning: Boolean, onFiles: () -> Unit, onFolder: () -> Unit, onScan: () -> Unit) {
     val context = LocalContext.current
     val drift = Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
     EmptyState(
@@ -441,6 +467,8 @@ private fun QueueEmptyState(scanning: Boolean, onFiles: () -> Unit, onFolder: ()
         PrimaryButton(stringResource(R.string.unlock_empty_pick_files_action), onFiles, enabled = !scanning)
         Spacer(Modifier.height(MuSpacing.s))
         SecondaryButton(stringResource(R.string.unlock_empty_pick_folder_action), onFolder, enabled = !scanning)
+        Spacer(Modifier.height(MuSpacing.s))
+        PlainButton(stringResource(R.string.unlock_scan_downloads_action), onScan, enabled = !scanning)
         Spacer(Modifier.height(MuSpacing.l))
         Row(horizontalArrangement = Arrangement.spacedBy(MuSpacing.s)) {
             FormatChip(stringResource(R.string.unlock_chip_ncm))
@@ -481,6 +509,9 @@ private val JobState.glyph: JobGlyph
         JobState.DONE -> JobGlyph.Done
         JobState.FAILED -> JobGlyph.Failed
     }
+
+private fun canReadDownloads(): Boolean =
+    Build.VERSION.SDK_INT < 30 || Environment.isExternalStorageManager()
 
 private fun Context.granted(permission: String): Boolean =
     ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
