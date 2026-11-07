@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  All user-visible text, Chinese only. Wording follows the Windows and macOS apps.
+  Names: <area>_<thing>[_<kind>], lower snake case, for example unlock_empty_title.
+    area:  common (shared words) · nav · unlock · lyrics · accounts · settings · about · licenses
+    kind:  title · body · action · hint · label · description (TalkBack) · format (has %1$s / %1$d)
+  Keep each area together and append new strings at the end of its block.
+-->
 <resources>
     <string name="app_name">音匣</string>
+
+    <!-- common -->
+    <string name="common_clear">清除</string>
 </resources>
