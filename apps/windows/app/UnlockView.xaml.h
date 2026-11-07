@@ -27,6 +27,12 @@ struct UnlockView : UnlockViewT<UnlockView> {
     /// Opens the context menu of a row.
     void PreviewRowMenu(uint32_t index);
     void PreviewDropTarget(bool shown) { ShowDropTarget(shown); }
+    /// Motion capture: the banner's own show and hide path.
+    void ShowNotice(std::string text);
+    void DismissNotice() {
+        notice_.clear();
+        Refresh();
+    }
     /// Stands in for the system text size (TextScaleFactor) while previews simulate large text; 0 ends it.
     void PreviewTextScale(double scale) {
         preview_text_scale_ = scale;
@@ -91,7 +97,6 @@ struct UnlockView : UnlockViewT<UnlockView> {
 private:
     void Refresh();
     void SyncItems();
-    void ShowNotice(std::string text);
     void ShowDropTarget(bool shown);
     void ApplyTextScale();
     void FitQueueHeader();
