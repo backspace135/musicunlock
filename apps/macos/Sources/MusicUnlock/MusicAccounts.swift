@@ -152,13 +152,20 @@ struct MusicLoginSheet: View {
                     Spacer()
                     Group {
                         if let qr {
+                            // An expired code blurs away behind its refresh prompt.
                             Image(nsImage: qr).resizable().interpolation(.none).scaledToFit()
                                 .padding(12).background(.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .blur(radius: expired ? 6 : 0).opacity(expired ? 0.35 : 1)
                                 .accessibilityLabel("网易云音乐登录二维码")
-                        } else if loading { ProgressView().controlSize(.large) }
-                        else { Image(systemName: "qrcode").font(.system(size: 70)).foregroundStyle(Theme.secondary) }
+                                .transition(.blurReplace.combined(with: .scale(0.92)))
+                        } else if loading { ProgressView().controlSize(.large).transition(.opacity) }
+                        else {
+                            Image(systemName: "qrcode").font(.system(size: 70)).foregroundStyle(Theme.secondary)
+                                .transition(.blurReplace)
+                        }
                     }.frame(width: 210, height: 210)
                     Text(status).font(.system(size: 14, weight: .medium)).multilineTextAlignment(.center)
+                        .contentTransition(.interpolate)
                     Text("打开手机网易云音乐，使用扫一扫并确认登录。")
                         .font(.system(size: 12)).foregroundStyle(Theme.secondary)
                     HStack(spacing: 16) {
@@ -169,6 +176,9 @@ struct MusicLoginSheet: View {
                     Label("登录信息保存在这台 Mac 的系统钥匙串中", systemImage: "key.horizontal")
                         .font(.system(size: 11)).foregroundStyle(Theme.secondary)
                 }.padding(24)
+                .motion(.spring(duration: 0.45, bounce: 0.2), value: qr == nil)
+                .motion(.smooth(duration: 0.35), value: expired)
+                .motion(.smooth(duration: 0.3), value: status)
                 .task(id: revision) { await pollQRCode() }
             }
         }
