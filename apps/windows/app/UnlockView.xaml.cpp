@@ -233,12 +233,7 @@ void UnlockView::Refresh() {
     FilterBar().Visibility(shown(!empty));
     FitQueueHeader();
     const hstring notice = to_hstring(notice_);
-    if (!notice.empty() && (notice != Notice().Message() || Notice().Visibility() == Visibility::Collapsed)) {
-        Announce(notice);
-        // InfoBar does not expose its icon, so the whole banner takes the bounce.
-        motion::describe(L"队列提示");
-        motion::bounce(Notice());
-    }
+    if (!notice.empty() && (notice != Notice().Message() || Notice().Visibility() == Visibility::Collapsed)) Announce(notice);
     if (!notice.empty()) Notice().Message(notice);  // keeps the text while the banner fades out
     Notice().Visibility(shown(!notice.empty()));
     motion::changed(Notice());
@@ -494,6 +489,15 @@ fire_and_forget UnlockView::Start() {
         Refresh();
     }
     notice_ = queue_.end_batch();
+    Refresh();
+}
+
+void UnlockView::StartForCapture() {
+    if (queue_.jobs().empty()) return;
+    const auto ids = queue_.begin_batch();
+    Refresh();
+    if (!ids.empty()) queue_.job_succeeded(ids.front(), {output_directory_ / L"示例.flac", "flac", {}});
+    queue_.end_batch();
     Refresh();
 }
 

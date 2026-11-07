@@ -86,6 +86,11 @@ void LyricsView::InitializeComponent() {
     Refresh();
 }
 
+void LyricsView::SelectSample(int index) {
+    if (index < 0 || index >= static_cast<int>(workspace_.songs().size())) return;
+    LoadLyrics(workspace_.select(workspace_.songs()[index].id()));
+}
+
 void LyricsView::UsePreviewData() {
     persist_ = false;
     workspace_.set_output_directory(L"C:\\Users\\示例\\Downloads\\音匣输出\\歌词");
@@ -221,10 +226,6 @@ void LyricsView::Refresh() {
     SessionText().Text(signed_in ? L"登录会话已保存" : L"公开内容可免登录读取");
 
     const hstring notice = to_hstring(workspace_.notice());
-    if (!notice.empty() && (notice != Notice().Message() || Notice().Visibility() == Visibility::Collapsed)) {
-        motion::describe(L"歌词提示");
-        motion::bounce(Notice());
-    }
     Notice().Message(notice);
     Notice().IsOpen(!notice.empty());
     Notice().Visibility(shown(!notice.empty()));
@@ -333,6 +334,8 @@ void LyricsView::MoveSelectionHighlight() {
         row = ResultList().ContainerFromIndex(i).try_as<UIElement>();
         break;
     }
+    // A row that has only just been realized has no position yet; the next layout pass places the highlight.
+    if (row && row.ActualSize().y == 0) return;
     motion::describe(L"选中高亮");
     motion::move_highlight(SelectionHighlight(), row);
 }
