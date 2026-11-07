@@ -16,7 +16,7 @@ import argparse
 import subprocess
 import sys
 
-from android_env import BUILD, EXE, REPO, ROOT, WINDOWS, android_environment, pinned, print_environment
+from android_env import BUILD, EXE, REPO, ROOT, WINDOWS, adb, android_environment, pinned, print_environment
 
 NATIVE_PROJECT = ROOT / "core" / "src" / "main" / "cpp"
 DEVICE_DIR = "/data/local/tmp/musicunlock-core-tests"
@@ -61,12 +61,6 @@ def run_host_tests(env: dict, cmake_bin: Path) -> None:
     subprocess.run([str(tests)], env=env, check=True)
 
 
-def adb(env: dict, serial: str | None, *args: str, **kwargs) -> subprocess.CompletedProcess:
-    tool = Path(env["ANDROID_HOME"]) / "platform-tools" / f"adb{EXE}"
-    target = ["-s", serial] if serial else []
-    return subprocess.run([str(tool), *target, *args], env=env, text=True, **kwargs)
-
-
 def emulator_serial(env: dict, requested: str | None) -> str:
     """Pick the emulator to test on. Physical devices are refused: the tests write to /data/local/tmp."""
     listing = adb(env, None, "devices", capture_output=True, check=True).stdout.splitlines()[1:]
@@ -89,23 +83,24 @@ def emulator_serial(env: dict, requested: str | None) -> str:
     return serial
 
 
-def run_device_tests(env: dict, ndk: Path, cmake_bin: Path, serial: str) -> None:
+def run_device_tests(env: dict, ndk: Path, cmake_bin: Path, serial: str, device_dir: str = DEVICE_DIR) -> None:
+    """Cross-compile musicunlock_core_tests for arm64 and run it with the fixtures in device_dir, then delete that."""
     tests = build_core_tests(
         env, cmake_bin, BUILD / "core-tests-android",
         f"-DCMAKE_TOOLCHAIN_FILE={(ndk / 'build' / 'cmake' / 'android.toolchain.cmake').as_posix()}",
         "-DANDROID_ABI=arm64-v8a", f"-DANDROID_PLATFORM=android-{pinned('minSdk')}",
-        f"-DMU_TEST_FIXTURES_DIR={DEVICE_DIR}/fixtures", f"-DMU_TEST_SCRATCH_DIR={DEVICE_DIR}/scratch")
-    print(f"在模拟器 {serial} 上运行核心测试", flush=True)
-    adb(env, serial, "shell", f"rm -rf {DEVICE_DIR} && mkdir -p {DEVICE_DIR}/scratch", check=True)
+        f"-DMU_TEST_FIXTURES_DIR={device_dir}/fixtures", f"-DMU_TEST_SCRATCH_DIR={device_dir}/scratch")
+    print(f"在 {serial} 上运行核心测试", flush=True)
+    adb(env, serial, "shell", f"rm -rf {device_dir} && mkdir -p {device_dir}/scratch", check=True)
     try:
-        adb(env, serial, "push", str(REPO / "tests" / "fixtures" / "qmc"), f"{DEVICE_DIR}/fixtures", check=True)
-        adb(env, serial, "push", str(tests), f"{DEVICE_DIR}/musicunlock_core_tests", check=True)
-        result = adb(env, serial, "shell", f"cd {DEVICE_DIR} && chmod 755 musicunlock_core_tests && "
+        adb(env, serial, "push", str(REPO / "tests" / "fixtures" / "qmc"), f"{device_dir}/fixtures", check=True)
+        adb(env, serial, "push", str(tests), f"{device_dir}/musicunlock_core_tests", check=True)
+        result = adb(env, serial, "shell", f"cd {device_dir} && chmod 755 musicunlock_core_tests && "
                      "./musicunlock_core_tests")
         if result.returncode != 0:
-            sys.exit(f"模拟器上的核心测试失败（退出码 {result.returncode}）")
+            sys.exit(f"{serial} 上的核心测试失败（退出码 {result.returncode}）")
     finally:
-        adb(env, serial, "shell", f"rm -rf {DEVICE_DIR}")
+        adb(env, serial, "shell", f"rm -rf {device_dir}")
 
 
 def main() -> None:

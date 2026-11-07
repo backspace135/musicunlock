@@ -46,6 +46,8 @@ def main_checkout() -> Path:
 TOOLCHAIN = Path(os.environ.get("MUSICUNLOCK_ANDROID_TOOLCHAIN") or main_checkout() / "build" / "android-toolchain")
 TOOLCHAIN_JDK = TOOLCHAIN / JDK_FOLDER / ("Contents/Home" if MAC else "")
 TOOLCHAIN_SDK = TOOLCHAIN / "sdk"
+# adb ignores ANDROID_USER_HOME: its key and known hosts go to <home>/.android, see adb_environment.
+ADB_HOME = TOOLCHAIN / "adb-home"
 
 
 def java_binary(java: Path) -> Path:
@@ -88,3 +90,26 @@ def android_environment(base: dict | None = None, check: bool = True) -> dict:
 def print_environment(env: dict) -> None:
     for key in ["JAVA_HOME", "ANDROID_HOME", "GRADLE_USER_HOME", "ANDROID_USER_HOME", "TMP"]:
         print(f"{key}: {env.get(key, '(default)')}", flush=True)
+
+
+def adb_environment(env: dict) -> tuple[dict, Path | None]:
+    """The environment and working folder for adb, whose server outlives the command that starts it.
+
+    With the in-repository toolchain the server runs in, and logs to, the toolchain folder rather than this
+    checkout, so it never holds a worktree that is about to be removed. On macOS and Linux adb takes its home
+    folder from HOME, which then points into the toolchain too.
+    """
+    if not uses_toolchain():
+        return env, None
+    ADB_HOME.mkdir(parents=True, exist_ok=True)
+    env = dict(env, ANDROID_ADB_LOG_PATH=str(ADB_HOME / "adb.log"))
+    if not WINDOWS:
+        env["HOME"] = str(ADB_HOME)
+    return env, ADB_HOME
+
+
+def adb(env: dict, serial: str | None, *args: str, **kwargs) -> subprocess.CompletedProcess:
+    tool = Path(env["ANDROID_HOME"]) / "platform-tools" / f"adb{EXE}"
+    target = ["-s", serial] if serial else []
+    adb_env, folder = adb_environment(env)
+    return subprocess.run([str(tool), *target, *args], env=adb_env, cwd=folder, **{"text": True, **kwargs})
