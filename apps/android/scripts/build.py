@@ -11,13 +11,19 @@ in-repository toolchain from setup_toolchain.py, or JAVA_HOME / ANDROID_HOME and
 CMake are the versions pinned in gradle/libs.versions.toml, installed into that SDK by setup_toolchain.py.
 
 All output and temporary files stay under apps/android/build/.
+
+--release signs the release APK. It reads MU_KEYSTORE_FILE, MU_KEYSTORE_PASSWORD, MU_KEY_ALIAS and MU_KEY_PASSWORD,
+and otherwise .signing/keystore.properties in the main checkout. It stops if neither is complete. It never signs a
+release build with the debug key.
 """
 from pathlib import Path
 import argparse
+import os
 import subprocess
 import sys
 
-from android_env import BUILD, EXE, REPO, ROOT, WINDOWS, adb, android_environment, pinned, print_environment
+from android_env import (BUILD, EXE, REPO, ROOT, WINDOWS, adb, android_environment, main_checkout, pinned,
+                         print_environment)
 
 NATIVE_PROJECT = ROOT / "core" / "src" / "main" / "cpp"
 DEVICE_DIR = "/data/local/tmp/musicunlock-core-tests"
@@ -31,6 +37,81 @@ def gradle(env: dict, *tasks: str) -> None:
 def suffix_property(suffix: str | None) -> list[str]:
     """The Gradle property giving a debug build its applicationIdSuffix (see app/build.gradle.kts)."""
     return [f"-Pmusicunlock.suffix={suffix}"] if suffix else []
+
+
+SIGNING_ENV = ("MU_KEYSTORE_FILE", "MU_KEYSTORE_PASSWORD", "MU_KEY_ALIAS", "MU_KEY_PASSWORD")
+SIGNING_KEYS = ("storeFile", "storePassword", "keyAlias", "keyPassword")
+
+
+def signing_config() -> dict[str, str]:
+    """Release signing material from the environment, or from the main checkout's .signing/keystore.properties.
+
+    A partial set is an error. Missing material is an error too: a release build is never signed with the debug key.
+    The returned passwords are for apksigner's environment and must not be printed.
+    """
+    present = [name for name in SIGNING_ENV if os.environ.get(name)]
+    if present:
+        missing = [name for name in SIGNING_ENV if name not in present]
+        if missing:
+            sys.exit(f"发布签名的环境变量不完整，缺少 {'、'.join(missing)}。不会改用 debug 证书。")
+        values = {"storeFile": os.environ["MU_KEYSTORE_FILE"], "storePassword": os.environ["MU_KEYSTORE_PASSWORD"],
+                  "keyAlias": os.environ["MU_KEY_ALIAS"], "keyPassword": os.environ["MU_KEY_PASSWORD"]}
+    else:
+        path = main_checkout() / ".signing" / "keystore.properties"
+        if not path.is_file():
+            sys.exit(f"没有发布签名配置。请设置 {'、'.join(SIGNING_ENV)}，或在 {path} 写上 "
+                     f"{'、'.join(SIGNING_KEYS)}。不会改用 debug 证书。")
+        values = {}
+        for line in path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            values[key.strip()] = value.strip()
+        missing = [key for key in SIGNING_KEYS if not values.get(key)]
+        if missing:
+            sys.exit(f"{path} 缺少 {'、'.join(missing)}。不会改用 debug 证书。")
+    keystore = Path(values["storeFile"])
+    if not keystore.is_file():
+        sys.exit(f"找不到发布证书：{keystore}。不会改用 debug 证书。")
+    values["storeFile"] = str(keystore)
+    return values
+
+
+def apksigner(env: dict) -> Path:
+    """The apksigner of the pinned build-tools (apksigner.bat on Windows)."""
+    tool = Path(env["ANDROID_HOME"]) / "build-tools" / pinned("buildTools") / f"apksigner{'.bat' if WINDOWS else ''}"
+    if not tool.is_file():
+        sys.exit(f"未找到 apksigner：{tool}；请运行 python apps/android/scripts/setup_toolchain.py")
+    return tool
+
+
+def sign_release(env: dict, unsigned: Path) -> Path:
+    """Sign unsigned with the release key (APK Signature Scheme v2 and v3) and check the result."""
+    config = signing_config()
+    signed = unsigned.with_name("app-release.apk")
+    signed.unlink(missing_ok=True)
+    signing_env = dict(env, MU_STORE_PASS=config["storePassword"], MU_KEY_PASS=config["keyPassword"])
+    subprocess.run([str(apksigner(env)), "sign", "--ks", config["storeFile"], "--ks-key-alias", config["keyAlias"],
+                    "--ks-pass", "env:MU_STORE_PASS", "--key-pass", "env:MU_KEY_PASS",
+                    "--v1-signing-enabled", "false", "--v2-signing-enabled", "true", "--v3-signing-enabled", "true",
+                    "--v4-signing-enabled", "false", "--out", str(signed), str(unsigned)],
+                   env=signing_env, check=True)
+    report = subprocess.run([str(apksigner(env)), "verify", "--verbose", "--print-certs", str(signed)],
+                            env=env, capture_output=True, text=True)
+    text = (report.stdout or "") + (report.stderr or "")
+    schemes = {}
+    for line in text.splitlines():
+        marker = "APK Signature Scheme "
+        if marker not in line or ":" not in line:
+            continue
+        name = line.split(marker, 1)[1].split(")", 1)[0].strip()
+        schemes[name] = line.strip().endswith("true")
+    if report.returncode != 0 or not schemes.get("v2") or not schemes.get("v3") or "CN=MusicUnlock" not in text:
+        signed.unlink(missing_ok=True)
+        sys.exit(f"发布签名校验失败（v2/v3 必须通过，证书必须是 CN=MusicUnlock）：\n{text}")
+    print(text, end="" if text.endswith("\n") else "\n", flush=True)
+    return signed
 
 
 def native_tools(env: dict) -> tuple[Path, Path]:
@@ -116,6 +197,8 @@ def run_instrumented_tests(env: dict, serial: str, live: bool) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--config", default="debug", choices=["debug", "release"])
+    parser.add_argument("--release", action="store_true",
+                        help="build the release APK and sign it (v2 and v3). Never falls back to the debug key")
     parser.add_argument("--no-test", action="store_true", help="skip the app's unit tests and the core tests on the host")
     parser.add_argument("--device", action="store_true",
                         help="also run the core tests and :core's instrumented tests on an arm64 emulator")
@@ -126,6 +209,10 @@ def main() -> None:
     parser.add_argument("--suffix", help="debug only: install as io.github.backspace135.musicunlock.<suffix>, "
                         "named 音匣 (<suffix>), next to other branches' builds")
     args = parser.parse_args()
+    if args.release:
+        if "--config" in sys.argv and args.config != "release":
+            parser.error("--release 只构建 release 版，不能同时指定 --config debug")
+        args.config = "release"
     if args.suffix and args.config != "debug":
         parser.error("--suffix 只用于 debug 版")
 
@@ -135,6 +222,9 @@ def main() -> None:
     print(f"NDK: {ndk}\nCMake: {cmake_bin}", flush=True)
     # Choose the emulator before the long build, so a wrong serial fails fast.
     serial = emulator_serial(env, args.serial) if args.device else None
+    # A release build with no key must fail before Gradle, and must not fall back to the debug key.
+    if args.release:
+        signing_config()
 
     variant = args.config.capitalize()
     unit_tests = [] if args.no_test else [f":app:test{variant}UnitTest"]
@@ -143,6 +233,8 @@ def main() -> None:
     apk = outputs / ("app-debug.apk" if args.config == "debug" else "app-release-unsigned.apk")
     if not apk.is_file():
         sys.exit(f"未找到 APK：{apk}")
+    if args.release:
+        apk = sign_release(env, apk)
     print(f"APK: {apk}", flush=True)
     if not args.no_test:
         run_host_tests(env, cmake_bin)

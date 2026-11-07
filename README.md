@@ -1,6 +1,6 @@
 # 音匣 MusicUnlock
 
-音乐解封装与歌词工具。macOS 和 Windows 版本在同一个仓库维护，各自使用原生界面与系统集成。
+音乐解封装与歌词工具。macOS、Windows 和 Android 版本在同一个仓库维护，各自使用原生界面与系统集成。
 
 ## 平台状态
 
@@ -8,6 +8,7 @@
 | --- | --- | --- | --- |
 | macOS | 已实现，0.2.0 | Swift / SwiftUI / Apple Liquid Glass | [构建与使用说明](apps/macos/README.md) |
 | Windows | 开发中：解封装核心与命令行版可用 | C++20 / C++/WinRT / WinUI 3 | [构建与开发说明](apps/windows/README.md) |
+| Android | 开发中：准备发布 0.1.0 | Kotlin / Jetpack Compose / C++ | [构建与使用说明](apps/android/README.md) |
 
 ## 目录结构
 
@@ -20,7 +21,8 @@ musicunlock/
 │   │   ├── assets/
 │   │   ├── scripts/
 │   │   └── Package.swift
-│   └── windows/               Windows 原生版本：WinUI 3 界面、CLI、单 exe 启动器
+│   ├── windows/               Windows 原生版本：WinUI 3 界面、CLI、单 exe 启动器
+│   └── android/               Android 原生版本：Jetpack Compose 界面，NDK 调用 shared/core
 ├── shared/
 │   └── core/                  多平台共用的 C++ 核心：源码、测试、第三方库
 ├── resources/                公共运行资源（KGM 数据表）

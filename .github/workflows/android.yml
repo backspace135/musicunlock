@@ -2,8 +2,10 @@ name: Android
 
 on:
   # Branch pushes are covered by their pull request; only main runs on push.
+  # Path filters are not applied to tag pushes. The jobs below decide which refs they accept.
   push:
     branches: [main]
+    tags: ["android-v*"]
     paths:
       - "apps/android/**"
       - "shared/**"
@@ -28,6 +30,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -52,3 +55,65 @@ jobs:
           name: musicunlock-android-arm64-debug
           path: apps/android/build/app/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+  # Draft only. Publishing, and adding the four signing secrets, is left to the maintainer.
+  release:
+    if: startsWith(github.ref, 'refs/tags/android-v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the tag version against versionName
+        run: |
+          tag="${GITHUB_REF_NAME#android-v}"
+          version="${tag%%-*}"
+          expected=$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' apps/android/app/build.gradle.kts)
+          if [ -z "$expected" ] || [ "$version" != "$expected" ]; then
+            echo "tag ${GITHUB_REF_NAME} has version ${version}, but versionName is '${expected}'"
+            exit 1
+          fi
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v6
+      - name: Install the pinned SDK packages
+        run: |
+          version() { sed -n "s/^$1 = \"\(.*\)\"$/\1/p" apps/android/gradle/libs.versions.toml; }
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install \
+            "platforms;android-$(version compileSdk).0" "build-tools;$(version buildTools)" \
+            "ndk;$(version ndk)" "cmake;$(version cmake)" > /dev/null
+      - name: Restore the keystore and build the signed release APK
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          MU_KEYSTORE_FILE: ${{ runner.temp }}/musicunlock-release.jks
+          MU_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          MU_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          MU_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$MU_KEYSTORE_PASSWORD" ] || [ -z "$MU_KEY_ALIAS" ] || [ -z "$MU_KEY_PASSWORD" ]; then
+            echo "缺少 ANDROID_KEYSTORE_BASE64、ANDROID_KEYSTORE_PASSWORD、ANDROID_KEY_ALIAS 或 ANDROID_KEY_PASSWORD"
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$MU_KEYSTORE_FILE"
+          test -s "$MU_KEYSTORE_FILE"
+          python3 apps/android/scripts/build.py --release
+      - name: Name the APK and write its sha256
+        run: |
+          version="${GITHUB_REF_NAME#android-v}"
+          apk="MusicUnlock-Android-${version}.apk"
+          cp apps/android/build/app/outputs/apk/release/app-release.apk "$apk"
+          sha256sum "$apk" > "${apk}.sha256"
+      - name: Create a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#android-v}"
+          apk="MusicUnlock-Android-${version}.apk"
+          gh release create "$GITHUB_REF_NAME" \
+            --draft \
+            --title "MusicUnlock Android ${version}" \
+            --notes "$(printf '%s\n' '草稿，尚未发布。' '' "校验：sha256sum -c ${apk}.sha256")" \
+            "$apk" "${apk}.sha256"

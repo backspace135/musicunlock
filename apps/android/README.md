@@ -5,6 +5,23 @@ Android 原生版本的开发目录，与 macOS、Windows 版本在同一个 Git
 **当前状态：界面基础、组件和应用外壳已完成，两个工作区和账号页还是假数据的占位页面；`:core` 用 NDK 把 `shared/core`
 编进 `libmusicunlock.so`，并用 JNI 把核心封装成 Kotlin API（见下文“架构”和“调用核心”）。**
 
+## 安装与升级
+
+发布包在 [GitHub Releases](https://github.com/backspace135/musicunlock/releases)。每个版本有两个文件：
+`MusicUnlock-Android-<版本>.apk` 和同名的 `.sha256`。tag `android-v0.1.0` 对应
+`MusicUnlock-Android-0.1.0.apk`。带后缀的测试 tag（例如 `android-v0.1.0-rc1`）文件名里保留后缀，避免和正式包重名。
+
+1. 下载 APK 和 `.sha256`。
+2. 第一次安装时，系统会要求允许「安装未知应用」。只给正在用来安装的那个应用（浏览器或文件管理器）打开即可。
+3. 升级时直接安装新的 APK，覆盖原来的音匣。不要先卸载，登录和设置会保留。
+4. 建议先校验文件。在文件所在目录执行下面任一命令，哈希要和 `.sha256` 里的一致：
+   - Windows 命令提示符：`certutil -hashfile MusicUnlock-Android-0.1.0.apk SHA256`
+   - `sha256sum -c MusicUnlock-Android-0.1.0.apk.sha256`
+5. 如果锁屏之后正在进行的批量转换被系统省电策略杀掉，需要把音匣加入电池优化白名单。各家系统的入口不一样，
+   具体路径等真机验收之后再写到这里。
+6. Google 正在推行侧载应用需要开发者验证的政策。说明见
+   <https://developer.android.com/developer-verification>。
+
 ## 技术方向
 
 - Kotlin + Jetpack Compose；业务逻辑放在 `shared/core`（C++，与 Windows 共用），Kotlin 只做界面和平台实现。
@@ -561,13 +578,26 @@ adb 不认 `ANDROID_USER_HOME`。Mac / Linux 上脚本只给 adb 子进程改 `H
 ```sh
 python3 apps/android/scripts/build.py                   # debug APK + :app 的单元测试 + 主机上的核心测试
 python3 apps/android/scripts/build.py --config release  # release APK（未签名）+ 单元测试 + 主机上的核心测试
+python3 apps/android/scripts/build.py --release         # 签名的 release APK。缺发布证书就失败，不会改用 debug 证书
 python3 apps/android/scripts/build.py --no-test         # 只编 APK
 python3 apps/android/scripts/build.py --device --serial emulator-5554  # 另外在 arm64 模拟器上跑核心测试
 python3 apps/android/scripts/build.py --suffix unlock   # debug 版带后缀：io.github.backspace135.musicunlock.unlock
 ```
 
-产物在 `apps/android/build/app/outputs/apk/<debug|release>/`。所有构建产物、临时文件都写在 `apps/android/build/`，
+产物在 `apps/android/build/app/outputs/apk/<debug|release>/`。`--release` 在未签名的
+`app-release-unsigned.apk` 之外再写出签过名的 `app-release.apk`。所有构建产物、临时文件都写在 `apps/android/build/`，
 不提交到 Git。
+
+发布证书不在仓库里。`--release` 先读环境变量 `MU_KEYSTORE_FILE`、`MU_KEYSTORE_PASSWORD`、`MU_KEY_ALIAS`、
+`MU_KEY_PASSWORD`；四个都没有时，读主检出的 `.signing/keystore.properties`（`storeFile`、`storePassword`、`keyAlias`、
+`keyPassword`，所有工作树共用这一份）。少任何一项，或者找不到证书文件，就退出。签完后脚本用
+`gradle/libs.versions.toml` 里固定的 build-tools 的 apksigner 检查：v2 和 v3 都必须通过，证书必须是 `CN=MusicUnlock`。
+
+release 构建打开 R8（`isMinifyEnabled` 和 `isShrinkResources`）。C++ 按名字调用的 Kotlin 类和方法留在
+`core/consumer-rules.pro`，少一条 `JNI_OnLoad` 会在第一次启动时中止。以后新增 C++ 回调，加在这个文件里。
+
+版本号在 `app/build.gradle.kts`，两处一起改：`versionName` 是 `主.次.修订`（现在是 `0.1.0`），`versionCode` =
+主版本 × 10000 + 次版本 × 100 + 修订号，所以 0.1.0 是 100。
 
 ## 在设备上安装和调试
 
@@ -744,7 +774,8 @@ Java 能处理这么长的路径，git 默认处理不了，所以删除工作�
 ## 单元测试
 
 界面的纯逻辑（页面栈、底部弹窗吸附）有 JVM 单元测试（`app/src/test/`），`build.py` 编完 APK 就跑
-（`:app:testDebugUnitTest`，release 是 `:app:testReleaseUnitTest`；`--no-test` 跳过）。报告在
+（`:app:testDebugUnitTest`，release 是 `:app:testReleaseUnitTest`；`--no-test` 跳过）。AGP 9 默认只给 debug
+生成单元测试，`gradle.properties` 里的 `android.onlyEnableUnitTestForTheTestedBuildType=false` 把 release 的也打开。报告在
 `apps/android/build/app/reports/tests/`。
 
 ## 核心测试
@@ -773,3 +804,9 @@ Java 能处理这么长的路径，git 默认处理不了，所以删除工作�
 
 `.github/workflows/android.yml` 在 Ubuntu 上装固定版本的 NDK 和 CMake，编 debug / release APK，在主机上跑核心测试
 （portable AES）和 `:app` 的 JVM 单元测试（都由 `build.py` 运行），上传 debug APK。`:core` 只有 instrumented tests，需要模拟器，CI 不跑。改动 `apps/android/`、`shared/`、`tests/fixtures/` 或 `resources/kgm.mask` 时触发。
+
+推送 `android-v*` tag 时另有一个 job（例如 `android-v0.1.0` 或 `android-v0.1.0-rc1`）。它用 Actions 的 secrets 还原发布证书，
+运行 `build.py --release`，并核对 tag 里第一个 `-` 之前的版本号和 `versionName`（`android-v0.1.0-rc1` 只比 `0.1.0`）。
+然后创建**草稿** Release，附上 `MusicUnlock-Android-<版本>.apk` 和同名的 `.sha256`，不直接发布。四个 secret 是
+`ANDROID_KEYSTORE_BASE64`（`base64 -w0` 编码的证书文件）、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、
+`ANDROID_KEY_PASSWORD`，对应上面的四个环境变量。证书和 secret 都不进仓库。

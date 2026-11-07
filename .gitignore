@@ -55,3 +55,5 @@ captures/
 *.pem
 *.jks
 *.keystore
+# Release keystore shared by every worktree. It lives in the main checkout, not in Git.
+.signing/
