@@ -19,8 +19,8 @@ internal object CacheFolders {
     val imports: File get() = File(current, "imports")
 
     /** Runs [block] with a new, empty staging folder and deletes the folder afterwards. */
-    fun <T> withStaging(block: (File) -> T): T {
-        val folder = File(current, "staging/${UUID.randomUUID()}")
+    inline fun <T> withStaging(block: (File) -> T): T {
+        val folder = newStaging()
         check(folder.mkdirs()) { "无法创建临时文件夹" }
         try {
             return block(folder)
@@ -28,6 +28,8 @@ internal object CacheFolders {
             folder.deleteRecursively()
         }
     }
+
+    fun newStaging(): File = File(current, "staging/${UUID.randomUUID()}")
 
     /** Deletes the folders of earlier runs. Runs on a background thread at process start. */
     fun deleteEarlierRuns() {
