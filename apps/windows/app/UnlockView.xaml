@@ -337,9 +337,10 @@
             </Border>
         </Grid>
 
-        <!-- Footer -->
-        <Border Grid.Row="1" Style="{StaticResource MuPanelStyle}" CornerRadius="{StaticResource MuFooterRadius}"
-                Margin="24,16" Padding="20,12" MinHeight="64">
+        <!-- Footer. GlassSurface is the placeholder for the glass material (issue #59); the brushes match
+             MuPanelStyle, so this reads the same as the Border it replaces. -->
+        <local:GlassSurface x:Name="Footer" Grid.Row="1" Kind="Panel" Radius="22" Margin="24,16" Padding="20,12"
+                            MinHeight="64">
             <Grid ColumnSpacing="16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -373,7 +374,7 @@
                     </Button>
                 </StackPanel>
             </Grid>
-        </Border>
+        </local:GlassSurface>
 
         <!-- Drop overlay: the whole workspace is the target while files hover -->
         <Grid x:Name="DropOverlay" Grid.RowSpan="2" Margin="12" Visibility="Collapsed" IsHitTestVisible="False">

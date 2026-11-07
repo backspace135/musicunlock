@@ -1,0 +1,21 @@
+namespace MusicUnlock
+{
+    // What a glass surface stands in for. The placeholder paints the same brushes as today's panels;
+    // issue #60 fills in the real material without changing this contract.
+    enum GlassKind
+    {
+        Panel,    // 20-22 radius card
+        Control,  // button, track, lens
+        Menu,     // popup menu
+    };
+
+    [default_interface]
+    runtimeclass GlassSurface : Microsoft.UI.Xaml.Controls.ContentControl
+    {
+        GlassSurface();
+        GlassKind Kind;     // default Panel
+        Double Radius;      // continuous corner radius; negative means a capsule (half the height)
+        Double TintOpacity; // 0 leaves the surface untinted; above 0 overlays MuTextColor at this opacity
+        Boolean OnGlass;    // already sitting on glass: opaque surface, so glass never stacks on glass
+    }
+}

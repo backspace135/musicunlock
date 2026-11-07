@@ -121,8 +121,14 @@
       <DependentUpon>LyricRow.idl</DependentUpon>
     </ClInclude>
     <ClInclude Include="Accounts.h" />
+    <ClInclude Include="Corners.h" />
+    <ClInclude Include="GlassMotion.h" />
+    <ClInclude Include="GlassSurface.h">
+      <DependentUpon>GlassSurface.idl</DependentUpon>
+    </ClInclude>
     <ClInclude Include="Motion.h" />
     <ClInclude Include="MotionCapture.h" />
+    <ClInclude Include="SpringCurve.h" />
     <ClInclude Include="Preview.h" />
     <ClInclude Include="Settings.h" />
     <ClInclude Include="Shell.h" />
@@ -154,8 +160,16 @@
       <DependentUpon>LyricRow.idl</DependentUpon>
     </ClCompile>
     <ClCompile Include="Accounts.cpp" />
+    <ClCompile Include="Corners.cpp" />
+    <ClCompile Include="GlassMotion.cpp" />
+    <ClCompile Include="GlassSurface.cpp">
+      <DependentUpon>GlassSurface.idl</DependentUpon>
+    </ClCompile>
     <ClCompile Include="Motion.cpp" />
     <ClCompile Include="MotionCapture.cpp" />
+    <ClCompile Include="SpringCurve.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="Preview.cpp" />
     <ClCompile Include="Settings.cpp" />
     <ClCompile Include="Shell.cpp" />
@@ -191,6 +205,7 @@
     </Midl>
     <Midl Include="JobItem.idl" />
     <Midl Include="LyricRow.idl" />
+    <Midl Include="GlassSurface.idl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

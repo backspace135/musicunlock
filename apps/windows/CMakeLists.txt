@@ -60,3 +60,8 @@ target_include_directories(musicunlock_launcher_tests PRIVATE "${MU_REPO_ROOT}/s
   "${MU_REPO_ROOT}/shared/core/tests")
 target_compile_definitions(musicunlock_launcher_tests PRIVATE MU_TEST_SCRATCH="${CMAKE_CURRENT_BINARY_DIR}/test-scratch")
 add_test(NAME launcher COMMAND musicunlock_launcher_tests)
+
+# Spring curves shared with the WinUI app. Pure C++20, so the Mac runs the same tests.
+add_executable(musicunlock_ui_math_tests tests/ui_math_tests.cpp app/SpringCurve.cpp)
+target_include_directories(musicunlock_ui_math_tests PRIVATE app)
+add_test(NAME ui_math COMMAND musicunlock_ui_math_tests)
