@@ -11,4 +11,5 @@
 
     <!-- common -->
     <string name="common_clear">清除</string>
+    <string name="common_delete">删除</string>
 </resources>
