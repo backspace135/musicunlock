@@ -20,20 +20,30 @@ __pycache__/
 *.log
 
 # Windows / Visual Studio
+# Output directory names are scoped to apps/windows/ so they do not hide
+# source sets such as apps/android/app/src/debug/.
 .vs/
-[Bb]in/
-[Oo]bj/
-[Dd]ebug/
-[Rr]elease/
-x64/
-x86/
-ARM64/
+/apps/windows/**/[Bb]in/
+/apps/windows/**/[Oo]bj/
+/apps/windows/**/[Dd]ebug/
+/apps/windows/**/[Rr]elease/
+/apps/windows/**/x64/
+/apps/windows/**/x86/
+/apps/windows/**/ARM64/
 *.user
 *.suo
 *.VC.db
 *.VC.VC.opendb
 *.aps
 *.ipch
+
+# Android / Gradle
+.gradle/
+.kotlin/
+.cxx/
+.externalNativeBuild/
+local.properties
+captures/
 
 # Local credentials and signing material
 .env
@@ -43,3 +53,5 @@ ARM64/
 *.pfx
 *.key
 *.pem
+*.jks
+*.keystore
