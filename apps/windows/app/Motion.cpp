@@ -407,6 +407,20 @@ void replace(UIElement const& outgoing, UIElement const& incoming) {
     incoming.StartAnimation(fade(c, 0.f, 1.f, swap));
 }
 
+void fade_scale(UIElement const& element, bool appear, spring::Spring spring, float from_scale) {
+    pivot_properties(element);
+    const float scale = appear ? 1.f : from_scale;
+    const float opacity = appear ? 1.f : 0.35f;
+    if (!enabled()) {
+        element.Scale(uniform(scale));
+        element.Opacity(opacity);
+        return;
+    }
+    auto c = compositor();
+    element.StartAnimation(vector(c, L"Scale", element.Scale(), uniform(scale), spring));
+    element.StartAnimation(fade(c, static_cast<float>(element.Opacity()), opacity, spring));
+}
+
 void dip(UIElement const& element) {
     ElementCompositionPreview::SetIsTranslationEnabled(element, true);
     if (!enabled()) {

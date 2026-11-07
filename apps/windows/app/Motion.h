@@ -67,6 +67,9 @@ void bounce(xaml::UIElement const& element);
 void replace(xaml::UIElement const& outgoing, xaml::UIElement const& incoming);
 /// An export starting or finishing: the icon drops 3 px and springs back up.
 void dip(xaml::UIElement const& element);
+/// Fades and scales between rest and `from_scale`. `appear` settles at full size and full opacity; otherwise it
+/// settles at `from_scale` and 35 percent opacity, which is how an expired QR code recedes.
+void fade_scale(xaml::UIElement const& element, bool appear, spring::Spring spring, float from_scale = 1.f);
 
 /// The "keep original quality" mark while a conversion runs: its bars light up one after another, and go back to
 /// rest together when it stops. Call it with the same bars each time; starting again does nothing.
