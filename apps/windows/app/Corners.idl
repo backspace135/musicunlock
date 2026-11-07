@@ -1,0 +1,11 @@
+namespace MusicUnlock
+{
+    // 连续圆角附加属性，适用于标签、封面、高亮、虚线框及玻璃模板。
+    [webhosthidden]
+    static runtimeclass Corners
+    {
+        static Microsoft.UI.Xaml.DependencyProperty RadiusProperty{ get; };
+        static Double GetRadius(Microsoft.UI.Xaml.UIElement element);
+        static void SetRadius(Microsoft.UI.Xaml.UIElement element, Double radius);
+    }
+}

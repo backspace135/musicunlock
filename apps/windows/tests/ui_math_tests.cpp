@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 
+#include "ContinuousPath.h"
 #include "SpringCurve.h"
 
 namespace {
@@ -73,6 +74,101 @@ void overdamped_stays_below_one() {
     CHECK(spring::value(heavy, spring::settle_time(heavy)) > 1.0 - 0.001);
 }
 
+// The top-left corner of a continuous rounded rectangle, against the points printed from SwiftUI.
+void expect_corner(double width, double height, double radius, double start_y, double c1_y, double c2_y, const char* label) {
+    const continuous::Path shape = continuous::path(width, height, radius);
+    const double tolerance = 1e-4 * radius;
+    check_near(shape.start.x, 0.0, tolerance, label);
+    check_near(shape.start.y, start_y * radius, tolerance, label);
+    const continuous::Curve& first = shape.corners[0][0];
+    check_near(first.control1.x, 0.0, tolerance, label);
+    check_near(first.control1.y, c1_y * radius, tolerance, label);
+    check_near(first.control2.x, 0.0, tolerance, label);
+    check_near(first.control2.y, c2_y * radius, tolerance, label);
+    check_near(first.to.x, 0.074911 * radius, tolerance, label);
+    check_near(first.to.y, 0.631494 * radius, tolerance, label);
+    // The middle segment never moves, however short the side is.
+    const continuous::Curve& middle = shape.corners[0][1];
+    check_near(middle.control1.x, 0.169060 * radius, tolerance, label);
+    check_near(middle.to.y, 0.074911 * radius, tolerance, label);
+    // The top edge compresses on its own, independently of the left edge checked above.
+    const double top = std::min(width / 2.0, 1.528665 * radius);
+    check_near(shape.corners[0][2].to.x, top, tolerance, label);
+    check_near(shape.corners[0][2].to.y, 0.0, tolerance, label);
+}
+
+void continuous_corners_match_swiftui() {
+    expect_corner(200, 120, 20, 1.528665, 1.088493, 0.868407, "200x120");
+    expect_corner(200, 50, 20, 1.25, 1.02076, 0.84289, "200x50");
+    expect_corner(200, 44, 20, 1.1, 0.98430, 0.82916, "200x44");
+    expect_corner(60, 40, 20, 1.0, 0.96, 0.82, "60x40");
+}
+
+// 宽高互换后，左上角应等于原角反向并交换 x/y；能抓到只压缩左边、遗漏顶部的错误。
+void continuous_short_edges_are_independent() {
+    for (const double short_side : {40.0, 44.0, 50.0, 60.0}) {
+        const auto wide = continuous::path(200, short_side, 20);
+        const auto tall = continuous::path(short_side, 200, 20);
+        for (std::size_t segment = 0; segment < 3; ++segment) {
+            const auto& actual = tall.corners[0][segment];
+            const auto& mirrored = wide.corners[0][2 - segment];
+            check_near(actual.control1.x, mirrored.control2.y, 1e-9, "transposed control1 x");
+            check_near(actual.control1.y, mirrored.control2.x, 1e-9, "transposed control1 y");
+            check_near(actual.control2.x, mirrored.control1.y, 1e-9, "transposed control2 x");
+            check_near(actual.control2.y, mirrored.control1.x, 1e-9, "transposed control2 y");
+        }
+    }
+}
+
+// 四个角必须沿顺时针连接；错误的轴交换会让右下角逆行、短边压缩落在宽边上。
+void continuous_corners_follow_outline() {
+    for (const auto size : {continuous::Point{200, 120}, continuous::Point{200, 50},
+                            continuous::Point{200, 44}, continuous::Point{60, 40},
+                            continuous::Point{40, 60}}) {
+        const auto shape = continuous::path(size.x, size.y, 20);
+        const double reach_x = std::min(size.x / 2, 30.5733);
+        const double reach_y = std::min(size.y / 2, 30.5733);
+        const continuous::Point ends[] = {{reach_x, 0}, {size.x, reach_y},
+                                          {size.x - reach_x, size.y}, {0, size.y - reach_y}};
+        const continuous::Point starts[] = {{0, reach_y}, {size.x - reach_x, 0},
+                                            {size.x, size.y - reach_y}, {reach_x, size.y}};
+        for (std::size_t corner = 0; corner < 4; ++corner) {
+            check_near(shape.corner_starts[corner].x, starts[corner].x, 1e-6, "edge connection x");
+            check_near(shape.corner_starts[corner].y, starts[corner].y, 1e-6, "edge connection y");
+            check_near(shape.corners[corner][2].to.x, ends[corner].x, 1e-6, "corner end x");
+            check_near(shape.corners[corner][2].to.y, ends[corner].y, 1e-6, "corner end y");
+        }
+        // 右上角是左上角反向后水平镜像，不应把短边压缩旋转到另一条边。
+        check_near(shape.corners[1][0].control1.x, size.x - shape.corners[0][2].control2.x, 1e-6,
+                   "top-right control x");
+        check_near(shape.corners[1][0].control1.y, 0, 1e-6, "top-right horizontal tangent");
+        check_near(shape.corners[2][0].control1.x, size.x, 1e-6, "bottom-right vertical tangent");
+    }
+}
+
+void clamped_capsule_has_circular_ends() {
+    const auto shape = continuous::path(100, 40, 1000);
+    continuous::Point from = shape.start;
+    for (const auto& curve : shape.corners[0]) {
+        for (int sample = 0; sample <= 100; ++sample) {
+            const double t = sample / 100.0;
+            const double u = 1 - t;
+            const double x = u*u*u*from.x + 3*u*u*t*curve.control1.x + 3*u*t*t*curve.control2.x + t*t*t*curve.to.x;
+            const double y = u*u*u*from.y + 3*u*u*t*curve.control1.y + 3*u*t*t*curve.control2.y + t*t*t*curve.to.y;
+            check_near(std::hypot(x - 20, y - 20), 20, 1e-4 * 20, "circular capsule");
+        }
+        from = curve.to;
+    }
+}
+
+void zero_radius_keeps_rectangle() {
+    const auto shape = continuous::path(200, 120, 0);
+    check_near(shape.corners[0][2].to.x, 0, 1e-6, "square top-left");
+    check_near(shape.corners[1][2].to.x, 200, 1e-6, "square top-right");
+    check_near(shape.corners[2][2].to.y, 120, 1e-6, "square bottom-right");
+    check_near(shape.corners[3][2].to.y, 120, 1e-6, "square bottom-left");
+}
+
 }  // namespace
 
 int main() {
@@ -80,6 +176,11 @@ int main() {
     menu_close_settle();
     keyframe_shape();
     overdamped_stays_below_one();
+    continuous_corners_match_swiftui();
+    continuous_short_edges_are_independent();
+    continuous_corners_follow_outline();
+    zero_radius_keeps_rectangle();
+    clamped_capsule_has_circular_ends();
     if (failures != 0) {
         std::cerr << failures << " failure(s)\n";
         return EXIT_FAILURE;

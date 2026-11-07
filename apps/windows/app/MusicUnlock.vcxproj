@@ -72,7 +72,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>bcrypt.lib;winhttp.lib;crypt32.lib;shlwapi.lib;shcore.lib;shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>bcrypt.lib;winhttp.lib;crypt32.lib;shlwapi.lib;shcore.lib;shell32.lib;d2d1.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)'=='Debug'">
@@ -121,7 +121,11 @@
       <DependentUpon>LyricRow.idl</DependentUpon>
     </ClInclude>
     <ClInclude Include="Accounts.h" />
+    <ClInclude Include="ContinuousPath.h" />
     <ClInclude Include="Corners.h" />
+    <ClInclude Include="CornersProperty.h">
+      <DependentUpon>Corners.idl</DependentUpon>
+    </ClInclude>
     <ClInclude Include="GlassMotion.h" />
     <ClInclude Include="GlassSurface.h">
       <DependentUpon>GlassSurface.idl</DependentUpon>
@@ -167,6 +171,12 @@
     </ClCompile>
     <ClCompile Include="Accounts.cpp" />
     <ClCompile Include="Corners.cpp" />
+    <ClCompile Include="CornersProperty.cpp">
+      <DependentUpon>Corners.idl</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="ContinuousPath.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="GlassMotion.cpp" />
     <ClCompile Include="GlassSurface.cpp">
       <DependentUpon>GlassSurface.idl</DependentUpon>
@@ -217,6 +227,7 @@
     </Midl>
     <Midl Include="JobItem.idl" />
     <Midl Include="LyricRow.idl" />
+    <Midl Include="Corners.idl" />
     <Midl Include="GlassSurface.idl" />
     <Midl Include="MorphGroup.idl" />
     <Midl Include="Press.idl" />
