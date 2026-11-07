@@ -6,12 +6,23 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!-- ProcessingService: conversions and lyric exports keep running in the background. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application>
         <!-- Gives the core the application context at process start; serves no data. -->
         <provider
             android:name=".CoreInitializer"
             android:authorities="${applicationId}.musicunlock-core"
             android:exported="false" />
+
+        <service
+            android:name=".ProcessingService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|mediaProcessing" />
 
         <!-- Output files on Android 9 and older that MediaScanner gave no content URI for. -->
         <provider
