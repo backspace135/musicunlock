@@ -64,6 +64,8 @@ fun AboutScreen() {
             }
             Text(stringResource(R.string.app_name), style = MuTheme.type.title, modifier = Modifier.padding(top = MuSpacing.m))
             Text(stringResource(R.string.about_version_format, version), style = MuTheme.type.caption, color = MuTheme.colors.secondary)
+            Text(stringResource(R.string.about_subtitle), style = MuTheme.type.caption, color = MuTheme.colors.secondary)
+            Text(stringResource(R.string.about_platform), style = MuTheme.type.caption, color = MuTheme.colors.secondary)
             Text(
                 stringResource(R.string.about_body),
                 style = MuTheme.type.subtitle,

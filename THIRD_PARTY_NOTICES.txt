@@ -12,7 +12,7 @@ public/static/kgm.mask (copied into the app by the build script)
 
 These are original upstream paths, not directories included in this repository.
 The implementations have been ported to native Swift (macOS) and to C++20
-(the shared core in shared/core, used by Windows). The upstream source tree
+(the shared core in shared/core, used by Windows and Android). The upstream source tree
 has been removed; only required KGM data (resources/kgm.mask) and test vectors
 (tests/fixtures/qmc) are retained with attribution. The project's own code is
 licensed under the root MIT LICENSE; the notices below continue to apply to
@@ -31,19 +31,70 @@ No executable, decompiled source, native DLL, or other asset from MusicLyricApp
 is redistributed with this app. Music platform requests go directly to their
 first-party endpoints. Apple WebKit is used only for account authorization.
 
-The Windows build includes JSON for Modern C++ (nlohmann/json) v3.12.0 as a
+The Windows and Android builds include JSON for Modern C++ (nlohmann/json) v3.12.0 as a
 single header, shared/core/third_party/nlohmann/json.hpp, under the MIT License:
 https://github.com/nlohmann/json
 Copyright (c) 2013-2025 Niels Lohmann
 Its full license text is reproduced in shared/core/third_party/nlohmann/LICENSE.MIT
 and in the nlohmann/json section at the end of this file.
 
-The Windows build includes the QR Code generator library (C++) v1.8.0 by
+The Windows and Android builds include the QR Code generator library (C++) v1.8.0 by
 Project Nayuki, shared/core/third_party/qrcodegen/qrcodegen.{hpp,cpp}, under
 the MIT License, to draw the NetEase Cloud Music login QR code:
 https://github.com/nayuki/QR-Code-generator
 Its license text is reproduced in shared/core/third_party/qrcodegen/LICENSE.MIT
 and in the QR Code generator section at the end of this file.
+
+The Android APK also packages the runtime libraries below. Versions are the ones
+resolved from apps/android/gradle/libs.versions.toml (Compose artifacts follow
+the Compose BOM). JSON in the app uses the platform org.json; kotlinx.serialization
+is not packaged. Test-only artifacts (JUnit, AndroidX Test, MockWebServer, OkHttp
+TLS, coroutines-test) and the debug-only Compose UI tooling are not in the
+release APK. Each library below is Apache License 2.0. The license text shipped
+in the app is assets/licenses/apache-2.0.txt.
+
+Kotlin standard library 2.4.21 (org.jetbrains.kotlin:kotlin-stdlib).
+Copyright JetBrains s.r.o. and the Kotlin contributors.
+
+kotlinx.coroutines 1.11.0 (org.jetbrains.kotlinx:kotlinx-coroutines-android and
+kotlinx-coroutines-core). Copyright JetBrains s.r.o.
+
+OkHttp 5.5.1 (com.squareup.okhttp3:okhttp) and Okio 3.18.1
+(com.squareup.okio:okio). Copyright Square, Inc.
+
+AndroidX and Jetpack Compose, including Material Icons. Copyright The Android
+Open Source Project.
+  androidx.activity:activity, activity-ktx, activity-compose 1.13.0
+  androidx.annotation:annotation-experimental 1.4.1
+  androidx.arch.core:core-runtime 2.2.0
+  androidx.autofill:autofill 1.0.0
+  androidx.compose.animation:animation, animation-core 1.12.1
+  androidx.compose.foundation:foundation, foundation-layout 1.12.1
+  androidx.compose.material:material-icons-core 1.7.8
+  androidx.compose.material:material-ripple 1.12.1
+  androidx.compose.material3:material3 1.4.0
+  androidx.compose.runtime:runtime, runtime-annotation, runtime-retain,
+    runtime-saveable 1.12.1
+  androidx.compose.ui:ui, ui-geometry, ui-graphics, ui-text, ui-tooling-preview,
+    ui-unit, ui-util 1.12.1
+  androidx.core:core, core-ktx 1.19.1
+  androidx.core:core-viewtree 1.0.0
+  androidx.customview:customview-poolingcontainer 1.0.0
+  androidx.emoji2:emoji2 1.4.0
+  androidx.graphics:graphics-path 1.0.1
+  androidx.interpolator:interpolator 1.0.0
+  androidx.lifecycle:lifecycle-livedata-core, lifecycle-process,
+    lifecycle-runtime, lifecycle-runtime-compose, lifecycle-runtime-ktx,
+    lifecycle-viewmodel, lifecycle-viewmodel-compose,
+    lifecycle-viewmodel-ktx, lifecycle-viewmodel-savedstate 2.10.0
+  androidx.navigationevent:navigationevent, navigationevent-compose 1.0.0
+  androidx.profileinstaller:profileinstaller 1.4.0
+  androidx.savedstate:savedstate, savedstate-compose, savedstate-ktx 1.4.0
+  androidx.startup:startup-runtime 1.2.0
+  androidx.tracing:tracing 1.2.0
+  androidx.versionedparcelable:versionedparcelable 1.1.1
+  androidx.window:window, window-core 1.5.0
+Compose UI tooling (ui-tooling, ui-tooling-data) is a debug dependency only.
 
 MIT License
 

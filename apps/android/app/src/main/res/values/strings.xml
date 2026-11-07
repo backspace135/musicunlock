@@ -159,6 +159,8 @@
     <string name="about_body">解除音乐平台下载文件的封装，恢复为普通播放器也能打开的音频；查找、编辑并导出歌词。所有文件只在手机上处理。</string>
     <string name="about_licenses_entry">开源许可</string>
     <string name="about_source_entry">源代码</string>
+    <string name="about_subtitle">原生 Android 音频解封装与歌词工具</string>
+    <string name="about_platform">Jetpack Compose · C++</string>
 
     <!-- licenses -->
     <string name="licenses_title">开源许可</string>
