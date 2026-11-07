@@ -2,7 +2,7 @@
 
 Android 原生版本的开发目录，与 macOS、Windows 版本在同一个 Git 仓库维护。
 
-**当前状态：界面基础、组件和应用外壳已完成，两个工作区和账号页还是假数据的占位页面；`:core` 用 NDK 把 `shared/core`
+**当前状态：0.1.0 已发布。音乐解锁、歌词工具和账号登录三个功能已实现；`:core` 用 NDK 把 `shared/core`
 编进 `libmusicunlock.so`，并用 JNI 把核心封装成 Kotlin API（见下文“架构”和“调用核心”）。**
 
 ## 安装与升级
