@@ -53,7 +53,7 @@ struct ContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .liquidSurface(radius: 26, tint: Theme.accent.opacity(0.12))
-        .overlay(RoundedRectangle(cornerRadius: 26).strokeBorder(Theme.accent.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [8, 6])))
+        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).strokeBorder(Theme.accent.opacity(0.5), style: StrokeStyle(lineWidth: 2, dash: [8, 6])))
         .padding(12).allowsHitTesting(false)
     }
 
@@ -124,7 +124,7 @@ struct ContentView: View {
                 ForEach(["NCM", "QMC", "MFLAC", "MGG"], id: \.self) { format in
                     Text(format).font(.system(size: 10, weight: .medium))
                         .padding(.horizontal, 8).padding(.vertical, 4)
-                        .background(Theme.text.opacity(0.055), in: RoundedRectangle(cornerRadius: 5))
+                        .background(Theme.text.opacity(0.055), in: RoundedRectangle(cornerRadius: 5, style: .continuous))
                 }
             }
             .foregroundStyle(Theme.secondary).padding(.top, 24)
@@ -133,7 +133,7 @@ struct ContentView: View {
                 .font(.system(size: 11)).foregroundStyle(Theme.secondary).padding(.bottom, 22)
         }
         .frame(maxWidth: .infinity)
-        .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.secondary.opacity(0.28), style: StrokeStyle(lineWidth: 1, dash: [5, 5])).padding(8))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.secondary.opacity(0.28), style: StrokeStyle(lineWidth: 1, dash: [5, 5])).padding(8))
         .liquidSurface(radius: 22)
     }
 
@@ -174,7 +174,7 @@ struct ContentView: View {
             }
             .scrollEdgeEffectStyle(.soft, for: .top)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .liquidSurface(radius: 20)
     }
 
@@ -199,8 +199,8 @@ struct ContentView: View {
                         Image(systemName: "chevron.up.chevron.down").font(.system(size: 9)).foregroundStyle(Theme.secondary)
                     }
                     .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.separator))
+                    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.separator))
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain).disabled(model.running)
@@ -333,12 +333,12 @@ struct JobRow: View {
                     Image(nsImage: cover).resizable().scaledToFill()
                 } else {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 7).fill(Theme.accent.opacity(0.08))
+                        RoundedRectangle(cornerRadius: 7, style: .continuous).fill(Theme.accent.opacity(0.08))
                         Image(systemName: "music.note").font(.system(size: 17, weight: .medium)).foregroundStyle(Theme.accent)
                     }
                 }
             }
-            .frame(width: 36, height: 40).clipShape(RoundedRectangle(cornerRadius: 7)).accessibilityHidden(true)
+            .frame(width: 36, height: 40).clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous)).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 5) {
                 Text(job.title.isEmpty ? job.source.deletingPathExtension().lastPathComponent : job.title)
                     .font(.system(size: 13, weight: .medium)).lineLimit(1).help(job.source.lastPathComponent)

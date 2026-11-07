@@ -143,7 +143,7 @@ struct LyricsView: View {
                                     Image(systemName: "chevron.right").font(.system(size: 10)).foregroundStyle(Theme.secondary)
                                 }.padding(14).contentShape(Rectangle())
                             }.buttonStyle(.plain).disabled(model.exporting)
-                            .hoverHighlight(radius: 10).padding(.horizontal, 6)
+                            .hoverHighlight(radius: 14).padding(.horizontal, 6)
                             .transition(.settle)
                             Divider().padding(.leading, 54)
                         }
@@ -161,7 +161,7 @@ struct LyricsView: View {
                 .transition(.blurReplace)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .liquidSurface(radius: 20)
         .motion(.smooth(duration: 0.35), value: model.songs.isEmpty && model.collections.isEmpty)
         .motion(.smooth(duration: 0.3), value: model.searching)
@@ -184,12 +184,12 @@ struct LyricsView: View {
             }.buttonStyle(.plain).disabled(model.exporting)
         }
         .padding(.horizontal, 10).padding(.vertical, 13)
-        .hoverHighlight(radius: 10)
+        .hoverHighlight(radius: 14)
         // A single highlight slides between rows rather than blinking on and off.
         .background {
             if model.selected?.id == song.id {
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 10).fill(Theme.accent.opacity(0.11))
+                    RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.accent.opacity(0.11))
                     Capsule().fill(Theme.accent).frame(width: 3).padding(.vertical, 12).padding(.leading, 3)
                 }
                 .matchedGeometryEffect(id: "selection", in: selection)
@@ -274,7 +274,7 @@ struct LyricsView: View {
                 .transition(.blurReplace)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .liquidSurface(radius: 20)
         .motion(.smooth(duration: 0.35), value: model.selected?.id)
         .motion(.smooth(duration: 0.25), value: editor)

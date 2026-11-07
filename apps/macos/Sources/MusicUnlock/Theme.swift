@@ -93,10 +93,10 @@ struct LiquidSurface: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if reduceTransparency || staticPreview {
-            content.background(Theme.surface, in: RoundedRectangle(cornerRadius: radius))
-                .overlay(RoundedRectangle(cornerRadius: radius).strokeBorder(Theme.separator))
+            content.background(Theme.surface, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).strokeBorder(Theme.separator))
         } else {
-            content.glassEffect(Glass.regular.tint(tint).interactive(interactive), in: .rect(cornerRadius: radius))
+            content.glassEffect(Glass.regular.tint(tint).interactive(interactive), in: .rect(cornerRadius: radius, style: .continuous))
         }
     }
 }
@@ -121,7 +121,7 @@ struct HoverHighlight: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .background(Theme.text.opacity(hovering ? 0.045 : 0), in: RoundedRectangle(cornerRadius: radius))
+            .background(Theme.text.opacity(hovering ? 0.045 : 0), in: RoundedRectangle(cornerRadius: radius, style: .continuous))
             .onHover { inside in
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.18)) { hovering = inside }
             }

@@ -153,7 +153,7 @@ struct MusicLoginSheet: View {
                     Group {
                         if let qr {
                             Image(nsImage: qr).resizable().interpolation(.none).scaledToFit()
-                                .padding(12).background(.white, in: RoundedRectangle(cornerRadius: 12))
+                                .padding(12).background(.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                                 .accessibilityLabel("网易云音乐登录二维码")
                         } else if loading { ProgressView().controlSize(.large) }
                         else { Image(systemName: "qrcode").font(.system(size: 70)).foregroundStyle(Theme.secondary) }
