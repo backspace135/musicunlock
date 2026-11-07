@@ -616,12 +616,15 @@ python3 apps/android/scripts/device.py test                       # instrumented
 python3 apps/android/scripts/device.py pull <手机路径> build/<目录>/  # 只能拉到仓库根目录的 build/ 下
 python3 apps/android/scripts/device.py shell -- <命令>             # 在设备上运行命令
 python3 apps/android/scripts/device.py input tap <x> <y>           # 点击；还有 swipe、text、keyevent，只发给最前面的本分支 App
+python3 apps/android/scripts/device.py release install <apk>    # 安装已签好名的正式包（无后缀）并启动，不编译
+python3 apps/android/scripts/device.py release start|logcat|input|uninstall
 ```
 
 - **每个分支装自己的一份**：分支名最后一段做 applicationIdSuffix 和桌面名称，`android/unlock` 装成
   `io.github.backspace135.musicunlock.unlock`，显示为“音匣 (unlock)”，几个会话可以同时装在一台手机上。
   不合法的字符换成 `_`（`android/device-survey` → `.device_survey`）。`--suffix` 可以直接指定；工作树处于
-  detached HEAD 时用环境变量 `MUSICUNLOCK_ANDROID_BRANCH` 给出分支名（`remote.py` 会设置）。release 版不加后缀。
+  detached HEAD 时用环境变量 `MUSICUNLOCK_ANDROID_BRANCH` 给出分支名（`remote.py` 会设置）。release 版不加后缀，
+  用 `device.py release` 安装和操作（`release install` 的 APK 必须在当前检出里）。
 - 连着多台设备时用 `--serial` 指定（放在子命令前面，如 `device.py --serial emulator-5554 install`），
   否则用 `ANDROID_SERIAL`，再没有就要求恰好只有一台在线。
 - `logcat` 按 App 的 uid 过滤（Android 11 以下按当前进程）。
@@ -697,12 +700,21 @@ python apps/android/scripts/device.py test            # 手机上的 instrumente
 python apps/android/scripts/device.py pull /sdcard/Download/x.lrc build/compare/
 python apps/android/scripts/device.py shell -- ls -la /sdcard/Music/
 python apps/android/scripts/device.py uninstall       # 卸载当前分支那一份
+python apps/android/scripts/device.py release install apps/android/build/app/outputs/apk/release/app-release.apk
+                                                      # 安装已签好名的正式包（无后缀）并启动；不编译
+python apps/android/scripts/device.py release start   # 启动正式包，或把它切回前台
+python apps/android/scripts/device.py release logcat --dump
+python apps/android/scripts/device.py release input tap 540 1750   # 只发给最前面的正式包
+python apps/android/scripts/device.py release uninstall
 python apps/windows/scripts/build.py                  # 改了 shared/core 时：Windows 核心、测试和 CLI，约 5 分钟
 ```
 
 - **每个分支一份**：`android/<主题>` 装成 `io.github.backspace135.musicunlock.<主题>`，桌面名“音匣 (<主题>)”，
   `device.py test` 的测试包也带同样的后缀，几个会话可以同时用这台手机。不要卸载别的会话装的版本；PR 开好或当天
   的真机测试做完后，用 `device.py uninstall` 卸载自己这一份。
+- **正式包没有后缀**：`device.py release` 只操作 `io.github.backspace135.musicunlock`。`release install` 安装
+  已经签好名的 APK（文件必须在当前检出里），不编译；`release input` 和带后缀版本一样，先确认最前面的是这一份才发送。
+  测完用 `release uninstall` 卸掉。
 - **`device.py test` 的正常结果**：`Running tests on devices: M2007J22C - 12`、`BUILD SUCCESSFUL`，最后一行
   `57 tests, 0 failures`。instrumented tests 共 40 个，3 个跳过是正常的（`legacyDefaultFolderNumbersCollisions`
   只在 Android 9 及以下运行，`LiveTest` 的 2 个需要 `build.py --device --live`）。报告在

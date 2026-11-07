@@ -13,6 +13,8 @@
     python apps/android/scripts/device.py pull <device path> build/<folder>/
     python apps/android/scripts/device.py shell -- <command>
     python apps/android/scripts/device.py input tap <x> <y>     # also swipe, text, keyevent; only into this app
+    python apps/android/scripts/device.py release install <apk>  # unsuffixed release package, from an existing APK
+    python apps/android/scripts/device.py release start|uninstall|logcat|input ...
 
 Each branch installs its own copy: the last part of the branch name becomes the application ID suffix and the
 launcher name, so android/unlock installs io.github.backspace135.musicunlock.unlock as "音匣 (unlock)" and several
@@ -23,7 +25,9 @@ shell may start with / in Git Bash too: the conversion Git Bash applies to them 
 
 Taps, swipes, text and key presses go through `input`, which first checks that this branch's app is in front and has
 the focus (not another app, the notification shade or a system dialog) and refuses otherwise; `shell` refuses to
-run `input` or `monkey` itself.
+run `input` or `monkey` itself. `release` does the same for the unsuffixed release package
+(io.github.backspace135.musicunlock), which a release build never suffixes. It installs an APK that already exists
+inside this checkout; it does not build one.
 """
 from pathlib import Path
 import argparse
@@ -108,6 +112,22 @@ def inside_build(path: str) -> Path:
     return folder
 
 
+def install_release(env: dict, serial: str, apk: str) -> None:
+    """Install an already-built release APK as the unsuffixed package. The file must be inside this checkout."""
+    path = Path(apk).resolve()
+    root = REPO.resolve()
+    if path != root and root not in path.parents:
+        sys.exit(f"APK 必须在这个检出里：{path}")
+    if path.suffix.lower() != ".apk" or not path.is_file():
+        sys.exit(f"不是 APK 文件：{path}")
+    print(f"安装 {APPLICATION_ID} 到 {serial}：{path}", flush=True)
+    if adb(env, serial, "install", "-r", str(path)).returncode != 0:
+        sys.exit("安装失败。签名不一致（INSTALL_FAILED_UPDATE_INCOMPATIBLE）时先运行 device.py release uninstall；"
+                 "INSTALL_FAILED_VERSION_DOWNGRADE 是想用更低的 versionCode 覆盖，先卸载再装；"
+                 "INSTALL_FAILED_USER_RESTRICTED 是手机拒绝了 USB 安装，需要在手机上确认（小米：开发者选项 → USB 安装）")
+    start(env, serial, APPLICATION_ID)
+
+
 def install(env: dict, serial: str, suffix: str) -> None:
     package = f"{APPLICATION_ID}.{suffix}"
     build.gradle(env, ":app:assembleDebug", *build.suffix_property(suffix))
@@ -117,6 +137,18 @@ def install(env: dict, serial: str, suffix: str) -> None:
         sys.exit("安装失败。签名不一致（INSTALL_FAILED_UPDATE_INCOMPATIBLE）时先运行 device.py uninstall；"
                  "INSTALL_FAILED_USER_RESTRICTED 是手机拒绝了 USB 安装，需要在手机上确认（小米：开发者选项 → USB 安装）")
     start(env, serial, package)
+
+
+def show_logcat(env: dict, serial: str, package: str, dump: bool) -> None:
+    """Print one package's log and exit with adb's status. --uid needs Android 11; older releases follow the process."""
+    app = f"--uid={app_uid(env, serial, package)}"
+    sdk = adb(env, serial, "shell", "getprop", "ro.build.version.sdk", capture_output=True, check=True).stdout
+    if int(sdk.strip()) < 30:
+        pid = adb(env, serial, "shell", "pidof", package, capture_output=True).stdout.strip()
+        if not pid:
+            sys.exit(f"{package} 没有在运行")
+        app = f"--pid={pid}"
+    sys.exit(adb(env, serial, "logcat", app, *(["-d"] if dump else [])).returncode)
 
 
 def start(env: dict, serial: str, package: str) -> None:
@@ -185,6 +217,17 @@ def main() -> None:
     send = commands.add_parser("input", help="tap, swipe, type or press a key, only while this app is in front")
     send.add_argument("action", choices=sorted(INPUT_ACTIONS))
     send.add_argument("values", nargs=argparse.REMAINDER, help="the arguments of adb shell input <action>")
+    release = commands.add_parser("release", help="operate the unsuffixed release package, never a debug copy")
+    release_commands = release.add_subparsers(dest="release_command", required=True)
+    release_install = release_commands.add_parser("install", help="install an existing release APK and start it")
+    release_install.add_argument("apk", help="an APK inside this checkout, usually app-release.apk")
+    release_commands.add_parser("start", help="start the release app, or bring it to the front")
+    release_commands.add_parser("uninstall", help="uninstall the release app")
+    release_logcat = release_commands.add_parser("logcat", help="show the release app's log")
+    release_logcat.add_argument("--dump", action="store_true", help="print the current log and exit")
+    release_input = release_commands.add_parser("input", help="tap, swipe, type or press a key into the release app")
+    release_input.add_argument("action", choices=sorted(INPUT_ACTIONS))
+    release_input.add_argument("values", nargs=argparse.REMAINDER)
     args = parser.parse_args()
 
     env = android_environment()
@@ -202,6 +245,21 @@ def main() -> None:
         sys.exit(0 if result.returncode == 0 and "connected to" in result.stdout else 1)
 
     serial = pick_device(env, args.serial)
+    if args.command == "release":
+        if args.release_command == "install":
+            install_release(env, serial, args.apk)
+        elif args.release_command == "start":
+            start(env, serial, APPLICATION_ID)
+        elif args.release_command == "uninstall":
+            sys.exit(adb(env, serial, "uninstall", APPLICATION_ID).returncode)
+        elif args.release_command == "logcat":
+            show_logcat(env, serial, APPLICATION_ID, args.dump)
+        elif args.release_command == "input":
+            if not args.values:
+                sys.exit(f"请给出 input {args.action} 的参数")
+            require_foreground(env, serial, APPLICATION_ID)
+            sys.exit(adb(env, serial, "shell", shlex.join(["input", args.action, *args.values])).returncode)
+        return
     suffix = branch_suffix(args.suffix)
     package = f"{APPLICATION_ID}.{suffix}"
     if args.command == "install":
@@ -211,14 +269,7 @@ def main() -> None:
     elif args.command == "uninstall":
         sys.exit(adb(env, serial, "uninstall", package).returncode)
     elif args.command == "logcat":
-        app = f"--uid={app_uid(env, serial, package)}"
-        sdk = adb(env, serial, "shell", "getprop", "ro.build.version.sdk", capture_output=True, check=True).stdout
-        if int(sdk.strip()) < 30:  # logcat --uid arrived in Android 11; before that, follow the running process
-            pid = adb(env, serial, "shell", "pidof", package, capture_output=True).stdout.strip()
-            if not pid:
-                sys.exit(f"{package} 没有在运行")
-            app = f"--pid={pid}"
-        sys.exit(adb(env, serial, "logcat", app, *(["-d"] if args.dump else [])).returncode)
+        show_logcat(env, serial, package, args.dump)
     elif args.command == "screenshot":
         name = args.name.removesuffix(".png")
         if not re.fullmatch(r"[\w.-]+", name):
