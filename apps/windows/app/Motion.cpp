@@ -180,14 +180,52 @@ void changed(UIElement const& element) {
 
 void describe(std::wstring element) { described = std::move(element); }
 
-void crossfade(UIElement const& element) {
+void crossfade(UIElement const& element) { crossfade(element, smooth_35); }
+
+void crossfade(UIElement const& element, spring::Spring spring) {
     if (!enabled()) return set_implicit(element, nullptr, nullptr);
     auto c = compositor();
     pivot(element, false);
-    // Workspaces, empty states and lists crossfade. macOS uses .smooth(duration: 0.35) for these.
-    set_implicit(element,
-                 group(c, {fade(c, 0.f, 1.f, smooth_35), vector(c, L"Scale", uniform(0.98f), uniform(1.f), smooth_35)}),
-                 group(c, {fade(c, 1.f, 0.f, smooth_35), vector(c, L"Scale", uniform(1.f), uniform(0.98f), smooth_35)}));
+    // Workspaces, empty states and lists crossfade. macOS uses .smooth(duration: 0.35) for these; the title-bar
+    // action groups pass the workspace spring so they travel with the switch.
+    set_implicit(element, group(c, {fade(c, 0.f, 1.f, spring), vector(c, L"Scale", uniform(0.98f), uniform(1.f), spring)}),
+                 group(c, {fade(c, 1.f, 0.f, spring), vector(c, L"Scale", uniform(1.f), uniform(0.98f), spring)}));
+}
+
+void workspace(UIElement const& outgoing, UIElement const& incoming, bool toward_lyrics) {
+    // Music unlock owns the left side and lyrics the right, matching the switch. A workspace leaves toward its own
+    // side and arrives from it. No blur: WinUI 3 has no Gaussian blur effect for a live XAML subtree.
+    auto place = [](UIElement const& element, float from_x, float to_x, float from_scale, float to_scale, float from_opacity,
+                    float to_opacity) {
+        auto visual = ElementCompositionPreview::GetElementVisual(element);
+        auto c = visual.Compositor();
+        auto centre = c.CreateExpressionAnimation(L"Vector3(this.Target.Size.X / 2, this.Target.Size.Y / 2, 0)");
+        visual.StartAnimation(L"CenterPoint", centre);
+        if (!enabled()) {
+            visual.Offset({to_x, 0, 0});
+            visual.Scale(uniform(to_scale));
+            visual.Opacity(to_opacity);
+            return;
+        }
+        auto offset = c.CreateVector3KeyFrameAnimation();
+        offset.Target(L"Offset");
+        sample(offset, glass_motion::workspace, float3{from_x, 0, 0}, float3{to_x, 0, 0});
+        auto scale = c.CreateVector3KeyFrameAnimation();
+        scale.Target(L"Scale");
+        sample(scale, glass_motion::workspace, uniform(from_scale), uniform(to_scale));
+        auto opacity = c.CreateScalarKeyFrameAnimation();
+        opacity.Target(L"Opacity");
+        sample(opacity, glass_motion::workspace, from_opacity, to_opacity);
+        record(L"Offset", (std::to_wstring(static_cast<int>(from_x)) + L" -> " + std::to_wstring(static_cast<int>(to_x))).c_str(),
+               spring_label(glass_motion::workspace).c_str(), milliseconds(offset.Duration()));
+        visual.StartAnimation(L"Offset", offset);
+        visual.StartAnimation(L"Scale", scale);
+        visual.StartAnimation(L"Opacity", opacity);
+    };
+    const float leaving = toward_lyrics ? -40.f : 40.f;
+    const float arriving = toward_lyrics ? 40.f : -40.f;
+    place(outgoing, 0.f, leaving, 1.f, 0.98f, 1.f, 0.f);
+    place(incoming, arriving, 0.f, 0.98f, 1.f, 0.f, 1.f);
 }
 
 void settle(UIElement const& element) {

@@ -4,6 +4,7 @@
 
 #include "Accounts.h"
 #include "AccountsDialog.xaml.h"
+#include "GlassMotion.h"
 #include "Motion.h"
 #include "MotionCapture.h"
 #include "Preview.h"
@@ -137,10 +138,11 @@ void MainWindow::ApplyMotion() {
     motion::crossfade(AudioView());
     motion::describe(L"歌词工作区");
     motion::crossfade(LyricsWorkspace());
+    // The action groups crossfade on the workspace spring, so they keep pace with the switch below them.
     motion::describe(L"音乐解锁操作");
-    motion::crossfade(AudioActions());
+    motion::crossfade(AudioActions(), glass_motion::workspace);
     motion::describe(L"歌词操作");
-    motion::crossfade(LyricsActions());
+    motion::crossfade(LyricsActions(), glass_motion::workspace);
     motion::describe({});
     Audio().ApplyMotion();
 }
@@ -149,14 +151,18 @@ void MainWindow::OnWorkspaceChanged(Controls::SelectorBar const&, Controls::Sele
     const bool audio = WorkspaceBar().SelectedItem() == AudioItem();
     // The title bar centres the switcher in the space left by the actions; keep their widest width so it stays put.
     HeaderActions().MinWidth(std::max(HeaderActions().MinWidth(), HeaderActions().ActualWidth()));
+    // The workspaces slide toward their own side of the switch; the title-bar actions keep their crossfade, on the
+    // same curve. Collapsing a workspace drops its handoff visual, so the departure has to start before that.
+    motion::describe(audio ? L"切回音乐解锁" : L"切到歌词工具");
+    motion::workspace(audio ? UIElement(LyricsWorkspace()) : UIElement(AudioView()),
+                      audio ? UIElement(AudioView()) : UIElement(LyricsWorkspace()), !audio);
+    motion::describe({});
     AudioView().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     AudioActions().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     LyricsActions().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
     LyricsWorkspace().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
-    motion::changed(AudioView());
     motion::changed(AudioActions());
     motion::changed(LyricsActions());
-    motion::changed(LyricsWorkspace());
 }
 
 fire_and_forget MainWindow::ShowAccounts(mu::MusicProvider provider) {

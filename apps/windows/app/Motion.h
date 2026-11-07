@@ -7,6 +7,8 @@
 // use its UIElement properties (Translation, Scale, Rotation). An element may only use one of the two,
 // so each helper below says which it takes.
 
+#include "SpringCurve.h"
+
 namespace motion {
 
 namespace xaml = winrt::Microsoft::UI::Xaml;
@@ -27,8 +29,15 @@ void changed(xaml::UIElement const& element);
 // Implicit animations on Visibility changes (handoff visual). They are set, or cleared when motion is
 // off, at the time of the call, so callers apply them again when the system setting may have changed.
 
-/// Workspaces, empty states and lists: fade, growing from 98 %.
+/// Workspaces, empty states and lists: fade, growing from 98 %, on .smooth(duration: 0.35).
 void crossfade(xaml::UIElement const& element);
+/// The same crossfade on a chosen spring. The title-bar action groups use the workspace spring.
+void crossfade(xaml::UIElement const& element, spring::Spring spring);
+/// The two workspaces trading places. The one leaving slides 40 px toward its own side and fades out, the one
+/// arriving comes in from 40 px on its own side, and both scale between 98 % and 100 %. `toward_lyrics` is the
+/// direction of the switch, so the lyrics workspace owns the right side. Plays on the elements' handoff visuals,
+/// so call it when the visibility is about to change, and call it again after the change so the arrival runs.
+void workspace(xaml::UIElement const& outgoing, xaml::UIElement const& incoming, bool toward_lyrics);
 /// Banners: drop in from 8 px above and fade in; shrink in place and fade out.
 void settle(xaml::UIElement const& element);
 /// The drop overlay: fade in while shrinking from 103 %, the reverse when it leaves.
