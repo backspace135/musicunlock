@@ -10,7 +10,9 @@ setups:
 - Otherwise (macOS and Linux): JAVA_HOME / ANDROID_HOME when set, else the platform defaults, with Gradle's and
   the SDK tools' own default cache folders.
 
-Temporary files always go to apps/android/build/tmp of the current checkout.
+Temporary files go to the toolchain's tmp/ when it is used: the Gradle daemon is shared by all worktrees and keeps
+files open in the temporary folder it started with, which would stop that worktree from being removed. Otherwise
+they go to apps/android/build/tmp of the current checkout.
 """
 from pathlib import Path
 import os
@@ -62,7 +64,7 @@ def uses_toolchain() -> bool:
 def android_environment(base: dict | None = None, check: bool = True) -> dict:
     """Return the environment for Gradle and the SDK tools; check=False skips checking the JDK and SDK exist."""
     env = dict(os.environ if base is None else base)
-    tmp = BUILD / "tmp"
+    tmp = TOOLCHAIN / "tmp" if uses_toolchain() else BUILD / "tmp"
     tmp.mkdir(parents=True, exist_ok=True)
     env.update(TMP=str(tmp), TEMP=str(tmp), TMPDIR=str(tmp))
     if uses_toolchain():

@@ -53,12 +53,14 @@ python3 apps/android/scripts/setup_toolchain.py --in-repo  # Mac / Linux：也�
 | `android-user-home/` | `ANDROID_USER_HOME`：调试签名 `debug.keystore`、SDK 工具的设置和 Android CLI |
 | `adb-home/` | adb 的日志；Mac / Linux 上 adb 的 `HOME`，密钥在 `adb-home/.android/` |
 | `downloads/` | 下载的压缩包 |
+| `tmp/` | `TMP` / `TEMP` |
 
 `scripts/android_env.py` 是 `build.py`、`device.py`、`setup_toolchain.py` 共用的环境设置：Windows 上总是用仓库内
 工具链；Mac 和 Linux 上装过 `--in-repo` 就用它，否则用 `JAVA_HOME` / `ANDROID_HOME`，没有设置时用
 `~/jdk/jdk-21.0.11+10/Contents/Home` 和 `~/Library/Android/sdk`。用仓库内工具链时 Kotlin 在 Gradle 进程里编译
-（单独的 Kotlin 守护进程会往用户的应用数据目录写文件）。临时文件（`TMP` / `TEMP`）总在当前检出的
-`apps/android/build/tmp/`。环境变量 `MUSICUNLOCK_ANDROID_TOOLCHAIN` 可以把工具链换到别的目录。
+（单独的 Kotlin 守护进程会往用户的应用数据目录写文件），临时文件（`TMP` / `TEMP`）也放在工具链的 `tmp/`：
+所有工作树共用一个 Gradle 守护进程，它会一直占着启动时那个临时目录里的文件，放在工作树里就删不掉那个工作树。
+不用仓库内工具链时，临时文件在当前检出的 `apps/android/build/tmp/`。环境变量 `MUSICUNLOCK_ANDROID_TOOLCHAIN` 可以把工具链换到别的目录。
 
 `build.py` 和 `setup_toolchain.py` 开头会打印 `JAVA_HOME`、`ANDROID_HOME`、`GRADLE_USER_HOME`、`ANDROID_USER_HOME`、
 `TMP`，确认缓存位置看这几行（或 Gradle `--info` 输出里的路径）即可。
