@@ -3,6 +3,7 @@
 
     <application
         android:allowBackup="false"
+        android:enableOnBackInvokedCallback="true"
         android:label="${appLabel}"
         android:supportsRtl="true"
         android:theme="@style/Theme.MusicUnlock">

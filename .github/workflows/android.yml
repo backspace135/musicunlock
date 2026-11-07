@@ -44,6 +44,10 @@ jobs:
             "ndk;$(version ndk)" "cmake;$(version cmake)" > /dev/null
       - name: Build the debug APK and run the core tests on the host (portable AES)
         run: python3 apps/android/scripts/build.py
+      # :core has only instrumented tests (src/androidTest), which need an emulator; its JVM unit tests would go here too.
+      - name: Run the app's JVM unit tests
+        working-directory: apps/android
+        run: ./gradlew :app:testDebugUnitTest
       - name: Build the release APK
         run: python3 apps/android/scripts/build.py --config release --no-test
       - uses: actions/upload-artifact@v7

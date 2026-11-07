@@ -9,6 +9,35 @@ val suffix = providers.gradleProperty("musicunlock.suffix").orNull?.also {
     require(Regex("[a-z][a-z0-9_]*").matches(it)) { "musicunlock.suffix must be a lowercase identifier: $it" }
 }
 
+/** Copies the repository's LICENSE and THIRD_PARTY_NOTICES.txt into assets/licenses/ for the 开源许可 page. */
+abstract class CopyLicenses : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NAME_ONLY)
+    abstract val sources: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val target = outputDir.get().asFile.resolve("licenses")
+        target.deleteRecursively()
+        target.mkdirs()
+        sources.forEach { it.copyTo(target.resolve(it.name)) }
+    }
+}
+
+val copyLicenses = tasks.register<CopyLicenses>("copyLicenses") {
+    val repository = rootDir.resolve("../..")
+    sources.from(repository.resolve("LICENSE"), repository.resolve("THIRD_PARTY_NOTICES.txt"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(copyLicenses, CopyLicenses::outputDir)
+    }
+}
+
 android {
     namespace = "io.github.backspace135.musicunlock"
     compileSdk = libs.versions.compileSdk.get().toInt()
@@ -53,6 +82,10 @@ dependencies {
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     debugImplementation(libs.androidx.compose.ui.tooling)
+    testImplementation(libs.junit)
 }
