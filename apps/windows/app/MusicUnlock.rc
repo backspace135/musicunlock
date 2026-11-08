@@ -5,8 +5,8 @@
 1 ICON "Assets\\AppIcon.ico"
 
 VS_VERSION_INFO VERSIONINFO
- FILEVERSION 0,1,1,0
- PRODUCTVERSION 0,1,1,0
+ FILEVERSION 0,2,0,0
+ PRODUCTVERSION 0,2,0,0
  FILEFLAGSMASK 0x3fL
  FILEOS VOS_NT_WINDOWS32
  FILETYPE VFT_APP
@@ -16,12 +16,12 @@ BEGIN
         BLOCK "080404b0"
         BEGIN
             VALUE "FileDescription", "音匣"
-            VALUE "FileVersion", "0.1.1"
+            VALUE "FileVersion", "0.2.0"
             VALUE "InternalName", "MusicUnlock"
             VALUE "LegalCopyright", "© 2026 backspace135 and MusicUnlock contributors. MIT License."
             VALUE "OriginalFilename", "MusicUnlock.exe"
             VALUE "ProductName", "音匣 MusicUnlock"
-            VALUE "ProductVersion", "0.1.1"
+            VALUE "ProductVersion", "0.2.0"
         END
     END
     BLOCK "VarFileInfo"
