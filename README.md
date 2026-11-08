@@ -7,7 +7,7 @@
 | 平台 | 最新版本 | 技术 | 入口 |
 | --- | --- | --- | --- |
 | macOS | [0.3.0](https://github.com/backspace135/musicunlock/releases/tag/v0.3.0) | Swift / SwiftUI / Apple Liquid Glass | [构建与使用说明](apps/macos/README.md) |
-| Windows | [0.1.1](https://github.com/backspace135/musicunlock/releases/tag/windows-v0.1.1) | C++20 / C++/WinRT / WinUI 3（Mica / 亚克力） | [构建与开发说明](apps/windows/README.md) |
+| Windows | [0.2.1](https://github.com/backspace135/musicunlock/releases/tag/windows-v0.2.1) | C++20 / C++/WinRT / WinUI 3（Mica / 亚克力） | [构建与开发说明](apps/windows/README.md) |
 | Android | [0.1.0](https://github.com/backspace135/musicunlock/releases/tag/android-v0.1.0) | Kotlin / Jetpack Compose / C++（NDK） | [构建与使用说明](apps/android/README.md) |
 
 三个平台功能一致：
