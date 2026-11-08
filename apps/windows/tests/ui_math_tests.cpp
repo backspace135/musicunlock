@@ -6,6 +6,7 @@
 #include <string>
 
 #include "SpringCurve.h"
+#include "GlassField.h"
 
 namespace {
 
@@ -76,6 +77,27 @@ void overdamped_stays_below_one() {
 }  // namespace
 
 int main() {
+    // 任一暂停条件都必须冻结相位，恢复后从原相位继续，而不是追赶墙上时钟。
+    glass::FieldClock clock;
+    check_near(clock.advance(1.0, true), 1.0, 1e-9, "field running");
+    check_near(clock.advance(8.0, false), 1.0, 1e-9, "field paused");
+    check_near(clock.advance(0.5, true), 1.5, 1e-9, "field resumed");
+    CHECK(glass::animate(true, true, true, false, false));
+    CHECK(!glass::animate(false, true, true, false, false));
+    CHECK(!glass::animate(true, false, true, false, false));
+    CHECK(!glass::animate(true, true, false, false, false));
+    CHECK(!glass::animate(true, true, true, true, false));
+    CHECK(!glass::animate(true, true, true, false, true));
+    const auto start = glass::position(0, 0.0);
+    const auto later = glass::position(0, 3.0);
+    CHECK(std::abs(start.x - later.x) + std::abs(start.y - later.y) > 0.01);
+    for (int i = 0; i < 6; ++i) {
+        for (int t = 0; t < 120; ++t) {
+            const auto point = glass::position(i, t);
+            CHECK(point.x >= 0.0 && point.x <= 1.0);
+            CHECK(point.y >= 0.0 && point.y <= 1.0);
+        }
+    }
     menu_open_overshoot();
     menu_close_settle();
     keyframe_shape();

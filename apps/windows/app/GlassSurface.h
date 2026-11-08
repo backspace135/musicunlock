@@ -3,6 +3,10 @@
 #include "GlassSurface.g.h"
 
 #include <winrt/Microsoft.UI.Xaml.Media.h>
+#include <winrt/Windows.UI.ViewManagement.h>
+#include <memory>
+
+namespace glass { class Backdrop; }
 
 namespace winrt::MusicUnlock::implementation {
 
@@ -18,7 +22,7 @@ struct GlassSurface : GlassSurfaceT<GlassSurface> {
     bool OnGlass() const { return on_glass_; }
     void OnGlass(bool value);
 
-    // XAML attribute assignment goes through the dependency properties, not the setters above.
+    // XAML 属性赋值通过依赖属性，而不是上面的 setter。
     static Microsoft::UI::Xaml::DependencyProperty KindProperty() { return kind_property_; }
     static Microsoft::UI::Xaml::DependencyProperty RadiusProperty() { return radius_property_; }
     static Microsoft::UI::Xaml::DependencyProperty TintOpacityProperty() { return tint_property_; }
@@ -40,13 +44,21 @@ private:
                                Microsoft::UI::Xaml::DependencyPropertyChangedEventArgs const& args);
 
     void Apply();
+    void ApplyTint();
     void OnLoaded(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
+    void OnUnloaded(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
 
     MusicUnlock::GlassKind kind_ = MusicUnlock::GlassKind::Panel;
     double radius_ = 20.0;
     double tint_ = 0.0;
     bool on_glass_ = false;
     Microsoft::UI::Xaml::Media::ThemeShadow menu_shadow_{nullptr};
+    Microsoft::UI::Xaml::Media::AcrylicBrush acrylic_{nullptr};
+    Windows::UI::ViewManagement::UISettings settings_;
+    Windows::UI::ViewManagement::AccessibilitySettings accessibility_;
+    Windows::UI::ViewManagement::UISettings::AdvancedEffectsEnabledChanged_revoker effects_changed_;
+    Windows::UI::ViewManagement::UISettings::ColorValuesChanged_revoker colors_changed_;
+    std::shared_ptr<::glass::Backdrop> backdrop_;
 };
 
 }  // namespace winrt::MusicUnlock::implementation
