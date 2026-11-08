@@ -7,7 +7,7 @@
 | 平台 | 最新版本 | 技术 | 入口 |
 | --- | --- | --- | --- |
 | macOS | [0.3.0](https://github.com/backspace135/musicunlock/releases/tag/v0.3.0) | Swift / SwiftUI / Apple Liquid Glass | [构建与使用说明](apps/macos/README.md) |
-| Windows | [0.2.0](https://github.com/backspace135/musicunlock/releases/tag/windows-v0.2.0) | C++20 / C++/WinRT / WinUI 3 | [构建与开发说明](apps/windows/README.md) |
+| Windows | [0.2.0](https://github.com/backspace135/musicunlock/releases/tag/windows-v0.2.0) | C++20 / C++/WinRT / WinUI 3（Mica / 亚克力） | [构建与开发说明](apps/windows/README.md) |
 | Android | [0.1.0](https://github.com/backspace135/musicunlock/releases/tag/android-v0.1.0) | Kotlin / Jetpack Compose / C++（NDK） | [构建与使用说明](apps/android/README.md) |
 
 三个平台功能一致：
@@ -15,6 +15,9 @@
 - **音乐解锁**：本地批量解封装 NCM、QMC、MFLAC、MGG 等音频，保留原有编码，不修改源文件。
 - **歌词工具**：网易云音乐 / QQ 音乐搜索，原文、译文、罗马音编辑，导出 LRC / TXT / SRT / VTT。
 - **账号登录**：网易云扫码登录、QQ 音乐官方登录页授权，会话用系统密钥加密保存，无需手动复制 Cookie。
+
+界面按各平台的原生方式实现：macOS 用 Apple Liquid Glass；Windows 用 Mica、亚克力和灰阶流动背景做出同样的玻璃效果，
+切换开关、菜单、连续曲率圆角和弹簧动效的参数与 macOS 版一一对应；Android 用 Jetpack Compose，只用黑白灰。
 
 ## 下载
 
@@ -77,7 +80,8 @@ python scripts/pack.py               # 生成单文件 build/dist/MusicUnlock.ex
 ```
 
 单 exe 内嵌压缩后的自包含 WinUI 3 程序目录，首次运行解压到 `%LOCALAPPDATA%\MusicUnlock\runtime\`，用户无需安装
-.NET 或 Windows App Runtime。界面预览、分发目录、任务栏固定等细节见 [Windows README](apps/windows/README.md)。
+.NET 或 Windows App Runtime。玻璃界面、界面预览与动效记录、分发目录、任务栏固定等细节见 [Windows README](apps/windows/README.md)。
+安装版与文件关联（#10）尚未实现。
 
 ## Android
 
