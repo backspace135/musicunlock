@@ -20,7 +20,8 @@
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="6,0" />
             <Setter Property="MinHeight" Value="0" />
-            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="local:Corners.Radius" Value="14" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="local:Press.Scale" Value="0.97" />
         </Style>
@@ -142,7 +143,7 @@
                         <Grid Grid.Row="2">
                         <!-- One highlight for the whole list. It slides between songs instead of each row
                              fading its own in and out; scrolling moves it by hand (see MoveSelectionHighlight). -->
-                        <Border x:Name="SelectionHighlight" CornerRadius="10" Background="{ThemeResource MuChipBrush}"
+                        <Border x:Name="SelectionHighlight" local:Corners.Radius="14" Background="{ThemeResource MuChipBrush}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Top" IsHitTestVisible="False" Opacity="0">
                             <Rectangle Width="3" RadiusX="1.5" RadiusY="1.5" Margin="3,12" HorizontalAlignment="Left"
                                        Fill="{ThemeResource MuTextBrush}" />

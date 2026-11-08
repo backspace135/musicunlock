@@ -1,5 +1,6 @@
 #include "pch.h"
 
+#include <winrt/MusicUnlock.h>
 #include "GlassSurface.h"
 #if __has_include("GlassSurface.g.cpp")
 #include "GlassSurface.g.cpp"
@@ -205,7 +206,7 @@ GlassSurface::GlassSurface() {
     // 材质和按压着色在内容下方分层，不修改内部控件。
     const hstring markup =
         L"<ControlTemplate xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' TargetType='ContentControl'>"
-        L"<Grid xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'"
+        L"<Grid x:Name='Root' xmlns:x='http://schemas.microsoft.com/winfx/2006/xaml'"
         L" Visibility='{Binding Content.Visibility, RelativeSource={RelativeSource TemplatedParent}, FallbackValue=Visible}'>"
         L"<Border x:Name='Plate'"
         L" BorderThickness='{TemplateBinding BorderThickness}' CornerRadius='{TemplateBinding CornerRadius}'"
@@ -229,6 +230,7 @@ GlassSurface::GlassSurface() {
     Loaded({this, &GlassSurface::OnLoaded});
     Unloaded({this, &GlassSurface::OnUnloaded});
     ActualThemeChanged([this](auto&&, auto&&) { Apply(); });
+    // 胶囊半径需要随布局高度更新。
     SizeChanged([this](auto&&, auto&&) { if (radius_ < 0) Apply(); });
 }
 
@@ -300,6 +302,9 @@ void GlassSurface::Apply() {
     const double height = ActualHeight();
     const float radius = radius_ < 0 && height > 0 ? static_cast<float>(height / 2.0) : static_cast<float>(std::max(radius_, 0.0));
     CornerRadius(CornerRadiusHelper::FromRadii(radius, radius, radius, radius));
+    // 材质、着色、边缘和内容共用连续圆角裁剪；负半径明确要求正圆端胶囊。
+    if (auto root = GetTemplateChild(L"Root").try_as<FrameworkElement>())
+        MusicUnlock::Corners::SetRadius(root, radius_ < 0 ? radius + 1.f : radius);
 
     if ((kind_ == MusicUnlock::GlassKind::Menu || kind_ == MusicUnlock::GlassKind::Panel) && !on_glass_ && !contrast) {
         if (!menu_shadow_) menu_shadow_ = Media::ThemeShadow();
