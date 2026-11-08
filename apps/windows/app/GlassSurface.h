@@ -4,9 +4,6 @@
 
 #include <winrt/Microsoft.UI.Xaml.Media.h>
 #include <winrt/Windows.UI.ViewManagement.h>
-#include <memory>
-
-namespace glass { class Backdrop; }
 
 namespace winrt::MusicUnlock::implementation {
 
@@ -52,13 +49,8 @@ private:
     double radius_ = 20.0;
     double tint_ = 0.0;
     bool on_glass_ = false;
-    Microsoft::UI::Xaml::Media::ThemeShadow menu_shadow_{nullptr};
-    Microsoft::UI::Xaml::Media::AcrylicBrush acrylic_{nullptr};
-    Windows::UI::ViewManagement::UISettings settings_;
+    Microsoft::UI::Xaml::Media::ThemeShadow shadow_{nullptr};
     Windows::UI::ViewManagement::AccessibilitySettings accessibility_;
-    Windows::UI::ViewManagement::UISettings::AdvancedEffectsEnabledChanged_revoker effects_changed_;
-    Windows::UI::ViewManagement::UISettings::ColorValuesChanged_revoker colors_changed_;
-    std::shared_ptr<::glass::Backdrop> backdrop_;
 };
 
 }  // namespace winrt::MusicUnlock::implementation

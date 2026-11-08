@@ -35,7 +35,6 @@ private:
     void ShowWorkspace(bool audio);
     /// 切换可见工作区；可见性与既有动效保持不变，过渡由 #65 负责。
     void ApplyWorkspace(bool audio);
-    void UseBackdrop();
     void ApplyMotion();
     /// Asks before closing while a batch runs; finished files stay either way.
     fire_and_forget ConfirmClose();
