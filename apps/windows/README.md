@@ -281,7 +281,10 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
 歌词工作区上方是来源、类型与关键词或分享链接，左侧 300 px 可勾选结果，右侧是原文 / 译文 / 罗马音 / 导出预览编辑区，
 底栏是格式、导出设置与导出操作；导出细项放在对话框里。
 
-- Liquid Glass 换成 Windows 系统材质：窗口用 Mica，面板是半透明表面加细描边，不用自绘模糊。
+- Liquid Glass 换成 Windows 系统材质：窗口用 Mica；工作区底下是 6 个灰阶径向渐变缓慢漂移的流动背景（`GlassSurface.cpp`
+  的 `Backdrop`，轨迹在 `GlassField.h`），面板（`GlassSurface` 的 `Panel`）用应用内 `AcrylicBrush` 加一圈上亮下暗的渐变边，
+  控件和菜单是不透明表面。窗口失去激活、最小化、“动画效果”或“透明效果”关闭、高对比度和静态预览时背景停住，
+  透明效果关闭或高对比度时面板改用纯色。不用自绘模糊：WinUI 3 的组合器不接受外部传入的模糊效果（见 #60）。
   Windows 10 没有 Mica，退回桌面亚克力，两者都不可用时用纯色工作区背景；
   `MUSICUNLOCK_BACKDROP=acrylic` 或 `solid` 可以在 Windows 11 上强制使用退回方案来检查。
 - 只用黑白灰：系统强调色被覆盖为墨灰（浅色 #1C1C1C、深色 #F2F2F2），主按钮、选中指示与焦点随之变灰；

@@ -101,7 +101,7 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- Results -->
-                <Border Style="{StaticResource MuPanelStyle}">
+                <local:GlassSurface Kind="Panel" Radius="20">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -211,10 +211,10 @@
                         </ListView>
                         </Grid>
                     </Grid>
-                </Border>
+                </local:GlassSurface>
 
                 <!-- Editor -->
-                <Border Grid.Column="1" Style="{StaticResource MuPanelStyle}">
+                <local:GlassSurface Grid.Column="1" Kind="Panel" Radius="20">
                     <Grid>
                         <StackPanel x:Name="EditorEmpty" Spacing="16" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <FontIcon Glyph="&#xE8E4;" FontSize="42" />
@@ -303,12 +303,12 @@
                             </Grid>
                         </Grid>
                     </Grid>
-                </Border>
+                </local:GlassSurface>
             </Grid>
         </Grid>
 
         <!-- Footer -->
-        <Border Grid.Row="1" Style="{StaticResource MuPanelStyle}" CornerRadius="{StaticResource MuFooterRadius}"
+        <local:GlassSurface Grid.Row="1" Kind="Panel" Radius="22"
                 Margin="24,16" Padding="16,12" MinHeight="64">
             <Grid RowSpacing="12">
                 <Grid.RowDefinitions>
@@ -372,7 +372,7 @@
                     </local:MorphGroup>
                 </Grid>
             </Grid>
-        </Border>
+        </local:GlassSurface>
 
         <!-- Export settings (macOS: LyricSettingsSheet). Changes apply and save immediately. -->
         <ContentDialog x:Name="SettingsDialog" Title="歌词导出设置" CloseButtonText="完成" DefaultButton="Close">
