@@ -86,6 +86,7 @@ void UnlockView::InitializeComponent() {
     JobList().ItemsSource(items_);
     drift_ = motion::Loop::drift(Disc());
     hop_ = motion::Loop::hop(DropGlyph());
+    wave_ = motion::Wave({WaveBar1(), WaveBar2(), WaveBar3(), WaveBar4()});
     text_scale_changed_ = ui_settings_.TextScaleFactorChanged(
         auto_revoke, [weak = get_weak(), queue = DispatcherQueue()](auto&&, auto&&) {
             queue.TryEnqueue([weak] {
@@ -116,6 +117,7 @@ void UnlockView::ApplyMotion() {
     Media::Animation::TransitionCollection transitions;
     if (motion::enabled()) transitions.Append(Media::Animation::AddDeleteThemeTransition());
     JobList().ItemContainerTransitions(transitions);
+    motion::scroll_edge(JobList());
     if (!motion::enabled()) drift_.stop();
     else if (queue_.jobs().empty()) drift_.start();
 }
@@ -133,6 +135,18 @@ void UnlockView::ApplyTextScale() {
 }
 
 void UnlockView::OnQueueHeaderSizeChanged(IInspectable const&, SizeChangedEventArgs const&) { FitQueueHeader(); }
+
+void UnlockView::FitFooter() {
+    const auto room = static_cast<float>(std::max(0.0, Footer().ActualWidth() - 40));
+    if (room <= 0) return;
+    StatusTitle().Measure({room, std::numeric_limits<float>::infinity()});
+    FooterActions().Measure({std::numeric_limits<float>::infinity(), std::numeric_limits<float>::infinity()});
+    const bool wrap = StatusTitle().DesiredSize().Width + FooterActions().DesiredSize().Width + 16 > room;
+    Controls::Grid::SetRow(FooterActions(), wrap ? 1 : 0);
+    Controls::Grid::SetColumn(FooterActions(), wrap ? 0 : 1);
+    Controls::Grid::SetColumnSpan(FooterActions(), wrap ? 2 : 1);
+    FooterActions().HorizontalAlignment(wrap ? HorizontalAlignment::Left : HorizontalAlignment::Right);
+}
 
 /// The filters sit beside the title, or on a second line when large text leaves no room for them.
 void UnlockView::FitQueueHeader() {
@@ -183,7 +197,12 @@ void UnlockView::PreviewRowMenu(uint32_t index) {
 }
 
 void UnlockView::SetOutputDirectory(std::filesystem::path directory) {
+    const bool changed = directory != output_directory_;
     output_directory_ = std::move(directory);
+    if (changed) {
+        motion::describe(L"输出文件夹");
+        motion::bounce(OutputIcon());
+    }
     OutputName().Text(output_directory_.filename().c_str());
     OutputParent().Text(output_directory_.parent_path().c_str());
     ToolTipService::SetToolTip(OutputButton(), box_value(hstring(output_directory_.c_str())));
@@ -202,6 +221,10 @@ void UnlockView::Refresh() {
     const auto failed = queue_.count(mu::JobState::failed);
     const auto waiting = queue_.count(mu::JobState::waiting);
 
+    if (queue_.jobs().size() != shown_jobs_) {
+        shown_jobs_ = queue_.jobs().size();
+        if (queue_changed_) queue_changed_();
+    }
     CountText().Text(empty ? hstring() : to_hstring(std::to_string(queue_.jobs().size()) + " 个文件"));
     FilterBar().Visibility(shown(!empty));
     FitQueueHeader();
@@ -245,6 +268,18 @@ void UnlockView::Refresh() {
     StopButton().Content(box_value(queue_.stop_requested() ? L"正在停止…" : L"停止转换"));
     StartButton().Visibility(shown(!running));
     StartButton().IsEnabled(waiting > 0 && imports_ == 0);
+    FooterActions().Update();
+    FitFooter();
+    if (running != shown_running_) {
+        shown_running_ = running;
+        motion::describe(L"开始转换");
+        motion::bounce(StartIcon());
+        // The waveform takes the static glyph's place for as long as the conversion runs.
+        QualityIcon().Visibility(shown(!running));
+        QualityWave().Visibility(shown(running));
+        if (running) wave_.start();
+        else wave_.stop();
+    }
     OutputButton().IsEnabled(!running);
     NamingBox().IsEnabled(!running);
     ChooseFilesButton().IsEnabled(imports_ == 0);
@@ -287,6 +322,14 @@ void UnlockView::OnContainerContentChanging(ListViewBase const&, ContainerConten
     }
     if (auto background = find_named(root, L"RunningBackground")) motion::crossfade(background);
     if (entering_.erase(args.Item().as<MusicUnlock::JobItem>().Id()) > 0) motion::enter(root);
+    // The reveal and remove buttons trade places when a job finishes. The one arriving grows in from 60 %.
+    const bool reveals = args.Item().as<MusicUnlock::JobItem>().HasOutput();
+    const auto key = container.as<IInspectable>();
+    if (auto found = row_action_.find(key); found != row_action_.end() && found->second != reveals) {
+        motion::describe(reveals ? L"在资源管理器中显示" : L"移出队列");
+        if (auto button = find_named(root, reveals ? L"RevealButton" : L"RemoveButton")) motion::pop(button, false);
+    }
+    row_action_[key] = reveals;
 }
 
 void UnlockView::PopState(MusicUnlock::JobItem const& item, bool bounce) {
@@ -442,6 +485,15 @@ fire_and_forget UnlockView::Start() {
         Refresh();
     }
     notice_ = queue_.end_batch();
+    Refresh();
+}
+
+void UnlockView::StartForCapture() {
+    if (queue_.jobs().empty()) return;
+    const auto ids = queue_.begin_batch();
+    Refresh();
+    if (!ids.empty()) queue_.job_succeeded(ids.front(), {output_directory_ / L"示例.flac", "flac", {}});
+    queue_.end_batch();
     Refresh();
 }
 

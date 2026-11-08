@@ -14,6 +14,8 @@
 #include <winrt/Windows.UI.Xaml.Interop.h>
 #include <wil/cppwinrt_helpers.h>
 
+#include "GlassMotion.h"
+#include "Motion.h"
 #include "Accounts.h"
 
 namespace winrt::MusicUnlock::implementation {
@@ -175,7 +177,19 @@ void AccountsDialog::ShowQrState(QrLoginState state, std::string_view message) {
     QrCoverIcon().Visibility(shown(covered));
     QrCoverIcon().Glyph(qr_glyph(state));
     QrStatusIcon().Glyph(qr_glyph(state));
-    QrStatusText().Text(text(message.empty() ? mu::qr_login_message(state) : message));
+    const hstring status = text(message.empty() ? mu::qr_login_message(state) : message);
+    // The status line crossfades when its words change; the first one simply appears.
+    if (!QrStatusText().Text().empty() && QrStatusText().Text() != status) {
+        motion::describe(L"二维码状态");
+        motion::crossfade(QrStatusText(), spring::Spring{0.3, 1});
+    }
+    QrStatusText().Text(status);
+    motion::changed(QrStatusText());
+    // An expired code fades back; refreshing it brings it forward again. Loading is handled with the ring below.
+    if (state == QrLoginState::expired || state == QrLoginState::waiting) {
+        motion::describe(state == QrLoginState::expired ? L"二维码过期" : L"二维码刷新");
+        motion::fade_scale(QrPath(), state == QrLoginState::waiting, spring::Spring{0.35, 1});
+    }
     const bool ended = state == QrLoginState::expired || state == QrLoginState::failed;
     RefreshQrButton().Content(box_value(ended ? L"重新生成二维码" : L"刷新二维码"));
     RefreshQrButton().IsEnabled(!loading && state != QrLoginState::confirmed);
@@ -206,6 +220,10 @@ fire_and_forget AccountsDialog::StartQr() {
         co_return;
     }
     SetQrCode(ticket->url);
+    // The code arrives in place of the spinner: from 92 percent, fading in. macOS pairs this with a blur, which
+    // WinUI 3 cannot do, so the scale and fade stand for it.
+    motion::describe(L"二维码出现");
+    motion::fade_scale(QrPath(), true, glass_motion::footer, 0.92f);
     ShowQrState(QrLoginState::waiting, {});
     co_await resume_background();
     mu::QrLoginStep result;

@@ -5,6 +5,7 @@
 #include "Accounts.h"
 #include "AccountsDialog.xaml.h"
 #include "GlassSwitchTests.h"
+#include "GlassMotion.h"
 #include "Motion.h"
 #include "MotionCapture.h"
 #include "Preview.h"
@@ -97,6 +98,10 @@ void MainWindow::InitializeComponent() {
         args.Cancel(true);
         ConfirmClose();
     });
+    Audio().OnQueueChanged([this] {
+        motion::describe(L"添加文件");
+        motion::bounce(AddFilesIcon());
+    });
     Audio().OnFindLyricsRequested([this](std::string title) {
         ShowWorkspace(false);
         Lyrics().SearchForAudio(std::move(title));
@@ -141,10 +146,11 @@ void MainWindow::ApplyMotion() {
     motion::crossfade(AudioView());
     motion::describe(L"歌词工作区");
     motion::crossfade(LyricsWorkspace());
+    // The action groups crossfade on the workspace spring, so they keep pace with the switch below them.
     motion::describe(L"音乐解锁操作");
-    motion::crossfade(AudioActions());
+    motion::crossfade(AudioActions(), glass_motion::workspace);
     motion::describe(L"歌词操作");
-    motion::crossfade(LyricsActions());
+    motion::crossfade(LyricsActions(), glass_motion::workspace);
     motion::describe({});
     Audio().ApplyMotion();
 }
@@ -156,14 +162,18 @@ void MainWindow::OnWorkspaceChanged(MusicUnlock::GlassSwitch const&, IInspectabl
 void MainWindow::ApplyWorkspace(bool audio) {
     // The title bar centres the switcher in the space left by the actions; keep their widest width so it stays put.
     HeaderActions().MinWidth(std::max(HeaderActions().MinWidth(), HeaderActions().ActualWidth()));
+    // The workspaces slide toward their own side of the switch; the title-bar actions keep their crossfade, on the
+    // same curve. Collapsing a workspace drops its handoff visual, so the departure has to start before that.
+    motion::describe(audio ? L"切回音乐解锁" : L"切到歌词工具");
+    motion::workspace(audio ? UIElement(LyricsWorkspace()) : UIElement(AudioView()),
+                      audio ? UIElement(AudioView()) : UIElement(LyricsWorkspace()), !audio);
+    motion::describe({});
     AudioView().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     AudioActions().Visibility(audio ? Visibility::Visible : Visibility::Collapsed);
     LyricsActions().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
     LyricsWorkspace().Visibility(audio ? Visibility::Collapsed : Visibility::Visible);
-    motion::changed(AudioView());
     motion::changed(AudioActions());
     motion::changed(LyricsActions());
-    motion::changed(LyricsWorkspace());
 }
 
 fire_and_forget MainWindow::ShowAccounts(mu::MusicProvider provider) {
@@ -187,7 +197,11 @@ fire_and_forget MainWindow::ShowAccounts(mu::MusicProvider provider) {
 
 void MainWindow::UpdateAccountsButton() {
     const bool any = accounts::signed_in(mu::MusicProvider::netease) || accounts::signed_in(mu::MusicProvider::qq);
-    AccountsIcon().Glyph(any ? L"\uEA8C" : L"\uE77B");  // ContactSolid / Contact
+    if (any != accounts_signed_in_) {
+        accounts_signed_in_ = any;
+        motion::describe(L"账号");
+        motion::replace(any ? AccountsSignedOut() : AccountsSignedIn(), any ? AccountsSignedIn() : AccountsSignedOut());
+    }
     hstring name = L"账号登录";
     for (const auto provider : mu::all_providers) {
         if (accounts::signed_in(provider)) name = name + L"，" + to_hstring(mu::provider_title(provider)) + L"会话已保存";
@@ -451,6 +465,29 @@ void MainWindow::RenderMotion(std::wstring directory, std::wstring scenarios) {
         driver.wait(500);
         Audio().Filter().SelectedIndex(0);
         driver.wait(400);
+    });
+    // The queue has to hold something before its rows, icons and highlight have anything to react to.
+    motion_capture::add(L"icons", [this](motion_capture::Driver& driver) {
+        driver.capture(2200);
+        driver.note(L"加入示例文件，添加图标弹跳，提示条弹跳");
+        Audio().ShowSampleJobs();
+        driver.wait(500);
+        driver.note(L"换输出目录，文件夹图标弹跳");
+        Audio().UseOutputDirectory(L"C:\\示例\\另一处输出");
+        driver.wait(500);
+        driver.note(L"开始转换，播放图标弹跳，波形流动");
+        Audio().StartForCapture();
+        driver.wait(600);
+    });
+    motion_capture::add(L"selection", [this](motion_capture::Driver& driver) {
+        ShowWorkspace(false);
+        driver.capture(1800);
+        driver.note(L"示例结果出现，高亮滑到选中的那首");
+        Lyrics().ShowSampleSongs();
+        driver.wait(600);
+        driver.note(L"换一首，高亮滑过去");
+        Lyrics().SelectSample(1);
+        driver.wait(600);
     });
     motion_capture::add(L"drop", [this](motion_capture::Driver& driver) {
         driver.capture(1400);

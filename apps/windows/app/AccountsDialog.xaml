@@ -56,11 +56,11 @@
             <StackPanel x:Name="QrPanel" Visibility="Collapsed" Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <!-- Always black on white so phones can scan it, in every theme. -->
                 <Grid Width="232" Height="232" HorizontalAlignment="Center">
-                    <Border Background="White" CornerRadius="12" BorderBrush="{ThemeResource MuSeparatorBrush}" BorderThickness="1"
+                    <Border Background="White" local:Corners.Radius="12" BorderBrush="{ThemeResource MuSeparatorBrush}" BorderThickness="1"
                             Padding="16">
                         <Path x:Name="QrPath" Fill="Black" Stretch="Uniform" AutomationProperties.Name="网易云音乐登录二维码" />
                     </Border>
-                    <Border x:Name="QrCover" Background="White" Opacity="0.94" CornerRadius="11" Margin="1" Visibility="Collapsed" />
+                    <Border x:Name="QrCover" Background="White" Opacity="0.94" local:Corners.Radius="11" Margin="1" Visibility="Collapsed" />
                     <FontIcon x:Name="QrCoverIcon" FontSize="44" Foreground="Black" Visibility="Collapsed" />
                     <ProgressRing x:Name="QrProgress" IsActive="False" Width="40" Height="40" Foreground="Black" />
                 </Grid>
@@ -79,7 +79,7 @@
 
             <!-- Official login page -->
             <Grid x:Name="WebPanel" Visibility="Collapsed">
-                <Border x:Name="WebHost" CornerRadius="8" BorderBrush="{ThemeResource MuSeparatorBrush}" BorderThickness="1"
+                <Border x:Name="WebHost" local:Corners.Radius="8" BorderBrush="{ThemeResource MuSeparatorBrush}" BorderThickness="1"
                         Background="{ThemeResource MuSurfaceBrush}" />
                 <StackPanel x:Name="WebStatus" Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="440">
                     <ProgressRing x:Name="WebProgress" IsActive="True" Width="32" Height="32" />

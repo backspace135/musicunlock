@@ -14,13 +14,16 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Foreground" Value="{ThemeResource MuSecondaryBrush}" />
+            <Setter Property="local:Press.Scale" Value="0.97" />
         </Style>
         <Style x:Key="MuResultItemStyle" TargetType="ListViewItem" BasedOn="{StaticResource DefaultListViewItemStyle}">
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="6,0" />
             <Setter Property="MinHeight" Value="0" />
-            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="local:Corners.Radius" Value="14" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="local:Press.Scale" Value="0.97" />
         </Style>
         <FontFamily x:Key="MuLyricFont">Cascadia Mono, Consolas</FontFamily>
     </UserControl.Resources>
@@ -44,7 +47,12 @@
                 <Grid MinHeight="28">
                     <TextBlock Text="歌词工作台" Style="{StaticResource MuPageTitleStyle}" VerticalAlignment="Center" />
                     <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center">
-                        <FontIcon x:Name="SessionGlyph" Glyph="&#xE774;" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}" />
+                        <Grid>
+                            <!-- Signed out on top; signing in swaps it for the shield underneath. -->
+                            <FontIcon x:Name="SessionSignedIn" Glyph="&#xEA18;" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}"
+                                      Opacity="0" IsHitTestVisible="False" />
+                            <FontIcon x:Name="SessionSignedOut" Glyph="&#xE774;" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}" />
+                        </Grid>
                         <TextBlock x:Name="SessionText" Text="公开内容可免登录读取" FontSize="11" Foreground="{ThemeResource MuSecondaryBrush}" />
                     </StackPanel>
                 </Grid>
@@ -62,20 +70,25 @@
                     <TextBox x:Name="QueryBox" Grid.Column="2" PlaceholderText="歌曲、歌手，或粘贴歌曲 / 歌单 / 专辑链接"
                              AutomationProperties.Name="歌词搜索关键词或音乐链接" ToolTipService.ToolTip="搜索歌词（Ctrl+F）"
                          TextChanged="OnQueryChanged" KeyDown="OnQueryKeyDown" />
-                    <Grid Grid.Column="3">
-                        <Button x:Name="SearchButton" Style="{StaticResource AccentButtonStyle}" Padding="16,6" MinWidth="88" Click="OnSearch">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE721;" FontSize="14" />
+                    <local:MorphGroup x:Name="SearchActions" Grid.Column="3" Shared="{x:Bind CancelSearchButton}">
+                        <Button x:Name="SearchButton" Style="{StaticResource MuProminentButtonStyle}" MinWidth="96" Click="OnSearch"
+                                local:Press.Scale="0.96" local:Press.Glass="0.06">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon x:Name="SearchIcon" Glyph="&#xE721;" FontSize="13" />
                                 <TextBlock Text="搜索" />
                             </StackPanel>
                         </Button>
-                        <Button x:Name="CancelSearchButton" Padding="16,6" MinWidth="88" Visibility="Collapsed" Click="OnCancelSearch">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE711;" FontSize="14" />
-                                <TextBlock Text="取消" />
-                            </StackPanel>
-                        </Button>
-                    </Grid>
+                        <local:GlassSurface Kind="Control" Radius="-1" local:Press.Scale="0.96" local:Press.Glass="0.06">
+                            <Button x:Name="CancelSearchButton" Background="Transparent" BorderThickness="0" MinWidth="96"
+                                    Style="{StaticResource MuCapsuleButtonStyle}" Foreground="{ThemeResource MuTextBrush}"
+                                    Visibility="Collapsed" Click="OnCancelSearch">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE711;" FontSize="13" />
+                                    <TextBlock Text="取消" />
+                                </StackPanel>
+                            </Button>
+                        </local:GlassSurface>
+                    </local:MorphGroup>
                 </Grid>
             </StackPanel>
 
@@ -127,16 +140,20 @@
                                              Click="OnOpenLocal" />
                         </StackPanel>
 
-                        <ListView x:Name="ResultList" Grid.Row="2" SelectionMode="None" IsItemClickEnabled="True" Padding="0,4"
+                        <Grid Grid.Row="2">
+                        <!-- One highlight for the whole list. It slides between songs instead of each row
+                             fading its own in and out; scrolling moves it by hand (see MoveSelectionHighlight). -->
+                        <Border x:Name="SelectionHighlight" local:Corners.Radius="14" Background="{ThemeResource MuChipBrush}"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Top" IsHitTestVisible="False" Opacity="0">
+                            <Rectangle Width="3" RadiusX="1.5" RadiusY="1.5" Margin="3,12" HorizontalAlignment="Left"
+                                       Fill="{ThemeResource MuTextBrush}" />
+                        </Border>
+                        <ListView x:Name="ResultList" SelectionMode="None" IsItemClickEnabled="True" Padding="0,4"
                                   ItemClick="OnResultClicked" ItemContainerStyle="{StaticResource MuResultItemStyle}"
                                   AutomationProperties.Name="歌词搜索结果" Visibility="Collapsed">
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="local:LyricRow">
                                     <Grid>
-                                        <!-- The selected song: a faint tint and an ink bar, like the macOS highlight. -->
-                                        <Border CornerRadius="10" Background="{ThemeResource MuChipBrush}" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
-                                        <Rectangle Width="3" RadiusX="1.5" RadiusY="1.5" Margin="3,12" HorizontalAlignment="Left"
-                                                   Fill="{ThemeResource MuTextBrush}" Visibility="{x:Bind IsSelected, Mode=OneWay}" />
                                         <Grid Padding="10,13" ColumnSpacing="6" Visibility="{x:Bind IsSong}">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
@@ -189,10 +206,12 @@
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                             <ListView.Footer>
-                                <Button x:Name="LoadMoreButton" Content="加载更多" HorizontalAlignment="Center" Margin="16" Visibility="Collapsed"
+                                <Button x:Name="LoadMoreButton" Content="加载更多" HorizontalAlignment="Center" Margin="16"
+                                        Style="{StaticResource MuOnGlassButtonStyle}" Visibility="Collapsed" local:Press.Scale="0.96" local:Press.Glass="0.06"
                                         Click="OnLoadMore" />
                             </ListView.Footer>
                         </ListView>
+                        </Grid>
                     </Grid>
                 </Border>
 
@@ -321,14 +340,18 @@
                     </StackPanel>
                     <StackPanel x:Name="FormatPanel" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                         <ComboBox x:Name="FormatBox" MinWidth="92" AutomationProperties.Name="导出格式" SelectionChanged="OnFormatChanged" />
-                        <Button Padding="16,8" Click="OnShowSettings">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE713;" FontSize="14" />
-                                <TextBlock Text="导出设置" />
-                            </StackPanel>
-                        </Button>
+                        <local:GlassSurface Kind="Control" Radius="-1" local:Press.Scale="0.96" local:Press.Glass="0.06">
+                            <Button x:Name="ExportSettingsButton" Background="Transparent" BorderThickness="0"
+                                    Style="{StaticResource MuCapsuleButtonStyle}" Foreground="{ThemeResource MuTextBrush}"
+                                    Click="OnShowSettings" AutomationProperties.Name="导出设置">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon x:Name="ExportSettingsIcon" Glyph="&#xE713;" FontSize="13" />
+                                    <TextBlock Text="导出设置" />
+                                </StackPanel>
+                            </Button>
+                        </local:GlassSurface>
                     </StackPanel>
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                    <local:MorphGroup x:Name="ExportActions" Grid.Column="2" Shared="{x:Bind StopExportButton}">
                         <Button x:Name="MoreButton" Style="{StaticResource MuIconButtonStyle}" ToolTipService.ToolTip="更多歌词操作"
                                 AutomationProperties.Name="更多歌词操作">
                             <FontIcon Glyph="&#xE712;" FontSize="15" />
@@ -352,17 +375,25 @@
                                 </MenuFlyout>
                             </Button.Flyout>
                         </Button>
-                        <Button x:Name="ExportCheckedButton" Padding="16,8" Visibility="Collapsed" Click="OnExportChecked" />
-                        <Button x:Name="StopExportButton" Content="停止导出" Padding="16,8" MinWidth="120" Visibility="Collapsed"
-                                Click="OnStopExport" ToolTipService.ToolTip="停止导出（Ctrl+.）" />
-                        <Button x:Name="ExportCurrentButton" Style="{StaticResource AccentButtonStyle}" Padding="16,8" MinWidth="120"
-                                Click="OnExportCurrent" ToolTipService.ToolTip="导出当前歌词（Ctrl+S）">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE896;" FontSize="14" />
+                        <local:GlassSurface Kind="Control" Radius="-1" local:Press.Scale="0.96" local:Press.Glass="0.06">
+                            <Button x:Name="ExportCheckedButton" Background="Transparent" BorderThickness="0"
+                                    Style="{StaticResource MuCapsuleButtonStyle}" Foreground="{ThemeResource MuTextBrush}"
+                                    Visibility="Collapsed" Click="OnExportChecked" />
+                        </local:GlassSurface>
+                        <local:GlassSurface Kind="Control" Radius="-1" local:Press.Scale="0.96" local:Press.Glass="0.06">
+                            <Button x:Name="StopExportButton" Content="停止导出" Background="Transparent" BorderThickness="0"
+                                    Style="{StaticResource MuCapsuleButtonStyle}" Foreground="{ThemeResource MuTextBrush}"
+                                    MinWidth="96" Visibility="Collapsed" Click="OnStopExport" ToolTipService.ToolTip="停止导出（Ctrl+.）" />
+                        </local:GlassSurface>
+                        <Button x:Name="ExportCurrentButton" Style="{StaticResource MuProminentButtonStyle}" MinWidth="96"
+                                Click="OnExportCurrent" ToolTipService.ToolTip="导出当前歌词（Ctrl+S）"
+                                local:Press.Scale="0.96" local:Press.Glass="0.06">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon x:Name="ExportCurrentIcon" Glyph="&#xE896;" FontSize="13" />
                                 <TextBlock Text="导出当前歌词" />
                             </StackPanel>
                         </Button>
-                    </StackPanel>
+                    </local:MorphGroup>
                 </Grid>
             </Grid>
         </Border>

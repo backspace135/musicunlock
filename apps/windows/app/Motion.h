@@ -7,9 +7,17 @@
 // use its UIElement properties (Translation, Scale, Rotation). An element may only use one of the two,
 // so each helper below says which it takes.
 
+#include "SpringCurve.h"
+
+#include <initializer_list>
+#include <vector>
+
+#include <winrt/Microsoft.UI.Xaml.h>
+
 namespace motion {
 
 namespace xaml = winrt::Microsoft::UI::Xaml;
+namespace controls = winrt::Microsoft::UI::Xaml::Controls;
 
 bool enabled();
 /// Static renders, like the macOS PreviewRenderer.
@@ -27,8 +35,21 @@ void changed(xaml::UIElement const& element);
 // Implicit animations on Visibility changes (handoff visual). They are set, or cleared when motion is
 // off, at the time of the call, so callers apply them again when the system setting may have changed.
 
-/// Workspaces, empty states and lists: fade, growing from 98 %.
+/// Workspaces, empty states and lists: fade, growing from 98 %, on .smooth(duration: 0.35).
 void crossfade(xaml::UIElement const& element);
+/// The same crossfade on a chosen spring. The title-bar action groups use the workspace spring.
+void crossfade(xaml::UIElement const& element, spring::Spring spring);
+/// The two workspaces trading places. The one leaving slides 40 px toward its own side and fades out, the one
+/// arriving comes in from 40 px on its own side, and both scale between 98 % and 100 %. `toward_lyrics` is the
+/// direction of the switch, so the lyrics workspace owns the right side. Plays on the elements' handoff visuals,
+/// so call it when the visibility is about to change, and call it again after the change so the arrival runs.
+void workspace(xaml::UIElement const& outgoing, xaml::UIElement const& incoming, bool toward_lyrics);
+
+/// Rows shrink and fade as they scroll past the list's edges, the way iOS lists do: fully inside a row is
+/// unchanged, and one clipped by the top or bottom edge eases to 40 % opacity and 96 % scale, pivoted on the
+/// edge it is leaving. The scroll manipulation property set never updates under WinUI 3, so this follows the
+/// ScrollViewer's ViewChanged instead of an expression. Call it once; it keeps up with virtualization itself.
+void scroll_edge(controls::ListView const& list);
 /// Banners: drop in from 8 px above and fade in; shrink in place and fade out.
 void settle(xaml::UIElement const& element);
 /// The drop overlay: fade in while shrinking from 103 %, the reverse when it leaves.
@@ -40,6 +61,38 @@ void overlay(xaml::UIElement const& element);
 void enter(xaml::UIElement const& element);
 /// A state glyph that changed: grows in from 60 %; `bounce` overshoots once (finished jobs).
 void pop(xaml::UIElement const& element, bool bounce);
+/// An icon acknowledging a change: dips to 82 % and springs back to full size, around its own centre.
+void bounce(xaml::UIElement const& element);
+/// An icon replaced by another: the old one shrinks to 60 % and fades out, the new one grows in from 60 %.
+void replace(xaml::UIElement const& outgoing, xaml::UIElement const& incoming);
+/// An export starting or finishing: the icon drops 3 px and springs back up.
+void dip(xaml::UIElement const& element);
+/// Fades and scales between rest and `from_scale`. `appear` settles at full size and full opacity; otherwise it
+/// settles at `from_scale` and 35 percent opacity, which is how an expired QR code recedes.
+void fade_scale(xaml::UIElement const& element, bool appear, spring::Spring spring, float from_scale = 1.f);
+
+/// Slides one highlight onto the selected row and keeps it there while the list scrolls. The highlight is a
+/// sibling of the list, so its offset is the row's position in that shared parent. Pass a null row to hide it.
+void move_highlight(xaml::UIElement const& highlight, xaml::UIElement const& row);
+
+/// The "keep original quality" mark while a conversion runs: its bars light up one after another, and go back to
+/// rest together when it stops. Call it with the same bars each time; starting again does nothing.
+class Wave {
+public:
+    Wave() = default;
+    Wave(std::initializer_list<xaml::UIElement> bars);
+
+    void start();
+    void stop();
+
+private:
+    void light(int index);
+
+    std::vector<winrt::weak_ref<xaml::UIElement>> bars_;
+    winrt::Microsoft::UI::Xaml::DispatcherTimer timer_{nullptr};
+    int index_ = 0;
+    bool running_ = false;
+};
 /// The empty-state disc while files hover: lifted to 110 % and tilted, or back.
 void lift(xaml::UIElement const& element, bool lifted);
 

@@ -45,6 +45,7 @@ private:
     bool closing_confirmed_ = false;
     bool accounts_open_ = false;
     bool syncing_workspace_ = false;
+    bool accounts_signed_in_ = false;  // the icon last drawn, so it only swaps when a session is saved or dropped
 
     /// Development renders (MUSICUNLOCK_RENDER_DIR): PNGs of the window content in light and dark, with
     /// dialogs, menus, large text and high contrast, and the UI Automation tree; then exit.
