@@ -2,7 +2,8 @@
 
 Windows 原生版本的开发目录，与 macOS 版本在同一个 Git 仓库维护。
 
-**当前状态：解封装核心、命令行版、歌词核心、WinUI 3 音乐解锁与歌词工作区、账号登录与单 exe 启动器已实现。**
+**当前状态：0.2.0 已发布。解封装核心、命令行版、歌词核心、WinUI 3 音乐解锁与歌词工作区、账号登录、单 exe 启动器，
+以及按 macOS 版重做的玻璃界面（#57）已实现。安装版与文件关联（#10）未做；玻璃界面的人工验收与遗留项见 #79。**
 
 ## 技术方向
 
@@ -252,7 +253,7 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
 
 ## 玻璃界面基础
 
-液态玻璃界面（总控 #57）的三套公共接口在 `app/` 下，签名在 #59 里定死。A–F 只调用这些接口；真正的玻璃材质由 #60 填进 `GlassSurface`，连续曲率由 #61 填进 `corners`，两边都不改签名。
+液态玻璃界面（总控 #57）的三套公共接口在 `app/` 下，签名在 #59 里定死，各子任务只调用这些接口；玻璃材质（#60）和连续曲率（#61）都在接口内部实现，没有改动签名。
 
 - `SpringCurve.h`：SwiftUI `spring(response:dampingFraction:)` 的单位质量阻尼谐振子，纯 C++20，Mac 上的 `python scripts/build.py` 也会跑 `tests/ui_math_tests.cpp`。`value` 给出从 0 走到 1 的位移，`settle_time` 是之后与终值的差恒小于 ε 的最早时刻，`keyframes` 按帧采样成归一化关键帧。
 - `GlassMotion.h`：唯一的参数表，与 macOS `Theme.swift` 的 `GlassMotion` 一一对应。数值是社区对 iOS 26 的估算，不是实测，改动时两端一起改：
@@ -270,7 +271,7 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
   | `selection` | 歌词结果选中高亮滑动 | 0.35 | 0.8 |
 
   `handoff` 不是弹簧：菜单面板与按钮交叉淡化，easeInOut 0.08 秒，相对 `close` 开始延迟 0.12 秒。`scalar` / `vector2` / `vector3` 用 `SpringCurve` 的关键帧生成组合动画，起点取属性当前值，所以中途被打断不会跳；`motion::enabled()` 为 false 时返回空，调用方直接设终值。不用 `SpringNaturalMotionAnimation`，它的 `Period` 与 `response` 没有文档化的换算。
-- `GlassSurface`（`GlassSurface.idl`）：所有玻璃表面的控件，派生自 `ContentControl`（`Border` 不是可组合的运行时类）。`Kind` 区分面板、控件和弹出菜单，`Radius` 为负时是高度一半的胶囊，`TintOpacity` 叠加 `MuTextColor`，`OnGlass` 表示已经放在另一块玻璃上。内容放在 `ContentPresenter` 里，背景由控件模板绘制，不参与内容的布局。现在是占位：面板用 `MuPanelBrush`，控件、菜单和 `OnGlass` 用不透明的 `MuSurfaceBrush`，都加 1px `MuSeparatorBrush` 描边，菜单另加阴影。画刷用 `ThemeResource`，跟随元素请求的主题。目前只替换了音乐解锁工作区的底栏，观感与原来的 `MuPanelStyle` 一致。
+- `GlassSurface`（`GlassSurface.idl`）：所有玻璃表面的控件，派生自 `ContentControl`（`Border` 不是可组合的运行时类）。`Kind` 区分面板、控件和弹出菜单，`Radius` 为负时是高度一半的胶囊，`TintOpacity` 叠加 `MuTextColor`，`OnGlass` 表示已经放在另一块玻璃上。内容放在 `ContentPresenter` 里，背景由控件模板绘制，不参与内容的布局。面板是应用内亚克力加渐变边，控件和菜单是不透明表面，降级规则见下一节“界面设计对应”。标题栏、音乐解锁和歌词两个工作区的面板、胶囊按钮和底栏都用它。
 - `Corners.h`：保留 `geometry`、`clip`、`stroke` 三个入口，通过 Direct2D 路径与 `IGeometrySource2DInterop` 向合成器提供连续圆角，不依赖 Win2D。每角三段贝塞尔，横纵短边独立压缩；半径恰好等于短边一半时保留压缩连续角，超过时夹成正圆端胶囊。纯 C++ 的 `ContinuousPath` 与 SwiftUI 核对点共用 `ui_math_tests`，另检查四角方向、边间连接、宽高互换、零半径及胶囊径向误差。
 - XAML 使用 `local:Corners.Radius="14"`，可挂在 `Border`、`Control`、`Grid` 或 `Shape`。自动替换原生圆角和单色等宽描边，描边中心线内缩半个线宽并按外轮廓裁剪；原生描边占用的空间补入 Padding，保持内容布局。支持 Shape 虚线；当前接入不涉及渐变或不等宽描边。状态存于元素私有附加属性，不以全局强引用表持有元素；同尺寸和半径复用裁剪，布局回调只比较缓存，画刷变色时刷新描边。`GlassSurface` 模板的 `Plate` 共用此属性，负半径明确使用圆端胶囊。
 
