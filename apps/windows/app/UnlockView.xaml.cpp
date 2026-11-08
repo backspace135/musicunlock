@@ -196,6 +196,9 @@ void UnlockView::UsePreviewData() {
 }
 
 void UnlockView::ShowSampleJobs() {
+    // Always the same three jobs, also when a capture scenario runs again in the other theme: the queue skips
+    // files it already holds, and indexing the batch of an emptied queue was an access violation.
+    queue_.clear();
     mu::ImportScan scan;
     scan.files = {{L"C:\\示例\\远行的旋律.ncm", 28'400'000}, {L"C:\\示例\\午后唱片.mflac", 36'800'000},
                   {L"C:\\示例\\旧日时光.mgg", 8'600'000}};
