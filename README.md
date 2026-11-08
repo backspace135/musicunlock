@@ -1,6 +1,15 @@
+<div align="center">
+
 # 音匣 MusicUnlock
 
 音乐解封装与歌词工具。macOS、Windows 和 Android 版本在同一个仓库维护，各自使用原生界面与系统集成。
+
+[![macOS](https://img.shields.io/github/v/release/backspace135/musicunlock?filter=v*&label=macOS&logo=apple&color=1c1c1c)](https://github.com/backspace135/musicunlock/releases?q=v&expanded=true)
+[![Windows](https://img.shields.io/github/v/release/backspace135/musicunlock?filter=windows-v*&label=Windows&logo=windows&color=1c1c1c)](https://github.com/backspace135/musicunlock/releases?q=windows-v&expanded=true)
+[![Android](https://img.shields.io/github/v/release/backspace135/musicunlock?filter=android-v*&label=Android&logo=android&color=1c1c1c)](https://github.com/backspace135/musicunlock/releases?q=android-v&expanded=true)
+[![License](https://img.shields.io/github/license/backspace135/musicunlock?color=6e6e6e)](LICENSE)
+
+</div>
 
 ## 平台状态
 
@@ -18,6 +27,63 @@
 
 界面按各平台的原生方式实现：macOS 用 Apple Liquid Glass；Windows 用实色卡片、细描边和柔和投影（WinUI 3 不能对界面内容做自定义模糊），
 切换开关、菜单、连续曲率圆角和弹簧动效的参数与 macOS 版一一对应；Android 用 Jetpack Compose，只用黑白灰。
+
+## 架构
+
+```mermaid
+flowchart TB
+  subgraph ui[" "]
+    uiLabel["界面"]
+    macUI("macOS<br/>SwiftUI")
+    winUI("Windows<br/>WinUI 3")
+    andUI("Android<br/>Compose")
+  end
+
+  subgraph cores[" "]
+    coreLabel["核心"]
+    swiftCore("MusicUnlockCore<br/>Swift")
+    cppCore("shared/core<br/>C++20")
+  end
+
+  subgraph sys[" "]
+    sysLabel["系统"]
+    macSys("URLSession<br/>Keychain")
+    winSys("WinHTTP<br/>DPAPI")
+    andSys("OkHttp<br/>Keystore")
+  end
+
+  api(["网易云音乐<br/>QQ 音乐"])
+
+  macUI --> swiftCore
+  winUI --> cppCore
+  andUI -->|JNI| cppCore
+  swiftCore --> macSys
+  cppCore --> winSys
+  cppCore --> andSys
+  macSys --> api
+  winSys --> api
+  andSys --> api
+
+  classDef uiNode fill:#5F7A99,stroke:#4B6079,color:#fff
+  classDef coreNode fill:#5E8A80,stroke:#4A6D65,color:#fff
+  classDef sysNode fill:#ECE8E1,stroke:#B8AF9F,color:#4A443A
+  classDef apiNode fill:#6E6E73,stroke:#555559,color:#fff
+  classDef layer fill:transparent,stroke:transparent,color:#64748B,font-weight:bold
+
+  class macUI,winUI,andUI uiNode
+  class swiftCore,cppCore coreNode
+  class macSys,winSys,andSys sysNode
+  class api apiNode
+  class uiLabel,coreLabel,sysLabel layer
+
+  style ui fill:transparent,stroke:#94A3B8,stroke-dasharray:5 5
+  style cores fill:transparent,stroke:#94A3B8,stroke-dasharray:5 5
+  style sys fill:transparent,stroke:#94A3B8,stroke-dasharray:5 5
+
+  linkStyle 0,1,2,3,4,5,6,7,8 stroke:#8A94A3,stroke-width:1.5px
+
+  uiLabel ~~~ coreLabel ~~~ sysLabel
+```
 
 ## 下载
 
