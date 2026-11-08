@@ -259,8 +259,8 @@
                                     <FontIcon Glyph="&#xE72C;" FontSize="14" />
                                 </Button>
                             </Grid>
-                            <SelectorBar x:Name="EditorTabs" Grid.Row="1" Margin="12,0,12,8" SelectionChanged="OnTabChanged"
-                                         AutomationProperties.Name="歌词编辑区域" />
+                            <local:GlassSwitch x:Name="EditorTabs" Grid.Row="1" Margin="12,0,12,8" HorizontalAlignment="Stretch"
+                                              Title="歌词编辑区域" OnGlass="True" Fill="True" SelectionChanged="OnTabChanged" />
                             <Rectangle Grid.Row="2" Height="1" Fill="{ThemeResource MuSeparatorBrush}" />
 
                             <StackPanel x:Name="LyricsLoading" Grid.Row="3" Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center"

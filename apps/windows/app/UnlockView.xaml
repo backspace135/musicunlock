@@ -66,8 +66,8 @@
                     <TextBlock x:Name="QueueTitle" Text="转换队列" Style="{StaticResource MuPageTitleStyle}" VerticalAlignment="Center" />
                     <TextBlock x:Name="CountText" Grid.Column="1" FontSize="12" Foreground="{ThemeResource MuSecondaryBrush}"
                                VerticalAlignment="Center" Margin="0,3,0,0" />
-                    <SelectorBar x:Name="FilterBar" Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Left"
-                                 SelectionChanged="OnFilterChanged" AutomationProperties.Name="筛选队列" />
+                    <local:GlassSwitch x:Name="FilterBar" Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Left"
+                                       Title="筛选队列" SelectionChanged="OnFilterChanged" />
                     <Border x:Name="MoreHost" Grid.Column="4" />
                 </Grid>
 

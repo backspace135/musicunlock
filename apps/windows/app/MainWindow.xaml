@@ -26,19 +26,8 @@
                 <ImageIconSource ImageSource="ms-appx:///Assets/AppIcon.png" />
             </TitleBar.IconSource>
             <TitleBar.Content>
-                <SelectorBar x:Name="WorkspaceBar" HorizontalAlignment="Center" SelectionChanged="OnWorkspaceChanged"
-                             AutomationProperties.Name="工作区">
-                    <SelectorBarItem x:Name="AudioItem" Text="音乐解锁" IsSelected="True">
-                        <SelectorBarItem.Icon>
-                            <FontIcon Glyph="&#xE785;" />
-                        </SelectorBarItem.Icon>
-                    </SelectorBarItem>
-                    <SelectorBarItem x:Name="LyricsItem" Text="歌词工具">
-                        <SelectorBarItem.Icon>
-                            <FontIcon Glyph="&#xE8E4;" />
-                        </SelectorBarItem.Icon>
-                    </SelectorBarItem>
-                </SelectorBar>
+                <local:GlassSwitch x:Name="WorkspaceBar" HorizontalAlignment="Center" Title="工作区"
+                                   SelectionChanged="OnWorkspaceChanged" />
             </TitleBar.Content>
             <TitleBar.RightHeader>
                 <Grid x:Name="HeaderActions">

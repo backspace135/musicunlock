@@ -79,8 +79,8 @@ struct UnlockView : UnlockViewT<UnlockView> {
     void OnDragLeave(Microsoft::UI::Xaml::DragEventArgs const&);
     void OnDrop(Microsoft::UI::Xaml::DragEventArgs const& args) { ReceiveDrop(args); }
 
-    void OnFilterChanged(Microsoft::UI::Xaml::Controls::SelectorBar const&,
-                         Microsoft::UI::Xaml::Controls::SelectorBarSelectionChangedEventArgs const&);
+    void OnFilterChanged(MusicUnlock::GlassSwitch const&, IInspectable const&);
+    MusicUnlock::GlassSwitch Filter() { return FilterBar(); }
     void OnNoticeClosing(Microsoft::UI::Xaml::Controls::InfoBar const&,
                          Microsoft::UI::Xaml::Controls::InfoBarClosingEventArgs const& args);
     void OnClearCompleted(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);

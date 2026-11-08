@@ -49,8 +49,7 @@ struct LyricsView : LyricsViewT<LyricsView> {
     void OnPreviewSong(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnToggleSong(IInspectable const& sender, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnRetryLyrics(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { LoadLyrics(workspace_.retry_lyrics()); }
-    void OnTabChanged(Microsoft::UI::Xaml::Controls::SelectorBar const&,
-                      Microsoft::UI::Xaml::Controls::SelectorBarSelectionChangedEventArgs const&);
+    void OnTabChanged(MusicUnlock::GlassSwitch const&, IInspectable const&);
     void OnEditorChanged(IInspectable const&, Microsoft::UI::Xaml::Controls::TextChangedEventArgs const&);
     void OnCopy(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnOpenOutput(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
