@@ -8,7 +8,7 @@ Windows 原生版本的开发目录，与 macOS 版本在同一个 Git 仓库维
 ## 技术方向
 
 - C++20 + C++/WinRT + WinUI 3 / XAML，使用原生界面；仅 x64，支持 Windows 10 1809+ 与 Windows 11。
-- 沿用 macOS 版的品牌色、布局与双工作区；使用 Windows 系统材质（Mica / Acrylic）、控件和交互。
+- 沿用 macOS 版的品牌色、布局与双工作区；使用实色表面和 Windows 的控件与交互（不做玻璃材质）。
 - 原生音频解封装引擎，使用 `../../tests/fixtures/qmc/` 中的相同测试向量验证；公共 KGM 数据位于 `../../resources/kgm.mask`。
 - 歌词搜索、编辑与导出，优先使用原生扫码授权和 Windows 系统凭据保护。
 - 自包含分发：最终产物是单个 exe。外层小型启动器内嵌压缩后的 WinUI 3 程序目录（系统 Compression API），
@@ -271,7 +271,7 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
   | `selection` | 歌词结果选中高亮滑动 | 0.35 | 0.8 |
 
   `handoff` 不是弹簧：菜单面板与按钮交叉淡化，easeInOut 0.08 秒，相对 `close` 开始延迟 0.12 秒。`scalar` / `vector2` / `vector3` 用 `SpringCurve` 的关键帧生成组合动画，起点取属性当前值，所以中途被打断不会跳；`motion::enabled()` 为 false 时返回空，调用方直接设终值。不用 `SpringNaturalMotionAnimation`，它的 `Period` 与 `response` 没有文档化的换算。
-- `GlassSurface`（`GlassSurface.idl`）：所有玻璃表面的控件，派生自 `ContentControl`（`Border` 不是可组合的运行时类）。`Kind` 区分面板、控件和弹出菜单，`Radius` 为负时是高度一半的胶囊，`TintOpacity` 叠加 `MuTextColor`，`OnGlass` 表示已经放在另一块玻璃上。内容放在 `ContentPresenter` 里，背景由控件模板绘制，不参与内容的布局。面板是应用内亚克力加渐变边，控件和菜单是不透明表面，降级规则见下一节“界面设计对应”。标题栏、音乐解锁和歌词两个工作区的面板、胶囊按钮和底栏都用它。
+- `GlassSurface`（`GlassSurface.idl`）：所有玻璃表面的控件，派生自 `ContentControl`（`Border` 不是可组合的运行时类）。`Kind` 区分面板、控件和弹出菜单，`Radius` 为负时是高度一半的胶囊，`TintOpacity` 叠加 `MuTextColor`，`OnGlass` 表示已经放在另一块玻璃上。内容放在 `ContentPresenter` 里，背景由控件模板绘制，不参与内容的布局。都是实色表面加细描边，见下一节“界面设计对应”。标题栏、音乐解锁和歌词两个工作区的面板、胶囊按钮和底栏都用它。
 - `Corners.h`：保留 `geometry`、`clip`、`stroke` 三个入口，通过 Direct2D 路径与 `IGeometrySource2DInterop` 向合成器提供连续圆角，不依赖 Win2D。每角三段贝塞尔，横纵短边独立压缩；半径恰好等于短边一半时保留压缩连续角，超过时夹成正圆端胶囊。纯 C++ 的 `ContinuousPath` 与 SwiftUI 核对点共用 `ui_math_tests`，另检查四角方向、边间连接、宽高互换、零半径及胶囊径向误差。
 - XAML 使用 `local:Corners.Radius="14"`，可挂在 `Border`、`Control`、`Grid` 或 `Shape`。自动替换原生圆角和单色等宽描边，描边中心线内缩半个线宽并按外轮廓裁剪；原生描边占用的空间补入 Padding，保持内容布局。支持 Shape 虚线；当前接入不涉及渐变或不等宽描边。状态存于元素私有附加属性，不以全局强引用表持有元素；同尺寸和半径复用裁剪，布局回调只比较缓存，画刷变色时刷新描边。`GlassSurface` 模板的 `Plate` 共用此属性，负半径明确使用圆端胶囊。
 
@@ -281,12 +281,9 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
 歌词工作区上方是来源、类型与关键词或分享链接，左侧 300 px 可勾选结果，右侧是原文 / 译文 / 罗马音 / 导出预览编辑区，
 底栏是格式、导出设置与导出操作；导出细项放在对话框里。
 
-- Liquid Glass 换成 Windows 系统材质：窗口用 Mica；工作区底下是 6 个灰阶径向渐变缓慢漂移的流动背景（`GlassSurface.cpp`
-  的 `Backdrop`，轨迹在 `GlassField.h`），面板（`GlassSurface` 的 `Panel`）用应用内 `AcrylicBrush` 加一圈上亮下暗的渐变边，
-  控件和菜单是不透明表面。窗口失去激活、最小化、“动画效果”或“透明效果”关闭、高对比度和静态预览时背景停住，
-  透明效果关闭或高对比度时面板改用纯色。不用自绘模糊：WinUI 3 的组合器不接受外部传入的模糊效果（见 #60）。
-  Windows 10 没有 Mica，退回桌面亚克力，两者都不可用时用纯色工作区背景；
-  `MUSICUNLOCK_BACKDROP=acrylic` 或 `solid` 可以在 Windows 11 上强制使用退回方案来检查。
+- 不做玻璃（2026-11-08 起）：WinUI 3 不能对界面内容做自定义模糊（见 #60），应用内亚克力在灰色背景上只是一块发灰的卡片，
+  所以 Windows 版用实色：窗口是纯色工作区背景（浅色 #F2F2F2、深色 #1E1E1E），面板、控件和菜单（`GlassSurface`）是实色表面
+  （浅色 #FFFFFF、深色 #2A2A2A）加 1px 分隔线色描边；面板带一层很浅的投影，菜单浮得更高。高对比度下用系统颜色、不加投影。
 - 只用黑白灰：系统强调色被覆盖为墨灰（浅色 #1C1C1C、深色 #F2F2F2），主按钮、选中指示与焦点随之变灰；
   状态靠 Segoe Fluent 图标和文字区分，不靠颜色。支持高对比度主题。
 - 连续圆角遵循内外同心规则：歌词结果外层 20、行左右内缩 6，行容器和选中高亮均为 14；空队列外框 22、虚线内缩 8，虚线圆角 14。格式标签为 5、封面为 7、输出按钮为 8；二维码白底 12、内缩 1 的遮罩 11，网页登录容器 8，24×24 徽标仍为正圆。仅替换轮廓，不增加可访问节点或 Tab 停靠点。

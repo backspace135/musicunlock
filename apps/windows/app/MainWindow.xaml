@@ -18,8 +18,8 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <!-- Without Mica or acrylic, and in preview renders (which only capture the XAML tree). -->
-        <Border x:Name="SolidBackdrop" Grid.RowSpan="2" Background="{ThemeResource MuWorkspaceBrush}" Visibility="Collapsed" />
+        <!-- A plain workspace colour behind everything: no Mica, acrylic or other material. -->
+        <Border x:Name="SolidBackdrop" Grid.RowSpan="2" Background="{ThemeResource MuWorkspaceBrush}" />
         <!-- Mirrors the macOS toolbar: workspace switcher in the middle, file actions on the right. -->
         <TitleBar x:Name="AppTitleBar" Title="音匣">
             <TitleBar.IconSource>

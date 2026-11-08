@@ -1,5 +1,5 @@
 <!-- Audio workspace, laid out like apps/macos ContentView: queue on the left, 268 px export settings
-     on the right, status and actions in the footer. Panels sit on Mica; state uses glyph + text, not colour. -->
+     on the right, status and actions in the footer. Panels are solid cards; state uses glyph + text, not colour. -->
 <UserControl
     x:Class="MusicUnlock.UnlockView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"

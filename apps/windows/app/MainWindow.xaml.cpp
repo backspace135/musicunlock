@@ -77,7 +77,6 @@ void MainWindow::InitializeComponent() {
     MainWindowT::InitializeComponent();
     ExtendsContentIntoTitleBar(true);
     SetTitleBar(AppTitleBar());
-    UseBackdrop();
     // AppWindow sizes are physical pixels; DESIGN.md sizes are effective pixels.
     HWND hwnd = nullptr;
     this->try_as<::IWindowNative>()->get_WindowHandle(&hwnd);
@@ -127,7 +126,6 @@ void MainWindow::InitializeComponent() {
     Audio().Import(shell::command_line_paths());
     UpdateAccountsButton();
     if (!render_directory.empty()) {
-        SolidBackdrop().Visibility(Visibility::Visible);
         if (environment(L"MUSICUNLOCK_RENDER_CONVERT").empty()) Audio().UsePreviewData();
         Lyrics().UsePreviewData();
         Root().Loaded([this, render_directory, render_motion](auto&&, auto&&) {
@@ -161,20 +159,6 @@ void MainWindow::OnAccounts(IInspectable const&, RoutedEventArgs const&) {
             }
             return entries;
     });
-}
-
-/// Mica on Windows 11; Windows 10 has no Mica, so desktop acrylic, or a solid workspace colour when neither
-/// is available. MUSICUNLOCK_BACKDROP=acrylic or solid forces a fallback for checking it on Windows 11.
-void MainWindow::UseBackdrop() {
-    using namespace Microsoft::UI::Composition::SystemBackdrops;
-    const auto forced = environment(L"MUSICUNLOCK_BACKDROP");
-    if (forced.empty() && MicaController::IsSupported()) {
-        SystemBackdrop(Media::MicaBackdrop());
-    } else if (forced != L"solid" && DesktopAcrylicController::IsSupported()) {
-        SystemBackdrop(Media::DesktopAcrylicBackdrop());
-    } else {
-        SolidBackdrop().Visibility(Visibility::Visible);
-    }
 }
 
 void MainWindow::ApplyMotion() {
