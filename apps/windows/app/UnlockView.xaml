@@ -90,7 +90,7 @@
                 </StackPanel>
 
                 <!-- Empty queue: drop target with the app mark -->
-                <Border x:Name="EmptyQueue" Grid.Row="3" Style="{StaticResource MuPanelStyle}" CornerRadius="22">
+                <local:GlassSurface x:Name="EmptyQueue" Grid.Row="3" Kind="Panel" Radius="22">
                     <Grid>
                         <Rectangle Margin="8" local:Corners.Radius="14" RadiusX="14" RadiusY="14" Stroke="{ThemeResource MuSecondaryBrush}"
                                    StrokeThickness="1" StrokeDashArray="5,5" Opacity="0.35" />
@@ -135,7 +135,7 @@
                             </Grid>
                         </ScrollViewer>
                     </Grid>
-                </Border>
+                </local:GlassSurface>
 
                 <!-- Filter with no matches -->
                 <StackPanel x:Name="EmptyFilter" Grid.Row="3" Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -146,7 +146,7 @@
                 </StackPanel>
 
                 <!-- File list -->
-                <Border x:Name="FileList" Grid.Row="3" Style="{StaticResource MuPanelStyle}" Visibility="Collapsed">
+                <local:GlassSurface x:Name="FileList" Grid.Row="3" Kind="Panel" Radius="20" Visibility="Collapsed">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -258,11 +258,11 @@
                             </ListView.ItemTemplate>
                         </ListView>
                     </Grid>
-                </Border>
+                </local:GlassSurface>
             </Grid>
 
             <!-- Export settings -->
-            <Border Grid.Column="1" Style="{StaticResource MuPanelStyle}">
+            <local:GlassSurface Grid.Column="1" Kind="Panel" Radius="20">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Padding="20" Spacing="20">
                         <TextBlock Text="导出设置" Style="{StaticResource MuSectionTitleStyle}" />
@@ -348,11 +348,10 @@
                         <HyperlinkButton x:Name="AboutLink" Content="关于音匣与开源许可" FontSize="11" Padding="0" Click="OnAbout" />
                     </StackPanel>
                 </ScrollViewer>
-            </Border>
+            </local:GlassSurface>
         </Grid>
 
-        <!-- Footer. GlassSurface is the placeholder for the glass material (issue #59); the brushes match
-             MuPanelStyle, so this reads the same as the Border it replaces. -->
+        <!-- 页脚与主面板共享背景，内部控件保持原有交互。 -->
         <local:GlassSurface x:Name="Footer" Grid.Row="1" Kind="Panel" Radius="22" Margin="24,16" Padding="20,12"
                             MinHeight="64" SizeChanged="OnFooterSizeChanged">
             <Grid ColumnSpacing="16" RowSpacing="12">
