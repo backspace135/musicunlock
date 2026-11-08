@@ -31,8 +31,7 @@ struct AccountsDialog : AccountsDialogT<AccountsDialog> {
     /// True while the saved-session panel is shown (login renders).
     bool ShowsSession() { return SessionPanel().Visibility() == Microsoft::UI::Xaml::Visibility::Visible; }
 
-    void OnProviderChanged(Microsoft::UI::Xaml::Controls::SelectorBar const&,
-                           Microsoft::UI::Xaml::Controls::SelectorBarSelectionChangedEventArgs const&);
+    void OnProviderChanged(MusicUnlock::GlassSwitch const&, IInspectable const&);
     void OnRefreshQr(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { StartQr(); }
     void OnOfficialPage(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnNativeQr(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);

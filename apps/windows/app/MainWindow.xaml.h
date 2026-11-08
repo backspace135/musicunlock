@@ -14,8 +14,7 @@ struct MainWindow : MainWindowT<MainWindow> {
     MainWindow() = default;
     void InitializeComponent();
 
-    void OnWorkspaceChanged(Microsoft::UI::Xaml::Controls::SelectorBar const&,
-                            Microsoft::UI::Xaml::Controls::SelectorBarSelectionChangedEventArgs const&);
+    void OnWorkspaceChanged(MusicUnlock::GlassSwitch const&, IInspectable const&);
     void OnAddFiles(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnAddFolder(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnOpenLyrics(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
@@ -32,6 +31,8 @@ private:
     UnlockView& Audio() { return *get_self<UnlockView>(AudioView()); }
     LyricsView& Lyrics() { return *get_self<LyricsView>(LyricsWorkspace()); }
     void ShowWorkspace(bool audio);
+    /// 切换可见工作区；可见性与既有动效保持不变，过渡由 #65 负责。
+    void ApplyWorkspace(bool audio);
     void UseBackdrop();
     void ApplyMotion();
     /// Asks before closing while a batch runs; finished files stay either way.
@@ -43,6 +44,7 @@ private:
 
     bool closing_confirmed_ = false;
     bool accounts_open_ = false;
+    bool syncing_workspace_ = false;
 
     /// Development renders (MUSICUNLOCK_RENDER_DIR): PNGs of the window content in light and dark, with
     /// dialogs, menus, large text and high contrast, and the UI Automation tree; then exit.

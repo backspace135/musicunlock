@@ -76,12 +76,8 @@ constexpr mu::NamingPolicy naming_policies[] = {mu::NamingPolicy::original, mu::
 
 void UnlockView::InitializeComponent() {
     UnlockViewT::InitializeComponent();
-    for (auto filter : mu::all_filters) {
-        SelectorBarItem item;
-        item.Text(to_hstring(mu::filter_label(filter)));
-        FilterBar().Items().Append(item);
-    }
-    FilterBar().SelectedItem(FilterBar().Items().GetAt(0));
+    for (auto filter : mu::all_filters) FilterBar().Labels().Append(to_hstring(mu::filter_label(filter)));
+    FilterBar().SelectedIndex(0);
     const auto saved = settings::load();
     naming_ = saved.naming;
     for (auto policy : naming_policies) NamingBox().Items().Append(box_value(to_hstring(mu::naming_label(policy))));
@@ -309,9 +305,9 @@ void UnlockView::Announce(hstring const& text) {
     }
 }
 
-void UnlockView::OnFilterChanged(SelectorBar const& bar, SelectorBarSelectionChangedEventArgs const&) {
-    uint32_t index = 0;
-    if (bar.Items().IndexOf(bar.SelectedItem(), index)) filter_ = mu::all_filters[index];
+void UnlockView::OnFilterChanged(MusicUnlock::GlassSwitch const&, IInspectable const&) {
+    const int32_t index = FilterBar().SelectedIndex();
+    if (index >= 0 && index < static_cast<int32_t>(std::size(mu::all_filters))) filter_ = mu::all_filters[index];
     Refresh();
 }
 
@@ -334,7 +330,7 @@ void UnlockView::OnClearQueue(IInspectable const&, RoutedEventArgs const&) {
 }
 
 void UnlockView::OnShowAll(IInspectable const&, RoutedEventArgs const&) {
-    FilterBar().SelectedItem(FilterBar().Items().GetAt(0));
+    FilterBar().SelectedIndex(0);
 }
 
 void UnlockView::OnRemoveJob(IInspectable const& sender, RoutedEventArgs const&) { RemoveJob(job_id(sender)); }
@@ -400,7 +396,7 @@ fire_and_forget UnlockView::Import(std::vector<std::filesystem::path> paths) {
     co_await ui;
     --imports_;
     notice_ = queue_.add(scan);
-    FilterBar().SelectedItem(FilterBar().Items().GetAt(0));
+    FilterBar().SelectedIndex(0);
     Refresh();
 }
 
@@ -474,7 +470,7 @@ void UnlockView::OnNamingChanged(IInspectable const&, SelectionChangedEventArgs 
 
 void UnlockView::OnRetry(IInspectable const&, RoutedEventArgs const&) {
     if (!queue_.retry_failed()) return;
-    FilterBar().SelectedItem(FilterBar().Items().GetAt(0));
+    FilterBar().SelectedIndex(0);
     Start();
 }
 

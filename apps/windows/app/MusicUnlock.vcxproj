@@ -96,6 +96,9 @@
     <Page Include="Theme.xaml" />
     <Page Include="UnlockView.xaml" />
     <Page Include="LyricsView.xaml" />
+    <Page Include="Themes\Generic.xaml">
+      <SubType>Designer</SubType>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -126,6 +129,11 @@
     <ClInclude Include="GlassSurface.h">
       <DependentUpon>GlassSurface.idl</DependentUpon>
     </ClInclude>
+    <ClInclude Include="GlassSwitch.h">
+      <DependentUpon>GlassSwitch.idl</DependentUpon>
+    </ClInclude>
+    <ClInclude Include="GlassSwitchAutomationPeer.h" />
+    <ClInclude Include="GlassSwitchTests.h" />
     <ClInclude Include="Motion.h" />
     <ClInclude Include="MotionCapture.h" />
     <ClInclude Include="SpringCurve.h" />
@@ -165,6 +173,10 @@
     <ClCompile Include="GlassSurface.cpp">
       <DependentUpon>GlassSurface.idl</DependentUpon>
     </ClCompile>
+    <ClCompile Include="GlassSwitch.cpp">
+      <DependentUpon>GlassSwitch.idl</DependentUpon>
+    </ClCompile>
+    <ClCompile Include="GlassSwitchAutomationPeer.cpp" />
     <ClCompile Include="Motion.cpp" />
     <ClCompile Include="MotionCapture.cpp" />
     <ClCompile Include="SpringCurve.cpp">
@@ -206,6 +218,7 @@
     <Midl Include="JobItem.idl" />
     <Midl Include="LyricRow.idl" />
     <Midl Include="GlassSurface.idl" />
+    <Midl Include="GlassSwitch.idl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

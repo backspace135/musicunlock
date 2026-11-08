@@ -61,11 +61,8 @@ void LyricsView::InitializeComponent() {
     api_ = std::make_shared<const mu::MusicApi>(mu::make_system_transport());
     for (auto provider : mu::all_providers) ProviderBox().Items().Append(box_value(to_hstring(mu::provider_title(provider))));
     for (auto kind : search_kinds) KindBox().Items().Append(box_value(to_hstring(mu::search_kind_label(kind))));
-    for (auto tab : mu::all_lyric_tabs) {
-        SelectorBarItem item;
-        item.Text(to_hstring(mu::lyric_tab_label(tab)));
-        EditorTabs().Items().Append(item);
-    }
+    for (auto tab : mu::all_lyric_tabs) EditorTabs().Labels().Append(to_hstring(mu::lyric_tab_label(tab)));
+    EditorTabs().SelectedIndex(0);
     for (auto format : lyric_formats) {
         FormatBox().Items().Append(box_value(to_hstring(mu::format_label(format))));
         FormatOption().Items().Append(box_value(to_hstring(mu::format_label(format))));
@@ -289,7 +286,7 @@ void LyricsView::SyncRows() {
 void LyricsView::ShowTab(mu::LyricTab tab) {
     tab_ = tab;
     syncing_ = true;
-    EditorTabs().SelectedItem(EditorTabs().Items().GetAt(static_cast<uint32_t>(index_of(mu::all_lyric_tabs, tab))));
+    EditorTabs().SelectedIndex(static_cast<int32_t>(index_of(mu::all_lyric_tabs, tab)));
     syncing_ = false;
 }
 
@@ -385,9 +382,9 @@ void LyricsView::OnToggleSong(IInspectable const& sender, RoutedEventArgs const&
     Refresh();
 }
 
-void LyricsView::OnTabChanged(SelectorBar const& bar, SelectorBarSelectionChangedEventArgs const&) {
-    uint32_t index = 0;
-    if (syncing_ || !bar.Items().IndexOf(bar.SelectedItem(), index)) return;
+void LyricsView::OnTabChanged(MusicUnlock::GlassSwitch const&, IInspectable const&) {
+    const int32_t index = EditorTabs().SelectedIndex();
+    if (syncing_ || index < 0 || index >= static_cast<int32_t>(std::size(mu::all_lyric_tabs))) return;
     tab_ = mu::all_lyric_tabs[index];
     RefreshEditor();
 }
