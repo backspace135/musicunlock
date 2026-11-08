@@ -86,9 +86,10 @@ void LyricsView::InitializeComponent() {
             {glass_menu::Entry::Kind::item, L"更改输出文件夹", false, true, [this] { OnChooseOutput(nullptr, nullptr); }},
         };
     });
+    // 和换成菜单之前的按钮一样：透明、无边框的图标按钮。
+    lyrics_more.Style(Resources().Lookup(box_value(L"MuIconButtonStyle")).as<Microsoft::UI::Xaml::Style>());
     lyrics_more.Width(32);
     lyrics_more.Height(32);
-    lyrics_more.Padding(ThicknessHelper::FromUniformLength(0));
     FontIcon lyrics_glyph;
     lyrics_glyph.Glyph(L"\uE712");
     lyrics_glyph.FontSize(15);

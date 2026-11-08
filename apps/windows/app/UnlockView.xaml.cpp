@@ -98,9 +98,10 @@ void UnlockView::InitializeComponent() {
              [this] { OnClearQueue(nullptr, nullptr); }},
         };
     });
+    // 和换成菜单之前的按钮一样：透明、无边框的图标按钮。
+    queue_more.Style(Resources().Lookup(box_value(L"MuRowButtonStyle")).as<Microsoft::UI::Xaml::Style>());
     queue_more.Width(32);
     queue_more.Height(32);
-    queue_more.Padding(ThicknessHelper::FromUniformLength(0));
     FontIcon queue_glyph;
     queue_glyph.Glyph(L"\uE712");
     queue_glyph.FontSize(15);
