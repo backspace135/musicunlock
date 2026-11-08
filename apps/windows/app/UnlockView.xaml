@@ -68,16 +68,7 @@
                                VerticalAlignment="Center" Margin="0,3,0,0" />
                     <local:GlassSwitch x:Name="FilterBar" Grid.Column="3" VerticalAlignment="Center" HorizontalAlignment="Left"
                                        Title="筛选队列" SelectionChanged="OnFilterChanged" />
-                    <Button x:Name="MoreButton" Grid.Column="4" Style="{StaticResource MuRowButtonStyle}" Width="32" Height="32"
-                            ToolTipService.ToolTip="整理队列" AutomationProperties.Name="整理队列">
-                        <FontIcon Glyph="&#xE712;" FontSize="15" />
-                        <Button.Flyout>
-                            <MenuFlyout Placement="BottomEdgeAlignedRight">
-                                <MenuFlyoutItem x:Name="ClearCompletedItem" Text="清除已完成" Click="OnClearCompleted" />
-                                <MenuFlyoutItem x:Name="ClearQueueItem" Text="清空队列" Click="OnClearQueue" />
-                            </MenuFlyout>
-                        </Button.Flyout>
-                    </Button>
+                    <Border x:Name="MoreHost" Grid.Column="4" />
                 </Grid>
 
                 <!-- Stays open; Visibility shows and hides it, so it can settle in and out (see motion::settle). -->
@@ -290,7 +281,7 @@
                         </StackPanel>
                         <StackPanel Spacing="8">
                             <TextBlock Text="文件命名" Style="{StaticResource MuLabelStyle}" />
-                            <ComboBox x:Name="NamingBox" MinWidth="150" AutomationProperties.Name="文件命名" SelectionChanged="OnNamingChanged" />
+                            <Border x:Name="NamingHost" HorizontalAlignment="Left" />
                             <TextBlock Text="同名文件自动编号，源文件保持不变。" Style="{StaticResource MuSmallCaptionStyle}" />
                         </StackPanel>
                         <Rectangle Height="1" Fill="{ThemeResource MuSeparatorBrush}" />

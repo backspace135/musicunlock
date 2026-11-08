@@ -6,6 +6,8 @@
 #include "AccountsDialog.xaml.h"
 #include "GlassSwitchTests.h"
 #include "GlassMotion.h"
+#include "GlassMenu.h"
+#include "GlassMenuButton.h"
 #include "Motion.h"
 #include "MotionCapture.h"
 #include "Preview.h"
@@ -22,6 +24,8 @@
 #include <vector>
 
 #include <winrt/Microsoft.UI.Xaml.Automation.h>
+#include <winrt/Microsoft.UI.Xaml.Automation.Peers.h>
+#include <winrt/Microsoft.UI.Xaml.Automation.Provider.h>
 #include <winrt/Microsoft.UI.Xaml.Media.Imaging.h>
 #include <winrt/Windows.Graphics.Imaging.h>
 #include <winrt/Windows.Storage.Streams.h>
@@ -106,10 +110,16 @@ void MainWindow::InitializeComponent() {
         ShowWorkspace(false);
         Lyrics().SearchForAudio(std::move(title));
     });
+    glass_menu::attach(Root());
+    AccountsButton().Flyout(nullptr);
+    auto account_menu = get_self<GlassMenuButton>(AccountsButton());
+    account_menu->expand = [this] { OnAccounts(nullptr, nullptr); };
+    account_menu->collapse = [] { glass_menu::close(); };
     ApplyMotion();
     // "Animation effects" may have been switched in Settings while the window was in the background.
     Activated([this](auto&&, WindowActivatedEventArgs const& args) {
         if (args.WindowActivationState() != WindowActivationState::Deactivated) ApplyMotion();
+        else glass_menu::close();
     });
     WorkspaceBar().Labels().ReplaceAll({L"音乐解锁", L"歌词工具"});
     WorkspaceBar().Glyphs().ReplaceAll({L"\uE785", L"\uE8E4"});
@@ -125,6 +135,32 @@ void MainWindow::InitializeComponent() {
             else RenderMotion(render_directory, render_motion);
         });
     }
+}
+
+void MainWindow::OnAccounts(IInspectable const&, RoutedEventArgs const&) {
+    glass_menu::show_entries(AccountsButton(), L"账号登录", false, [this] {
+            std::vector<glass_menu::Entry> entries;
+            bool first = true;
+            for (const auto provider : mu::all_providers) {
+                if (!first) entries.push_back({glass_menu::Entry::Kind::divider, {}, false, true, {}});
+                first = false;
+                const std::wstring title(to_hstring(mu::provider_title(provider)));
+                if (accounts::signed_in(provider)) {
+                    entries.push_back({glass_menu::Entry::Kind::note, title + L"：会话已保存", false, true, {}});
+                    entries.push_back({glass_menu::Entry::Kind::item, L"重新登录" + title, false, true,
+                                       [this, provider] { ShowAccounts(provider); }});
+                    entries.push_back({glass_menu::Entry::Kind::item, L"退出" + title, false, true, [this, provider] {
+                                           accounts::logout(provider);
+                                           UpdateAccountsButton();
+                                           Lyrics().AccountsChanged();
+                                       }});
+                } else {
+                    entries.push_back({glass_menu::Entry::Kind::item, L"登录" + title, false, true,
+                                       [this, provider] { ShowAccounts(provider); }});
+                }
+            }
+            return entries;
+    });
 }
 
 /// Mica on Windows 11; Windows 10 has no Mica, so desktop acrylic, or a solid workspace colour when neither
@@ -353,6 +389,140 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
     co_await shot(L"lyrics-empty-light", ElementTheme::Light);
     co_await shot(L"lyrics-empty-dark", ElementTheme::Dark);
     Lyrics().ShowSampleSongs();
+    // 先应用主题再打开菜单，避免主题变化的关闭行为使展开预览失效。
+    Root().RequestedTheme(ElementTheme::Light);
+    Root().UpdateLayout();
+    co_await wait(600ms);
+    glass_menu::open_for_preview(Lyrics().MenuButton(L"导出格式：LRC"));
+    co_await shot(L"glass-format-light", ElementTheme::Light);
+    {
+        auto peer = Automation::Peers::FrameworkElementAutomationPeer::CreatePeerForElement(Lyrics().MenuButton(L"导出格式"));
+        auto expand = peer.GetPattern(Automation::Peers::PatternInterface::ExpandCollapse)
+                          .try_as<Automation::Provider::IExpandCollapseProvider>();
+        if (!expand || expand.ExpandCollapseState() != Automation::ExpandCollapseState::Expanded) {
+            throw hresult_error(E_FAIL, L"菜单按钮缺少已展开的 ExpandCollapse 模式");
+        }
+    }
+    bool menu_visible = false;
+    for (const auto& popup : Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(Root().XamlRoot())) {
+        if (popup.Child().try_as<MusicUnlock::GlassSurface>()) menu_visible = true;
+    }
+    if (!menu_visible) throw hresult_error(E_FAIL, L"玻璃菜单预览时菜单已关闭");
+    bool checked_lrc = false;
+    std::function<void(Automation::Peers::AutomationPeer const&)> check_menu;
+    check_menu = [&](Automation::Peers::AutomationPeer const& peer) {
+        if (peer.GetName() == L"LRC") {
+            auto toggle = peer.GetPattern(Automation::Peers::PatternInterface::Toggle)
+                              .try_as<Automation::Provider::IToggleProvider>();
+            checked_lrc = peer.GetAutomationControlType() == Automation::Peers::AutomationControlType::MenuItem &&
+                toggle && toggle.ToggleState() == Automation::ToggleState::On;
+        }
+        if (auto children = peer.GetChildren()) for (auto const& child : children) check_menu(child);
+    };
+    for (auto const& popup : Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(Root().XamlRoot())) {
+        if (auto surface = popup.Child().try_as<MusicUnlock::GlassSurface>()) {
+            auto items = surface.Content().as<FrameworkElement>();
+            check_menu(Automation::Peers::FrameworkElementAutomationPeer::CreatePeerForElement(items));
+        }
+    }
+    if (!checked_lrc) throw hresult_error(E_FAIL, L"菜单项没有通过标准模式报告勾选状态");
+    // 通过真实菜单行的 Invoke 模式选择，检查显示值、讲述人名称及业务模型的同步。
+    std::function<bool(DependencyObject const&, hstring const&)> invoke_named;
+    invoke_named = [&](DependencyObject const& node, hstring const& name) {
+        if (const auto item = node.try_as<Controls::Button>(); item &&
+            Automation::AutomationProperties::GetName(item) == name) {
+            auto peer = Automation::Peers::FrameworkElementAutomationPeer::CreatePeerForElement(item);
+            peer.GetPattern(Automation::Peers::PatternInterface::Invoke).as<Automation::Provider::IInvokeProvider>().Invoke();
+            return true;
+        }
+        for (int i = 0; i < Media::VisualTreeHelper::GetChildrenCount(node); ++i) {
+            if (invoke_named(Media::VisualTreeHelper::GetChild(node, i), name)) return true;
+        }
+        return false;
+    };
+    bool selected_srt = false;
+    for (const auto& popup : Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(Root().XamlRoot())) {
+        if (invoke_named(popup.Child(), L"SRT")) { selected_srt = true; break; }
+    }
+    co_await wait(100ms);
+    const auto format_picker = Lyrics().MenuButton(L"导出格式");
+    if (!selected_srt || Automation::AutomationProperties::GetName(format_picker) != L"导出格式：SRT") {
+        throw hresult_error(E_FAIL, L"菜单选择没有同步到选择器和讲述人名称");
+    }
+    {
+        auto peer = Automation::Peers::FrameworkElementAutomationPeer::CreatePeerForElement(format_picker);
+        if (peer.GetPattern(Automation::Peers::PatternInterface::ExpandCollapse)
+                .as<Automation::Provider::IExpandCollapseProvider>().ExpandCollapseState() != Automation::ExpandCollapseState::Collapsed) {
+            throw hresult_error(E_FAIL, L"选择后菜单按钮未报告已收起");
+        }
+    }
+    glass_menu::open_for_preview(format_picker);
+    bool restored_lrc = false;
+    for (const auto& popup : Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(Root().XamlRoot())) {
+        if (invoke_named(popup.Child(), L"LRC")) { restored_lrc = true; break; }
+    }
+    co_await wait(100ms);
+    if (!restored_lrc || Automation::AutomationProperties::GetName(format_picker) != L"导出格式：LRC") {
+        throw hresult_error(E_FAIL, L"菜单恢复选择失败");
+    }
+    glass_menu::close();
+    OnAccounts(nullptr, nullptr);
+    co_await shot(L"glass-accounts-light", ElementTheme::Light);
+    bool account_menu = false;
+    for (const auto& popup : Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(Root().XamlRoot())) {
+        if (popup.Child().try_as<Controls::ContentDialog>()) throw hresult_error(E_FAIL, L"账号按钮不应直接打开登录对话框");
+        if (popup.Child().try_as<MusicUnlock::GlassSurface>()) account_menu = true;
+    }
+    if (!account_menu) throw hresult_error(E_FAIL, L"账号菜单未打开");
+    glass_menu::close();
+    Root().RequestedTheme(ElementTheme::Dark);
+    co_await wait(600ms);
+    glass_menu::open_for_preview(Lyrics().MenuButton(L"导出格式：LRC"));
+    co_await shot(L"glass-format-dark", ElementTheme::Dark);
+    glass_menu::close();
+    OnAccounts(nullptr, nullptr);
+    co_await shot(L"glass-accounts-dark", ElementTheme::Dark);
+    glass_menu::close();
+    const auto menu_preview = [&](const wchar_t* name, ElementTheme theme, FrameworkElement const& button,
+                                  bool account) -> Windows::Foundation::IAsyncAction {
+        Root().RequestedTheme(theme);
+        co_await wait(600ms);
+        if (account) OnAccounts(nullptr, nullptr);
+        else glass_menu::open_for_preview(button);
+        co_await shot(name, theme);
+        bool visible = false;
+        for (const auto& popup : Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(Root().XamlRoot())) {
+            if (popup.Child().try_as<MusicUnlock::GlassSurface>()) {
+                visible = true;
+                preview::write_automation_tree(popup.Child(), folder / (std::wstring(name) + L"-a11y.txt"));
+            }
+        }
+        if (!visible) throw hresult_error(E_FAIL, L"展开菜单预览没有可见的菜单");
+        glass_menu::close();
+    };
+    std::function<FrameworkElement(DependencyObject const&, hstring const&)> find_host;
+    find_host = [&](DependencyObject const& node, hstring const& name) -> FrameworkElement {
+        if (auto host = node.try_as<Controls::Border>(); host && host.Name() == name) {
+            return host.Child().try_as<FrameworkElement>();
+        }
+        for (int i = 0; i < Media::VisualTreeHelper::GetChildrenCount(node); ++i) {
+            if (auto found = find_host(Media::VisualTreeHelper::GetChild(node, i), name)) return found;
+        }
+        return nullptr;
+    };
+    for (const auto& [suffix, theme] : {std::pair{L"light", ElementTheme::Light}, std::pair{L"dark", ElementTheme::Dark}}) {
+        ShowWorkspace(true);
+        co_await wait(100ms);
+        co_await menu_preview((L"glass-naming-" + std::wstring(suffix)).c_str(), theme, find_host(AudioView(), L"NamingHost"), false);
+        co_await menu_preview((L"glass-queue-more-" + std::wstring(suffix)).c_str(), theme, find_host(AudioView(), L"MoreHost"), false);
+        ShowWorkspace(false);
+        co_await wait(100ms);
+        co_await menu_preview((L"glass-provider-" + std::wstring(suffix)).c_str(), theme, Lyrics().MenuButton(L"音乐来源"), false);
+        co_await menu_preview((L"glass-kind-" + std::wstring(suffix)).c_str(), theme, Lyrics().MenuButton(L"搜索类型"), false);
+        co_await menu_preview((L"glass-format-" + std::wstring(suffix)).c_str(), theme, Lyrics().MenuButton(L"导出格式"), false);
+        co_await menu_preview((L"glass-lyrics-more-" + std::wstring(suffix)).c_str(), theme, Lyrics().MenuButton(L"更多歌词操作"), false);
+        co_await menu_preview((L"glass-accounts-" + std::wstring(suffix)).c_str(), theme, AccountsButton(), true);
+    }
     co_await shot(L"lyrics-editor-light", ElementTheme::Light);
     co_await shot(L"lyrics-editor-dark", ElementTheme::Dark);
     preview::scale_text(Root(), 2.0);
@@ -391,12 +561,20 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
     co_await shot(L"contrast-text200-queue", ElementTheme::Light);
     preview::scale_text(Root(), 0.5);
     audio.PreviewTextScale(0);
+    co_await menu_preview(L"glass-naming-contrast", ElementTheme::Light, find_host(AudioView(), L"NamingHost"), false);
+    co_await menu_preview(L"glass-queue-more-contrast", ElementTheme::Light, find_host(AudioView(), L"MoreHost"), false);
     ShowWorkspace(false);
     Lyrics().ShowSampleSongs();
     co_await shot(L"contrast-lyrics", ElementTheme::Light);
     preview::scale_text(Root(), 2.0);
     co_await shot(L"contrast-text200-lyrics", ElementTheme::Light);
     preview::scale_text(Root(), 0.5);
+    co_await wait(100ms);
+    co_await menu_preview(L"glass-provider-contrast", ElementTheme::Light, Lyrics().MenuButton(L"音乐来源"), false);
+    co_await menu_preview(L"glass-kind-contrast", ElementTheme::Light, Lyrics().MenuButton(L"搜索类型"), false);
+    co_await menu_preview(L"glass-format-contrast", ElementTheme::Light, Lyrics().MenuButton(L"导出格式"), false);
+    co_await menu_preview(L"glass-lyrics-more-contrast", ElementTheme::Light, Lyrics().MenuButton(L"更多歌词操作"), false);
+    co_await menu_preview(L"glass-accounts-contrast", ElementTheme::Light, AccountsButton(), true);
     ShowWorkspace(true);
     // Last: moving focus through everything scrolls the settings panel.
     preview::write_tab_order(Root(), folder / L"tab-order.txt");

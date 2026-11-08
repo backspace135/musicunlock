@@ -1,6 +1,8 @@
 #pragma once
 
 #include "MainWindow.g.h"
+#include "GlassMenuButton.h"
+#include "GlassMenuItems.h"
 
 #include <filesystem>
 
@@ -18,7 +20,7 @@ struct MainWindow : MainWindowT<MainWindow> {
     void OnAddFiles(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnAddFolder(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnOpenLyrics(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
-    void OnAccounts(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { ShowAccounts(mu::MusicProvider::netease); }
+    void OnAccounts(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnAcceleratorInvoked(Microsoft::UI::Xaml::Input::KeyboardAccelerator const& accelerator,
                               Microsoft::UI::Xaml::Input::KeyboardAcceleratorInvokedEventArgs const& args);
     /// What an accelerator does, also reached by motion capture (which has no real keyboard).

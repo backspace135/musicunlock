@@ -8,10 +8,12 @@
 #include <algorithm>
 #include <cmath>
 
+#include <winrt/Microsoft.UI.Xaml.Automation.h>
 #include <winrt/Windows.ApplicationModel.DataTransfer.h>
 
 #include "Motion.h"
 #include "Accounts.h"
+#include "GlassMenu.h"
 #include "Settings.h"
 #include "Shell.h"
 #include "musicunlock/text.h"
@@ -60,14 +62,43 @@ std::string failure_text(const std::exception& error, const char* fallback) {
 void LyricsView::InitializeComponent() {
     LyricsViewT::InitializeComponent();
     api_ = std::make_shared<const mu::MusicApi>(mu::make_system_transport());
-    for (auto provider : mu::all_providers) ProviderBox().Items().Append(box_value(to_hstring(mu::provider_title(provider))));
-    for (auto kind : search_kinds) KindBox().Items().Append(box_value(to_hstring(mu::search_kind_label(kind))));
+    std::vector<std::wstring> providers, kinds, formats;
+    for (auto provider : mu::all_providers) providers.emplace_back(to_hstring(mu::provider_title(provider)));
+    for (auto kind : search_kinds) kinds.emplace_back(to_hstring(mu::search_kind_label(kind)));
+    for (auto format : lyric_formats) formats.emplace_back(to_hstring(mu::format_label(format)));
+    ProviderHost().Child(glass_menu::make_picker(L"音乐来源", providers, 0, 92, false, [this](int index) {
+        workspace_.set_provider(mu::all_providers[index]);
+        Refresh();
+    }));
+    KindHost().Child(glass_menu::make_picker(L"搜索类型", kinds, 0, 40, false, [this](int index) {
+        workspace_.set_kind(search_kinds[index]);
+        Refresh();
+    }));
+    FormatHost().Child(glass_menu::make_picker(L"导出格式", formats, 0, 36, false, [this](int index) {
+        auto options = workspace_.options();
+        options.format = lyric_formats[index];
+        SetOptions(std::move(options));
+    }));
+    auto lyrics_more = glass_menu::make_button(L"更多歌词操作", [this] {
+        return std::vector<glass_menu::Entry>{
+            {glass_menu::Entry::Kind::item, L"复制歌词", false, !workspace_.preview().empty(), [this] { OnCopy(nullptr, nullptr); }},
+            {glass_menu::Entry::Kind::item, L"打开输出文件夹", false, true, [this] { OnOpenOutput(nullptr, nullptr); }},
+            {glass_menu::Entry::Kind::item, L"更改输出文件夹", false, true, [this] { OnChooseOutput(nullptr, nullptr); }},
+        };
+    });
+    // 和换成菜单之前的按钮一样：透明、无边框的图标按钮。
+    lyrics_more.Style(Resources().Lookup(box_value(L"MuIconButtonStyle")).as<Microsoft::UI::Xaml::Style>());
+    lyrics_more.Width(32);
+    lyrics_more.Height(32);
+    FontIcon lyrics_glyph;
+    lyrics_glyph.Glyph(L"\uE712");
+    lyrics_glyph.FontSize(15);
+    lyrics_more.Content(lyrics_glyph);
+    Controls::ToolTipService::SetToolTip(lyrics_more, box_value(L"更多歌词操作"));
+    MoreHost().Child(lyrics_more);
     for (auto tab : mu::all_lyric_tabs) EditorTabs().Labels().Append(to_hstring(mu::lyric_tab_label(tab)));
     EditorTabs().SelectedIndex(0);
-    for (auto format : lyric_formats) {
-        FormatBox().Items().Append(box_value(to_hstring(mu::format_label(format))));
-        FormatOption().Items().Append(box_value(to_hstring(mu::format_label(format))));
-    }
+    for (auto format : lyric_formats) FormatOption().Items().Append(box_value(to_hstring(mu::format_label(format))));
     for (auto encoding : lyric_encodings) EncodingOption().Items().Append(box_value(to_hstring(mu::encoding_label(encoding))));
     for (auto layout : lyric_layouts) LayoutOption().Items().Append(box_value(to_hstring(mu::layout_label(layout))));
     ShowTab(mu::LyricTab::original);
@@ -86,6 +117,20 @@ void LyricsView::InitializeComponent() {
 void LyricsView::SelectSample(int index) {
     if (index < 0 || index >= static_cast<int>(workspace_.songs().size())) return;
     LoadLyrics(workspace_.select(workspace_.songs()[index].id()));
+}
+
+FrameworkElement LyricsView::MenuButton(winrt::hstring const& title) {
+    const Controls::Border hosts[] = {ProviderHost(), KindHost(), FormatHost(), MoreHost()};
+    const std::wstring wanted(title);
+    for (const auto& host : hosts) {
+        if (auto button = host.Child().try_as<Controls::Button>()) {
+            const std::wstring name(Automation::AutomationProperties::GetName(button));
+            if (name == wanted || name.starts_with(wanted + L"：")) {
+                return button;
+            }
+        }
+    }
+    return nullptr;
 }
 
 void LyricsView::UsePreviewData() {
@@ -205,8 +250,8 @@ void LyricsView::Refresh() {
     const bool exporting = workspace_.exporting();
     const bool searching = workspace_.searching();
     syncing_ = true;
-    ProviderBox().SelectedIndex(index_of(mu::all_providers, workspace_.provider()));
-    KindBox().SelectedIndex(index_of(search_kinds, workspace_.kind()));
+    glass_menu::select(ProviderHost().Child().as<FrameworkElement>(), index_of(mu::all_providers, workspace_.provider()));
+    glass_menu::select(KindHost().Child().as<FrameworkElement>(), index_of(search_kinds, workspace_.kind()));
     if (to_string(QueryBox().Text()) != workspace_.query()) QueryBox().Text(to_hstring(workspace_.query()));
     syncing_ = false;
     QueryBox().IsEnabled(!exporting);
@@ -265,11 +310,10 @@ void LyricsView::RefreshFooter() {
     ExportProgress().Value(static_cast<double>(workspace_.progress()));
     FormatPanel().Visibility(shown(!exporting));
     syncing_ = true;
-    FormatBox().SelectedIndex(index_of(lyric_formats, workspace_.options().format));
+    glass_menu::select(FormatHost().Child().as<FrameworkElement>(), index_of(lyric_formats, workspace_.options().format));
     syncing_ = false;
 
-    MoreButton().Visibility(shown(!exporting));
-    CopyItem().IsEnabled(!workspace_.preview().empty());
+    MoreHost().Visibility(shown(!exporting));
     ExportCheckedButton().Visibility(shown(!exporting && workspace_.checked_count() > 0));
     ExportCheckedButton().Content(box_value(to_hstring(workspace_.export_checked_label())));
     ExportCheckedButton().IsEnabled(!workspace_.searching());
@@ -374,19 +418,6 @@ void LyricsView::RefreshEditor() {
     LineCount().Text(to_hstring(std::to_string(workspace_.line_count()) + " 行"));
 }
 
-void LyricsView::OnProviderChanged(IInspectable const&, SelectionChangedEventArgs const&) {
-    const int index = ProviderBox().SelectedIndex();
-    if (syncing_ || index < 0) return;
-    workspace_.set_provider(mu::all_providers[index]);
-    Refresh();
-}
-
-void LyricsView::OnKindChanged(IInspectable const&, SelectionChangedEventArgs const&) {
-    const int index = KindBox().SelectedIndex();
-    if (syncing_ || index < 0) return;
-    workspace_.set_kind(search_kinds[index]);
-}
-
 void LyricsView::OnQueryChanged(IInspectable const&, TextChangedEventArgs const&) {
     workspace_.set_query(to_string(QueryBox().Text()));
     SearchButton().IsEnabled(!workspace_.exporting() && !mu::trim_space(workspace_.query()).empty());
@@ -444,14 +475,6 @@ void LyricsView::OnEditorChanged(IInspectable const&, TextChangedEventArgs const
     workspace_.edit(tab_, std::move(text));
     RefreshEditor();
     RefreshFooter();
-}
-
-void LyricsView::OnFormatChanged(IInspectable const&, SelectionChangedEventArgs const&) {
-    const int index = FormatBox().SelectedIndex();
-    if (syncing_ || index < 0) return;
-    auto options = workspace_.options();
-    options.format = lyric_formats[index];
-    SetOptions(std::move(options));
 }
 
 void LyricsView::OnCopy(IInspectable const&, RoutedEventArgs const&) {

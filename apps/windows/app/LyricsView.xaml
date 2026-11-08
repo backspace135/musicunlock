@@ -63,10 +63,8 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <ComboBox x:Name="ProviderBox" HorizontalAlignment="Stretch" AutomationProperties.Name="音乐来源"
-                              SelectionChanged="OnProviderChanged" />
-                    <ComboBox x:Name="KindBox" Grid.Column="1" HorizontalAlignment="Stretch" AutomationProperties.Name="搜索类型"
-                              SelectionChanged="OnKindChanged" />
+                    <Border x:Name="ProviderHost" />
+                    <Border x:Name="KindHost" Grid.Column="1" />
                     <TextBox x:Name="QueryBox" Grid.Column="2" PlaceholderText="歌曲、歌手，或粘贴歌曲 / 歌单 / 专辑链接"
                              AutomationProperties.Name="歌词搜索关键词或音乐链接" ToolTipService.ToolTip="搜索歌词（Ctrl+F）"
                          TextChanged="OnQueryChanged" KeyDown="OnQueryKeyDown" />
@@ -339,7 +337,7 @@
                         <ProgressBar x:Name="ExportProgress" AutomationProperties.Name="歌词导出进度" />
                     </StackPanel>
                     <StackPanel x:Name="FormatPanel" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                        <ComboBox x:Name="FormatBox" MinWidth="92" AutomationProperties.Name="导出格式" SelectionChanged="OnFormatChanged" />
+                        <Border x:Name="FormatHost" />
                         <local:GlassSurface Kind="Control" Radius="-1" local:Press.Scale="0.96" local:Press.Glass="0.06">
                             <Button x:Name="ExportSettingsButton" Background="Transparent" BorderThickness="0"
                                     Style="{StaticResource MuCapsuleButtonStyle}" Foreground="{ThemeResource MuTextBrush}"
@@ -352,29 +350,7 @@
                         </local:GlassSurface>
                     </StackPanel>
                     <local:MorphGroup x:Name="ExportActions" Grid.Column="2" Shared="{x:Bind StopExportButton}">
-                        <Button x:Name="MoreButton" Style="{StaticResource MuIconButtonStyle}" ToolTipService.ToolTip="更多歌词操作"
-                                AutomationProperties.Name="更多歌词操作">
-                            <FontIcon Glyph="&#xE712;" FontSize="15" />
-                            <Button.Flyout>
-                                <MenuFlyout Placement="TopEdgeAlignedRight">
-                                    <MenuFlyoutItem x:Name="CopyItem" Text="复制歌词" Click="OnCopy">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon Glyph="&#xE8C8;" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutItem Text="打开输出文件夹" Click="OnOpenOutput">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon Glyph="&#xE838;" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                    <MenuFlyoutItem x:Name="ChangeOutputItem" Text="更改输出文件夹" Click="OnChooseOutput">
-                                        <MenuFlyoutItem.Icon>
-                                            <FontIcon Glyph="&#xE8B7;" />
-                                        </MenuFlyoutItem.Icon>
-                                    </MenuFlyoutItem>
-                                </MenuFlyout>
-                            </Button.Flyout>
-                        </Button>
+                        <Border x:Name="MoreHost" />
                         <local:GlassSurface Kind="Control" Radius="-1" local:Press.Scale="0.96" local:Press.Glass="0.06">
                             <Button x:Name="ExportCheckedButton" Background="Transparent" BorderThickness="0"
                                     Style="{StaticResource MuCapsuleButtonStyle}" Foreground="{ThemeResource MuTextBrush}"

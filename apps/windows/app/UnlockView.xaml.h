@@ -65,7 +65,6 @@ struct UnlockView : UnlockViewT<UnlockView> {
 
     void OnChooseFiles(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { ChooseFiles(false); }
     void OnChooseOutput(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
-    void OnNamingChanged(IInspectable const&, Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const&);
     void OnStart(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { Start(); }
     void OnStop(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { Stop(); }
     void OnRetry(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);

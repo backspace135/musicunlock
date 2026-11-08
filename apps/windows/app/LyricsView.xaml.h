@@ -34,9 +34,9 @@ struct LyricsView : LyricsViewT<LyricsView> {
     bool Busy() const { return workspace_.exporting(); }
     /// After the account dialog: the title row shows whether the provider's session is saved.
     void AccountsChanged() { Refresh(); }
+    /// 按标题定位玻璃菜单按钮，供独立桌面的静态预览使用。
+    Microsoft::UI::Xaml::FrameworkElement MenuButton(winrt::hstring const& title);
 
-    void OnProviderChanged(IInspectable const&, Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const&);
-    void OnKindChanged(IInspectable const&, Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const&);
     void OnQueryChanged(IInspectable const&, Microsoft::UI::Xaml::Controls::TextChangedEventArgs const&);
     void OnQueryKeyDown(IInspectable const&, Microsoft::UI::Xaml::Input::KeyRoutedEventArgs const& args);
     void OnSearch(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { Search(workspace_.search()); }
@@ -51,7 +51,6 @@ struct LyricsView : LyricsViewT<LyricsView> {
     void OnRetryLyrics(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&) { LoadLyrics(workspace_.retry_lyrics()); }
     void OnTabChanged(MusicUnlock::GlassSwitch const&, IInspectable const&);
     void OnEditorChanged(IInspectable const&, Microsoft::UI::Xaml::Controls::TextChangedEventArgs const&);
-    void OnFormatChanged(IInspectable const&, Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const&);
     void OnCopy(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnOpenOutput(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void OnChooseOutput(IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);

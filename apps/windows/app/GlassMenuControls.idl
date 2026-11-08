@@ -1,0 +1,14 @@
+namespace MusicUnlock
+{
+    [default_interface]
+    runtimeclass GlassMenuButton : Microsoft.UI.Xaml.Controls.Button
+    {
+        GlassMenuButton();
+    }
+
+    [default_interface]
+    runtimeclass GlassMenuItems : Microsoft.UI.Xaml.Controls.ContentControl
+    {
+        GlassMenuItems();
+    }
+}
