@@ -183,12 +183,10 @@ inline void material(winrt::MusicUnlock::GlassSwitch const& control) {
         const auto element = find(control, name);
         if (element.ActualWidth() <= 0) continue;
         const auto visual = Microsoft::UI::Xaml::Hosting::ElementCompositionPreview::GetElementVisual(element);
-        const auto clip = visual.Clip().as<Microsoft::UI::Composition::CompositionGeometricClip>();
-        const auto geometry = clip.Geometry().as<Microsoft::UI::Composition::CompositionRoundedRectangleGeometry>();
-        // 场景同步执行时 Composition 尚未提交，比较 XAML 已完成的布局尺寸。
-        if (std::abs(geometry.Size().x - element.ActualWidth()) > 0.5 ||
-            std::abs(geometry.Size().y - element.ActualHeight()) > 0.5)
-            throw hresult_error(E_FAIL, L"剪裁尺寸未跟随控件布局尺寸");
+        const auto clip = visual.Clip().try_as<Microsoft::UI::Composition::CompositionGeometricClip>();
+        // 连续圆角是路径几何，没有 Size 可比；尺寸由 corners::clip 自己跟随 SizeChanged 维护。
+        if (!clip || !clip.Geometry().try_as<Microsoft::UI::Composition::CompositionPathGeometry>())
+            throw hresult_error(E_FAIL, L"轨道和透镜必须使用连续圆角裁剪");
     }
 }
 

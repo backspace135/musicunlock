@@ -282,7 +282,6 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
   透镜移动用 `glass_motion::lens`，按下放大和阴影用 `press`，悬停文字用 100ms easeOut 颜色过渡；
   系统“动画效果”关闭时停止已有动画并直接到位，旧系统在下一次布局检查时同步状态。
   静态预览与透明效果关闭时使用主题画刷降级；位置和宽度用 XAML 采样弹簧，避免离屏渲染保留旧的 Composition 位移。
-  控件局部修正 #59 占位圆角的尺寸同步，不修改公共圆角或材质实现。
   标题栏里的开关保留为可交互 `Control`；真实鼠标点击、拖动不移动窗口的人工验收尚待用户操作确认。
   已连接的自动化树会收到 SelectionItem 选中状态与选中事件通知，不在初始化阶段主动创建 UIA 树。
   `switch-tests` / `switch-layout-tests` 验证集合、自动化选择、单 Tab 停靠点、Fill 等宽、文字重布局、悬停与减少动画；

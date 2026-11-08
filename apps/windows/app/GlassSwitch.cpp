@@ -641,16 +641,8 @@ void GlassSwitch::OnSurfaceSized(IInspectable const& sender, SizeChangedEventArg
     } else if (auto surface = element.try_as<MusicUnlock::GlassSurface>()) {
         surface.CornerRadius(CornerRadiusHelper::FromUniformRadius(radius));
     }
+    // 连续圆角裁剪自己跟随 SizeChanged 更新尺寸，这里只更新半径。
     corners::clip(element, static_cast<float>(radius));
-    // #59 占位 clip 的 this.Target 指向几何自身，且 SizeChanged 时 Visual 可能仍为旧尺寸。
-    // 保留公共圆角几何，只在本控件用已完成布局的 XAML 尺寸覆盖自引用表达式。
-    const auto visual = ElementCompositionPreview::GetElementVisual(element);
-    if (auto clip = visual.Clip().try_as<Microsoft::UI::Composition::CompositionGeometricClip>()) {
-        if (auto geometry = clip.Geometry().try_as<Microsoft::UI::Composition::CompositionRoundedRectangleGeometry>()) {
-            geometry.StopAnimation(L"Size");
-            geometry.Size({static_cast<float>(element.ActualWidth()), static_cast<float>(element.ActualHeight())});
-        }
-    }
 }
 
 void GlassSwitch::OnLayoutUpdated(IInspectable const&, IInspectable const&) {
