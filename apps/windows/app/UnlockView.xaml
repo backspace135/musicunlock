@@ -18,7 +18,7 @@
         </Style>
         <Style x:Key="MuChipStyle" TargetType="Border">
             <Setter Property="Background" Value="{ThemeResource MuChipBrush}" />
-            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="local:Corners.Radius" Value="5" />
             <Setter Property="Padding" Value="8,4" />
         </Style>
         <Style x:Key="MuQueueItemStyle" TargetType="ListViewItem" BasedOn="{StaticResource DefaultListViewItemStyle}">
@@ -83,7 +83,7 @@
                 <!-- Empty queue: drop target with the app mark -->
                 <Border x:Name="EmptyQueue" Grid.Row="3" Style="{StaticResource MuPanelStyle}" CornerRadius="22">
                     <Grid>
-                        <Rectangle Margin="8" RadiusX="14" RadiusY="14" Stroke="{ThemeResource MuSecondaryBrush}"
+                        <Rectangle Margin="8" local:Corners.Radius="14" RadiusX="14" RadiusY="14" Stroke="{ThemeResource MuSecondaryBrush}"
                                    StrokeThickness="1" StrokeDashArray="5,5" Opacity="0.35" />
                         <!-- Centred while it fits; scrolls when large text makes it taller than the panel. -->
                         <ScrollViewer Margin="9" VerticalScrollBarVisibility="Auto">
@@ -203,7 +203,7 @@
                                                 <ColumnDefinition Width="88" />
                                                 <ColumnDefinition Width="28" />
                                             </Grid.ColumnDefinitions>
-                                            <Grid Width="36" Height="40" CornerRadius="7" VerticalAlignment="Top"
+                                            <Grid Width="36" Height="40" local:Corners.Radius="7" VerticalAlignment="Top"
                                                   Background="{ThemeResource MuChipBrush}">
                                                 <FontIcon Glyph="&#xEC4F;" FontSize="17" AutomationProperties.AccessibilityView="Raw" />
                                                 <Image Source="{x:Bind Cover, Mode=OneWay}" Stretch="UniformToFill"
@@ -260,7 +260,7 @@
                         <StackPanel Spacing="8">
                             <TextBlock Text="输出文件夹" Style="{StaticResource MuLabelStyle}" />
                             <Button x:Name="OutputButton" Click="OnChooseOutput" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Padding="12"
-                                    Background="{ThemeResource MuSurfaceBrush}" BorderBrush="{ThemeResource MuSeparatorBrush}" CornerRadius="8"
+                                    Background="{ThemeResource MuSurfaceBrush}" BorderBrush="{ThemeResource MuSeparatorBrush}" local:Corners.Radius="8"
                                     local:Press.Scale="0.97">
                                 <Grid ColumnSpacing="10">
                                     <Grid.ColumnDefinitions>

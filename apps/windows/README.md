@@ -272,7 +272,8 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
 
   `handoff` 不是弹簧：菜单面板与按钮交叉淡化，easeInOut 0.08 秒，相对 `close` 开始延迟 0.12 秒。`scalar` / `vector2` / `vector3` 用 `SpringCurve` 的关键帧生成组合动画，起点取属性当前值，所以中途被打断不会跳；`motion::enabled()` 为 false 时返回空，调用方直接设终值。不用 `SpringNaturalMotionAnimation`，它的 `Period` 与 `response` 没有文档化的换算。
 - `GlassSurface`（`GlassSurface.idl`）：所有玻璃表面的控件，派生自 `ContentControl`（`Border` 不是可组合的运行时类）。`Kind` 区分面板、控件和弹出菜单，`Radius` 为负时是高度一半的胶囊，`TintOpacity` 叠加 `MuTextColor`，`OnGlass` 表示已经放在另一块玻璃上。内容放在 `ContentPresenter` 里，背景由控件模板绘制，不参与内容的布局。现在是占位：面板用 `MuPanelBrush`，控件、菜单和 `OnGlass` 用不透明的 `MuSurfaceBrush`，都加 1px `MuSeparatorBrush` 描边，菜单另加阴影。画刷用 `ThemeResource`，跟随元素请求的主题。目前只替换了音乐解锁工作区的底栏，观感与原来的 `MuPanelStyle` 一致。
-- `Corners.h`：`geometry`、`clip`、`stroke` 三个入口。`radius` 夹到 `min(w, h) / 2`，到达时是正圆端的胶囊。占位实现是普通圆弧圆角。`GlassSurface` 的占位外观沿用 `Border` 的圆角和描边，没有调用 `clip`：组合裁剪会把 `Border` 的描边一并切掉，真正的超椭圆由 #61 连同描边一起替换。
+- `Corners.h`：保留 `geometry`、`clip`、`stroke` 三个入口，通过 Direct2D 路径与 `IGeometrySource2DInterop` 向合成器提供连续圆角，不依赖 Win2D。每角三段贝塞尔，横纵短边独立压缩；半径恰好等于短边一半时保留压缩连续角，超过时夹成正圆端胶囊。纯 C++ 的 `ContinuousPath` 与 SwiftUI 核对点共用 `ui_math_tests`，另检查四角方向、边间连接、宽高互换、零半径及胶囊径向误差。
+- XAML 使用 `local:Corners.Radius="14"`，可挂在 `Border`、`Control`、`Grid` 或 `Shape`。自动替换原生圆角和单色等宽描边，描边中心线内缩半个线宽并按外轮廓裁剪；原生描边占用的空间补入 Padding，保持内容布局。支持 Shape 虚线；当前接入不涉及渐变或不等宽描边。状态存于元素私有附加属性，不以全局强引用表持有元素；同尺寸和半径复用裁剪，布局回调只比较缓存，画刷变色时刷新描边。`GlassSurface` 模板的 `Plate` 共用此属性，负半径明确使用圆端胶囊。
 
 ## 界面设计对应
 
@@ -285,6 +286,7 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
   `MUSICUNLOCK_BACKDROP=acrylic` 或 `solid` 可以在 Windows 11 上强制使用退回方案来检查。
 - 只用黑白灰：系统强调色被覆盖为墨灰（浅色 #1C1C1C、深色 #F2F2F2），主按钮、选中指示与焦点随之变灰；
   状态靠 Segoe Fluent 图标和文字区分，不靠颜色。支持高对比度主题。
+- 连续圆角遵循内外同心规则：歌词结果外层 20、行左右内缩 6，行容器和选中高亮均为 14；空队列外框 22、虚线内缩 8，虚线圆角 14。格式标签为 5、封面为 7、输出按钮为 8；二维码白底 12、内缩 1 的遮罩 11，网页登录容器 8，24×24 徽标仍为正圆。仅替换轮廓，不增加可访问节点或 Tab 停靠点。
 - 工具栏换成自定义标题栏：中间是工作区切换，右侧是添加文件夹、添加文件（歌词工作区是打开歌词、账号登录）；
   每组动作收进一个玻璃胶囊，只留图标，文字在提示和讲述人名称里。队列筛选和编辑区页签用 SelectorBar。
 - 主按钮是墨色实心胶囊（浅色 #1C1C1C 白字、深色 #F2F2F2 黑字），次按钮是 `GlassSurface` 胶囊，卡片上的次按钮用不透明胶囊加细描边。
