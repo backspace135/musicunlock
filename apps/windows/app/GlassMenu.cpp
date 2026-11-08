@@ -473,7 +473,9 @@ void grow() {
 void attach(FrameworkElement const& root) {
     root_ = root;
     popup_ = Popup();
-    popup_.ShouldConstrainToRootBounds(false);
+    // Inside the window's own composition: place() already keeps the menu within the window, and a windowed
+    // popup (a separate HWND) did not show on a real desktop.
+    popup_.ShouldConstrainToRootBounds(true);
     if (auto grid = root.try_as<Grid>()) {
         grid.Children().Append(popup_);
     }
