@@ -814,6 +814,14 @@ Windows::Foundation::IAsyncAction MainWindow::SavePreview(std::filesystem::path 
     Media::Imaging::RenderTargetBitmap bitmap;
     std::ofstream geometry(file.wstring() + L".geometry.txt");
     glass_switch_tests::describe(Root(), geometry);
+    // The workspace slide once animated the layout-owned Offset and left a workspace drawn over the title bar.
+    for (const FrameworkElement view : {AudioView().as<FrameworkElement>(), LyricsWorkspace().as<FrameworkElement>()}) {
+        if (view.Visibility() == Visibility::Visible &&
+            view.TransformToVisual(Root()).TransformPoint({0, 0}).Y + 0.5 < AppTitleBar().ActualHeight()) {
+            log_error(L"preview", E_FAIL, L"工作区盖住了标题栏");
+            throw hresult_error(E_FAIL, L"工作区盖住了标题栏");
+        }
+    }
     co_await bitmap.RenderAsync(Root());
     const IBuffer base = co_await bitmap.GetPixelsAsync();
     const int width = bitmap.PixelWidth(), height = bitmap.PixelHeight();
