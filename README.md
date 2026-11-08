@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="apps/macos/assets/AppIcon-1024.png" width="112" alt="音匣图标">
+
 # 音匣 MusicUnlock
 
 音乐解封装与歌词工具。macOS、Windows 和 Android 版本在同一个仓库维护，各自使用原生界面与系统集成。
@@ -8,6 +10,8 @@
 [![Windows](https://img.shields.io/github/v/release/backspace135/musicunlock?filter=windows-v*&label=Windows&logo=windows&color=1c1c1c)](https://github.com/backspace135/musicunlock/releases?q=windows-v&expanded=true)
 [![Android](https://img.shields.io/github/v/release/backspace135/musicunlock?filter=android-v*&label=Android&logo=android&color=1c1c1c)](https://github.com/backspace135/musicunlock/releases?q=android-v&expanded=true)
 [![License](https://img.shields.io/github/license/backspace135/musicunlock?color=6e6e6e)](LICENSE)
+
+[平台状态](#平台状态) · [架构](#架构) · [下载](#下载) · [目录结构](#目录结构) · [从源码构建](#从源码构建) · [发布](#发布) · [许可证与来源](#许可证与来源)
 
 </div>
 
@@ -21,9 +25,11 @@
 
 三个平台功能一致：
 
-- **音乐解锁**：本地批量解封装 NCM、QMC、MFLAC、MGG 等音频，保留原有编码，不修改源文件。
-- **歌词工具**：网易云音乐 / QQ 音乐搜索，原文、译文、罗马音编辑，导出 LRC / TXT / SRT / VTT。
-- **账号登录**：网易云扫码登录、QQ 音乐官方登录页授权，会话用系统密钥加密保存，无需手动复制 Cookie。
+| 功能 | 说明 |
+| --- | --- |
+| **音乐解锁** | 本地批量解封装 NCM、QMC、MFLAC、MGG 等音频，保留原有编码，不修改源文件。 |
+| **歌词工具** | 网易云音乐 / QQ 音乐搜索，原文、译文、罗马音编辑，导出 LRC / TXT / SRT / VTT。 |
+| **账号登录** | 网易云扫码登录、QQ 音乐官方登录页授权，会话用系统密钥加密保存，无需手动复制 Cookie。 |
 
 界面按各平台的原生方式实现：macOS 用 Apple Liquid Glass；Windows 用实色卡片、细描边和柔和投影（WinUI 3 不能对界面内容做自定义模糊），
 切换开关、菜单、连续曲率圆角和弹簧动效的参数与 macOS 版一一对应；Android 用 Jetpack Compose，只用黑白灰。
@@ -123,7 +129,9 @@ macOS 版的解密逻辑是原生 Swift 实现；Windows 版和 Android 版共�
 平台源码、测试和打包脚本归各自目录管理。构建产物写入对应平台的 `build/`，不提交到 Git。
 仓库不保留上游参考源码，仅保留必需数据和测试向量；克隆后即可构建。
 
-## macOS
+## 从源码构建
+
+### macOS
 
 需要 macOS 26+、Xcode 26+。在 `apps/macos/` 目录运行：
 
@@ -135,7 +143,7 @@ python3 scripts/smoke-test.py
 
 真实平台接口检查、登录方式、支持格式和功能限制见 [macOS README](apps/macos/README.md)。
 
-## Windows
+### Windows
 
 需要 Visual Studio 2022 Build Tools（“使用 C++ 的桌面开发”）与 Python 3，不需要 Visual Studio IDE。在 `apps/windows/` 目录运行：
 
@@ -149,7 +157,7 @@ python scripts/pack.py               # 生成单文件 build/dist/MusicUnlock.ex
 .NET 或 Windows App Runtime。界面设计、界面预览与动效记录、分发目录、任务栏固定等细节见 [Windows README](apps/windows/README.md)。
 安装版与文件关联（#10）尚未实现。
 
-## Android
+### Android
 
 需要 Python 3.10+、JDK 21 和 Android SDK；NDK、CMake、build-tools 的版本固定在 `apps/android/gradle/libs.versions.toml`，
 由 `setup_toolchain.py` 安装。在仓库根目录运行（Windows 用 `python`）：
