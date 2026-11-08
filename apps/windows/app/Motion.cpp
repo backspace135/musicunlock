@@ -205,14 +205,17 @@ void workspace(UIElement const& outgoing, UIElement const& incoming, bool toward
         auto c = visual.Compositor();
         auto centre = c.CreateExpressionAnimation(L"Vector3(this.Target.Size.X / 2, this.Target.Size.Y / 2, 0)");
         visual.StartAnimation(L"CenterPoint", centre);
+        // Translation, not the visual's Offset: layout owns Offset (the workspace sits below the title bar), and
+        // animating it to (x, 0, 0) left the workspace drawn over the title bar until the next layout moved it.
+        ElementCompositionPreview::SetIsTranslationEnabled(element, true);
         if (!enabled()) {
-            visual.Offset({to_x, 0, 0});
+            element.Translation({to_x, 0, 0});
             visual.Scale(uniform(to_scale));
             visual.Opacity(to_opacity);
             return;
         }
         auto offset = c.CreateVector3KeyFrameAnimation();
-        offset.Target(L"Offset");
+        offset.Target(L"Translation");
         sample(offset, glass_motion::workspace, float3{from_x, 0, 0}, float3{to_x, 0, 0});
         auto scale = c.CreateVector3KeyFrameAnimation();
         scale.Target(L"Scale");
@@ -220,9 +223,9 @@ void workspace(UIElement const& outgoing, UIElement const& incoming, bool toward
         auto opacity = c.CreateScalarKeyFrameAnimation();
         opacity.Target(L"Opacity");
         sample(opacity, glass_motion::workspace, from_opacity, to_opacity);
-        record(L"Offset", (std::to_wstring(static_cast<int>(from_x)) + L" -> " + std::to_wstring(static_cast<int>(to_x))).c_str(),
+        record(L"Translation", (std::to_wstring(static_cast<int>(from_x)) + L" -> " + std::to_wstring(static_cast<int>(to_x))).c_str(),
                spring_label(glass_motion::workspace).c_str(), milliseconds(offset.Duration()));
-        visual.StartAnimation(L"Offset", offset);
+        element.StartAnimation(offset);
         visual.StartAnimation(L"Scale", scale);
         visual.StartAnimation(L"Opacity", opacity);
     };
