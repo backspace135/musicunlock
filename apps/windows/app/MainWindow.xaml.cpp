@@ -4,6 +4,7 @@
 
 #include "Accounts.h"
 #include "AccountsDialog.xaml.h"
+#include "GlassSwitchTests.h"
 #include "GlassMotion.h"
 #include "Motion.h"
 #include "MotionCapture.h"
@@ -110,6 +111,9 @@ void MainWindow::InitializeComponent() {
     Activated([this](auto&&, WindowActivatedEventArgs const& args) {
         if (args.WindowActivationState() != WindowActivationState::Deactivated) ApplyMotion();
     });
+    WorkspaceBar().Labels().ReplaceAll({L"音乐解锁", L"歌词工具"});
+    WorkspaceBar().Glyphs().ReplaceAll({L"\uE785", L"\uE8E4"});
+    WorkspaceBar().SelectedIndex(0);
     Audio().Import(shell::command_line_paths());
     UpdateAccountsButton();
     if (!render_directory.empty()) {
@@ -151,8 +155,11 @@ void MainWindow::ApplyMotion() {
     Audio().ApplyMotion();
 }
 
-void MainWindow::OnWorkspaceChanged(Controls::SelectorBar const&, Controls::SelectorBarSelectionChangedEventArgs const&) {
-    const bool audio = WorkspaceBar().SelectedItem() == AudioItem();
+void MainWindow::OnWorkspaceChanged(MusicUnlock::GlassSwitch const&, IInspectable const&) {
+    if (!syncing_workspace_) ApplyWorkspace(WorkspaceBar().SelectedIndex() == 0);
+}
+
+void MainWindow::ApplyWorkspace(bool audio) {
     // The title bar centres the switcher in the space left by the actions; keep their widest width so it stays put.
     HeaderActions().MinWidth(std::max(HeaderActions().MinWidth(), HeaderActions().ActualWidth()));
     // The workspaces slide toward their own side of the switch; the title-bar actions keep their crossfade, on the
@@ -221,7 +228,12 @@ Controls::ContentDialog MainWindow::CloseDialog() {
     return dialog;
 }
 
-void MainWindow::ShowWorkspace(bool audio) { WorkspaceBar().SelectedItem(audio ? AudioItem() : LyricsItem()); }
+void MainWindow::ShowWorkspace(bool audio) {
+    syncing_workspace_ = true;
+    WorkspaceBar().SelectedIndex(audio ? 0 : 1);
+    syncing_workspace_ = false;
+    ApplyWorkspace(audio);
+}
 
 void MainWindow::OnAddFiles(IInspectable const&, RoutedEventArgs const&) { Audio().ChooseFiles(false); }
 void MainWindow::OnAddFolder(IInspectable const&, RoutedEventArgs const&) { Audio().ChooseFiles(true); }
@@ -343,6 +355,10 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
     Lyrics().ShowSampleSongs();
     co_await shot(L"lyrics-editor-light", ElementTheme::Light);
     co_await shot(L"lyrics-editor-dark", ElementTheme::Dark);
+    preview::scale_text(Root(), 2.0);
+    co_await shot(L"text200-lyrics-light", ElementTheme::Light);
+    co_await shot(L"text200-lyrics-dark", ElementTheme::Dark);
+    preview::scale_text(Root(), 0.5);
     resize(720);
     ShowWorkspace(true);
 
@@ -350,6 +366,7 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
     preview::scale_text(Root(), 2.0);
     audio.PreviewTextScale(2.0);
     co_await shot(L"text200-queue-light", ElementTheme::Light);
+    co_await shot(L"text200-queue-dark", ElementTheme::Dark);
     audio.OnClearQueue(nullptr, nullptr);
     co_await shot(L"text200-empty-light", ElementTheme::Light);
     preview::scale_text(Root(), 0.5);
@@ -369,6 +386,18 @@ fire_and_forget MainWindow::RenderPreviews(std::wstring directory) {
     co_await shot(L"contrast-empty", ElementTheme::Light);
     audio.ShowSampleJobs();
     co_await shot(L"contrast-queue", ElementTheme::Light);
+    preview::scale_text(Root(), 2.0);
+    audio.PreviewTextScale(2.0);
+    co_await shot(L"contrast-text200-queue", ElementTheme::Light);
+    preview::scale_text(Root(), 0.5);
+    audio.PreviewTextScale(0);
+    ShowWorkspace(false);
+    Lyrics().ShowSampleSongs();
+    co_await shot(L"contrast-lyrics", ElementTheme::Light);
+    preview::scale_text(Root(), 2.0);
+    co_await shot(L"contrast-text200-lyrics", ElementTheme::Light);
+    preview::scale_text(Root(), 0.5);
+    ShowWorkspace(true);
     // Last: moving focus through everything scrolls the settings panel.
     preview::write_tab_order(Root(), folder / L"tab-order.txt");
     Application::Current().Exit();
@@ -390,6 +419,52 @@ void MainWindow::RenderMotion(std::wstring directory, std::wstring scenarios) {
         driver.wait(400);
         Audio().DismissNotice();
         driver.wait(300);
+    });
+    motion_capture::add(L"switch-tests", [this](motion_capture::Driver& driver) {
+        glass_switch_tests::collection_state();
+        driver.note(L"PASS: 动态集合与非法索引");
+        glass_switch_tests::selection(WorkspaceBar());
+        driver.note(L"PASS: Selection / SelectionItem、名称、序号与必选行为");
+        glass_switch_tests::material(WorkspaceBar());
+        driver.note(L"PASS: GlassSurface 与独立缩放层");
+    });
+    motion_capture::add(L"switch-layout-tests", [this](motion_capture::Driver& driver) {
+        Audio().ShowSampleJobs();
+        Root().UpdateLayout();
+        glass_switch_tests::layout(Audio().Filter());
+        glass_switch_tests::contrast_resources(Audio().Filter());
+        glass_switch_tests::Access::reduced_press(Audio().Filter());
+        glass_switch_tests::Access::hover(Audio().Filter());
+        glass_switch_tests::Access::press_shadow(Audio().Filter());
+        glass_switch_tests::Access::reduced_during_animation(Audio().Filter());
+        glass_switch_tests::selection(Audio().Filter());
+        ShowWorkspace(false);
+        Lyrics().ShowSampleSongs();
+        Root().UpdateLayout();
+        const auto tabs = glass_switch_tests::find(Lyrics(), L"EditorTabs").as<MusicUnlock::GlassSwitch>();
+        glass_switch_tests::selection(tabs);
+        glass_switch_tests::layout(tabs);
+        ShowWorkspace(true);
+        driver.note(L"PASS: text scaling and capsule geometry");
+    });
+    motion_capture::add(L"switch", [this](motion_capture::Driver& driver) {
+        driver.capture(1400);
+        driver.note(L"icon segment: workspace switch");
+        WorkspaceBar().SelectedIndex(1);
+        driver.wait(500);
+        WorkspaceBar().SelectedIndex(0);
+        driver.wait(400);
+    });
+    motion_capture::add(L"filter", [this](motion_capture::Driver& driver) {
+        driver.capture(900);
+        Audio().ShowSampleJobs();
+        driver.wait(600);
+        Root().UpdateLayout();
+        driver.note(L"text segment: queue filter");
+        Audio().Filter().SelectedIndex(3);
+        driver.wait(500);
+        Audio().Filter().SelectedIndex(0);
+        driver.wait(400);
     });
     // The queue has to hold something before its rows, icons and highlight have anything to react to.
     motion_capture::add(L"icons", [this](motion_capture::Driver& driver) {
@@ -444,6 +519,9 @@ Windows::Foundation::IAsyncAction MainWindow::RenderAccountPreviews(std::filesys
     co_await wil::resume_foreground(dispatcher);
     // The QQ page itself is never loaded in renders, but WebView2 must start from the app folder with its
     // data inside MUSICUNLOCK_DATA_DIR.
+    const auto platform_switch = glass_switch_tests::find(dialog, L"ProviderBar").as<MusicUnlock::GlassSwitch>();
+    glass_switch_tests::selection(platform_switch);
+    glass_switch_tests::layout(platform_switch);
     view.ShowPreview(Preview::official_page);
     log_error(L"webview2", S_OK, co_await view.CheckWebView(mu::MusicProvider::qq));
     co_await wil::resume_foreground(dispatcher);
@@ -478,6 +556,12 @@ Windows::Foundation::IAsyncAction MainWindow::RenderAccountPreviews(std::filesys
             co_await wil::resume_foreground(dispatcher);
             co_await SavePreview(directory / (L"accounts-" + std::wstring(state.name) + L"-" + theme.name + L".png"));
         }
+        preview::scale_text(dialog, 2.0);
+        dialog.UpdateLayout();
+        co_await resume_after(500ms);
+        co_await wil::resume_foreground(dispatcher);
+        co_await SavePreview(directory / (L"accounts-text200-" + std::wstring(theme.name) + L".png"));
+        preview::scale_text(dialog, 0.5);
     }
     dialog.Hide();
     co_await resume_after(200ms);
@@ -550,6 +634,8 @@ Windows::Foundation::IAsyncAction MainWindow::SavePreview(std::filesystem::path 
     auto strong = get_strong();
     auto dispatcher = DispatcherQueue();
     Media::Imaging::RenderTargetBitmap bitmap;
+    std::ofstream geometry(file.wstring() + L".geometry.txt");
+    glass_switch_tests::describe(Root(), geometry);
     co_await bitmap.RenderAsync(Root());
     const IBuffer base = co_await bitmap.GetPixelsAsync();
     const int width = bitmap.PixelWidth(), height = bitmap.PixelHeight();
@@ -564,6 +650,7 @@ Windows::Foundation::IAsyncAction MainWindow::SavePreview(std::filesystem::path 
     std::stable_partition(layers.begin(), layers.end(),
                           [](UIElement const& layer) { return !layer.try_as<Controls::ContentDialog>(); });
     for (const UIElement& child : layers) {
+        glass_switch_tests::describe(child, geometry);
         Media::Imaging::RenderTargetBitmap layer;
         co_await layer.RenderAsync(child);
         const IBuffer top = co_await layer.GetPixelsAsync();

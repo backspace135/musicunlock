@@ -1,0 +1,19 @@
+namespace MusicUnlock
+{
+    /* 对应 macOS GlassSwitch：胶囊轨道中的透镜位于文字下方。
+       整个控件只有一个 Tab 停靠点，各段通过自动化对等体提供选择语义。 */
+    [default_interface]
+    runtimeclass GlassSwitch : Microsoft.UI.Xaml.Controls.Control
+    {
+        GlassSwitch();
+        /* 段文字，同时用于讲述人名称和图标模式的提示。 */
+        Windows.Foundation.Collections.IVector<String> Labels { get; };
+        /* 可选 Segoe Fluent 图标，与文字一一对应；数量一致时替代文字显示。 */
+        Windows.Foundation.Collections.IVector<String> Glyphs { get; };
+        Int32 SelectedIndex;
+        Boolean OnGlass; /* 使用实心表面，避免玻璃叠玻璃 */
+        Boolean Fill;    /* 等宽铺满可用宽度 */
+        String Title;    /* 讲述人先读出的分组名称 */
+        event Windows.Foundation.TypedEventHandler<GlassSwitch, Object> SelectionChanged;
+    }
+}

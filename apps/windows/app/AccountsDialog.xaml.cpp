@@ -67,6 +67,8 @@ constexpr const char* sample_qr_url =
 
 void AccountsDialog::InitializeComponent() {
     AccountsDialogT::InitializeComponent();
+    ProviderBar().Labels().ReplaceAll({L"网易云音乐", L"QQ 音乐"});
+    ProviderBar().SelectedIndex(0);
     preview_ = GetEnvironmentVariableW(L"MUSICUNLOCK_RENDER_DIR", nullptr, 0) != 0;
     // Closing the dialog ends the QR polling and the login page.
     Closing([this](auto&&, auto&&) {
@@ -86,14 +88,12 @@ void AccountsDialog::FitToWindow() {
 }
 
 MusicProvider AccountsDialog::Provider() {
-    return ProviderBar().SelectedItem() == QQItem() ? MusicProvider::qq : MusicProvider::netease;
+    return ProviderBar().SelectedIndex() == 1 ? MusicProvider::qq : MusicProvider::netease;
 }
 
-void AccountsDialog::Select(MusicProvider provider) {
-    ProviderBar().SelectedItem(provider == MusicProvider::qq ? QQItem() : NeteaseItem());
-}
+void AccountsDialog::Select(MusicProvider provider) { ProviderBar().SelectedIndex(provider == MusicProvider::qq ? 1 : 0); }
 
-void AccountsDialog::OnProviderChanged(SelectorBar const&, SelectorBarSelectionChangedEventArgs const&) {
+void AccountsDialog::OnProviderChanged(MusicUnlock::GlassSwitch const&, IInspectable const&) {
     message_.clear();
     official_ = relogin_ = false;
     if (IsLoaded()) Refresh();
