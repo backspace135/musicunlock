@@ -811,7 +811,6 @@ Windows::Foundation::IAsyncAction MainWindow::SavePreview(std::filesystem::path 
     using namespace Windows::Storage::Streams;
     auto strong = get_strong();
     auto dispatcher = DispatcherQueue();
-    Media::Imaging::RenderTargetBitmap bitmap;
     std::ofstream geometry(file.wstring() + L".geometry.txt");
     glass_switch_tests::describe(Root(), geometry);
     // The workspace slide once animated the layout-owned Offset and left a workspace drawn over the title bar.
@@ -822,16 +821,46 @@ Windows::Foundation::IAsyncAction MainWindow::SavePreview(std::filesystem::path 
             throw hresult_error(E_FAIL, L"工作区盖住了标题栏");
         }
     }
-    co_await bitmap.RenderAsync(Root());
-    const IBuffer base = co_await bitmap.GetPixelsAsync();
-    const int width = bitmap.PixelWidth(), height = bitmap.PixelHeight();
-    std::vector<uint8_t> pixels(base.data(), base.data() + base.Length());
-    // Dialogs live in popups outside Root: draw each over the window (premultiplied "over", as the compositor does).
+    // The window as the compositor draws it (PrintWindow's full-content mode), so composition clips, offsets and
+    // opacity show up exactly as on screen; RenderTargetBitmap renders the XAML tree and skips them, which once
+    // let a menu that never appeared on screen pass every preview.
+    HWND hwnd = nullptr;
+    this->try_as<::IWindowNative>()->get_WindowHandle(&hwnd);
+    RECT frame{}, client{};
+    POINT corner{};
+    GetWindowRect(hwnd, &frame);
+    GetClientRect(hwnd, &client);
+    ClientToScreen(hwnd, &corner);
+    const int frame_width = frame.right - frame.left, frame_height = frame.bottom - frame.top;
+    const int width = client.right, height = client.bottom;
+    std::vector<uint8_t> pixels(static_cast<size_t>(width) * height * 4);
+    {
+        BITMAPINFO info{};
+        info.bmiHeader = {sizeof(BITMAPINFOHEADER), frame_width, -frame_height, 1, 32, BI_RGB};
+        void* bits = nullptr;
+        HDC dc = CreateCompatibleDC(nullptr);
+        HBITMAP bitmap = CreateDIBSection(dc, &info, DIB_RGB_COLORS, &bits, nullptr, 0);
+        const HGDIOBJ previous = SelectObject(dc, bitmap);
+        const bool printed = PrintWindow(hwnd, dc, PW_RENDERFULLCONTENT);
+        for (int y = 0; printed && y < height; ++y) {
+            const auto* row = static_cast<const uint8_t*>(bits) +
+                              (static_cast<size_t>(y + corner.y - frame.top) * frame_width + (corner.x - frame.left)) * 4;
+            std::copy_n(row, static_cast<size_t>(width) * 4, pixels.data() + static_cast<size_t>(y) * width * 4);
+        }
+        SelectObject(dc, previous);
+        DeleteObject(bitmap);
+        DeleteDC(dc);
+        if (!printed) throw hresult_error(HRESULT_FROM_WIN32(GetLastError()), L"PrintWindow 截图失败");
+    }
+    for (size_t i = 3; i < pixels.size(); i += 4) pixels[i] = 255;
     const double scale = Root().ActualWidth() > 0 ? width / Root().ActualWidth() : 1;
-    // A ContentDialog's smoke layer is a popup of its own and goes under the dialog.
+    // Windowed popups (flyouts, tooltips) are windows of their own and are not in that picture: draw each over it.
     std::vector<UIElement> layers;
     for (auto const& popup : Media::VisualTreeHelper::GetOpenPopupsForXamlRoot(Root().XamlRoot())) {
-        if (const UIElement child = popup.Child()) layers.push_back(child);
+        if (const UIElement child = popup.Child()) {
+            if (popup.IsConstrainedToRootBounds()) glass_switch_tests::describe(child, geometry);
+            else layers.push_back(child);
+        }
     }
     std::stable_partition(layers.begin(), layers.end(),
                           [](UIElement const& layer) { return !layer.try_as<Controls::ContentDialog>(); });
