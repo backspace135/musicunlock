@@ -136,7 +136,7 @@ void MainWindow::InitializeComponent() {
 }
 
 void MainWindow::OnAccounts(IInspectable const&, RoutedEventArgs const&) {
-    glass_menu::show_entries(AccountsButton(), L"账号登录", false, [this] {
+    glass_menu::show_entries(AccountsButton(), L"账号登录", [this] {
             std::vector<glass_menu::Entry> entries;
             bool first = true;
             for (const auto provider : mu::all_providers) {

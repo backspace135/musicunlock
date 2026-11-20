@@ -46,7 +46,6 @@ constexpr double kMinWidth = 150;
 
 struct Source {
     winrt::weak_ref<FrameworkElement> button;
-    bool hides = true;
 };
 
 struct Menu {
@@ -315,7 +314,6 @@ void show(Source source, std::vector<Entry> entries) {
     if (auto control = button.try_as<winrt::MusicUnlock::GlassMenuButton>()) {
         winrt::get_self<winrt::MusicUnlock::implementation::GlassMenuButton>(control)->Expanded(true);
     }
-    if (menu_.source.hides) button.Opacity(0);
     menu_.panel.IsTabStop(true);
     menu_.panel.KeyDown([](auto&&, Input::KeyRoutedEventArgs const& args) {
         const auto key = args.Key();
@@ -359,7 +357,6 @@ void stop_rendering() {
 void finish() {
     stop_rendering();
     if (auto button = menu_.source.button.get()) {
-        button.Opacity(1);
         if (auto control = button.try_as<winrt::MusicUnlock::GlassMenuButton>()) {
             winrt::get_self<winrt::MusicUnlock::implementation::GlassMenuButton>(control)->Expanded(false);
         }
@@ -399,9 +396,6 @@ void paint() {
     rows.CenterPoint({menu_.target.Width / 2, menu_.above ? menu_.target.Height : 0, 0});
     const float scale = static_cast<float>(0.9 + 0.1 * menu_.content_opacity);
     rows.Scale({scale, scale, 1});
-    if (menu_.source.hides) {
-        if (auto button = menu_.source.button.get()) button.Opacity(1 - menu_.opacity);
-    }
 }
 
 void animate(bool opening) {
@@ -525,15 +519,14 @@ void attach(FrameworkElement const& root) {
             if (menu_.current.Width + 0.01 < anchor.Width || menu_.current.Height + 0.01 < anchor.Height) {
                 throw winrt::hresult_error(E_FAIL, L"收起尺寸小于按钮");
             }
-            if (auto button = menu_.source.button.get(); menu_.source.hides &&
-                std::abs(button.Opacity() + menu_.opacity - 1) > 0.001) {
-                throw winrt::hresult_error(E_FAIL, L"菜单交接不透明度不互补");
+            if (auto button = menu_.source.button.get(); button && button.Opacity() != 1) {
+                throw winrt::hresult_error(E_FAIL, L"菜单打开期间来源按钮被隐藏");
             }
             driver.note(L"sample=" + std::to_wstring(i / 120.0) + L"s size=" + std::to_wstring(menu_.current.Width) +
                 L"x" + std::to_wstring(menu_.current.Height) + L" opacity=" + std::to_wstring(menu_.opacity));
         }
         if (menu_.panel) throw winrt::hresult_error(E_FAIL, L"透明菜单未清理");
-        driver.note(L"PASS: no shrink undershoot, complementary handoff, transparent removal");
+        driver.note(L"PASS: no shrink undershoot, source button stays visible, transparent removal");
         found->open();
         advance(0.05);
         close();
@@ -561,11 +554,11 @@ void attach(FrameworkElement const& root) {
     });
 }
 
-Controls::Button make_button(std::wstring title, std::function<std::vector<Entry>()> entries, bool hides) {
+Controls::Button make_button(std::wstring title, std::function<std::vector<Entry>()> entries) {
     auto button = winrt::make<winrt::MusicUnlock::implementation::GlassMenuButton>();
     Automation::AutomationProperties::SetName(button, title);
-    auto open = [title = std::move(title), entries = std::move(entries), hides, weak = winrt::make_weak(button)] {
-        if (auto self = weak.get()) show_entries(self, title, hides, entries);
+    auto open = [title = std::move(title), entries = std::move(entries), weak = winrt::make_weak(button)] {
+        if (auto self = weak.get()) show_entries(self, title, entries);
     };
     button.Click([open](auto&&, auto&&) { open(); });
     auto state = winrt::get_self<winrt::MusicUnlock::implementation::GlassMenuButton>(button);
@@ -637,8 +630,7 @@ void select(FrameworkElement const& picker, int index) {
     }
 }
 
-void show_entries(FrameworkElement const& button, std::wstring title, bool hides,
-                   std::function<std::vector<Entry>()> entries) {
+void show_entries(FrameworkElement const& button, std::wstring title, std::function<std::vector<Entry>()> entries) {
     if (Automation::AutomationProperties::GetName(button).empty()) Automation::AutomationProperties::SetName(button, title);
     auto current = menu_.source.button.get();
     if (current && current.as<winrt::Windows::Foundation::IInspectable>() ==
@@ -655,7 +647,7 @@ void show_entries(FrameworkElement const& button, std::wstring title, bool hides
         }
         return;
     }
-    show(Source{winrt::make_weak(button), hides}, entries());
+    show(Source{winrt::make_weak(button)}, entries());
 }
 
 void open_for_preview(FrameworkElement const& button) {
