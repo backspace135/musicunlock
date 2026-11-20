@@ -119,7 +119,7 @@ python scripts/screenshot.py --dist [--convert]   # 用分发目录里的 App �
 - 菜单按钮提供 ExpandCollapse，内容提供 Menu/MenuItem 角色；可勾选项提供 Toggle 状态。
   预览同时通过真实 Invoke 路径验证 LRC→SRT→LRC 的显示值与名称同步，以及展开/收起和勾选状态。
 - `python scripts/screenshot.py --motion glass-menu,glass-menu-reduced` 检查生产几何推进函数中的收起尺寸、
-  不透明度交接、透明移除、中途重开及减少动态效果的瞬时开关。计划任务不继承启动终端的环境变量，
+  来源按钮始终可见、透明移除、中途重开及减少动态效果的瞬时开关。计划任务不继承启动终端的环境变量，
   因此减少动效场景直接使用现有 `motion::suspend` 开关。这些日志不是像素帧，不能证明实际关闭过程没有闪烁。
 - 当前已知缺口：内容模糊 6→0 尚未实现（WinUI 3 不能自绘模糊，见 #60）；200% 菜单专项预览、已登录账号菜单预览、
   真实键盘/焦点与点击穿透、关闭交接观感仍待人工验收。
@@ -270,7 +270,7 @@ python3 apps/windows/scripts/remote.py list | remove          # 查看工作树 
   | `footer` | 底栏按钮出现、消失、变形 | 0.45 | 0.8 |
   | `selection` | 歌词结果选中高亮滑动 | 0.35 | 0.8 |
 
-  `handoff` 不是弹簧：菜单面板与按钮交叉淡化，easeInOut 0.08 秒，相对 `close` 开始延迟 0.12 秒。`scalar` / `vector2` / `vector3` 用 `SpringCurve` 的关键帧生成组合动画，起点取属性当前值，所以中途被打断不会跳；`motion::enabled()` 为 false 时返回空，调用方直接设终值。不用 `SpringNaturalMotionAnimation`，它的 `Period` 与 `response` 没有文档化的换算。
+  `handoff` 不是弹簧：菜单面板缩回按钮后淡出，easeInOut 0.08 秒，相对 `close` 开始延迟 0.12 秒；来源按钮全程可见。`scalar` / `vector2` / `vector3` 用 `SpringCurve` 的关键帧生成组合动画，起点取属性当前值，所以中途被打断不会跳；`motion::enabled()` 为 false 时返回空，调用方直接设终值。不用 `SpringNaturalMotionAnimation`，它的 `Period` 与 `response` 没有文档化的换算。
 - `GlassSurface`（`GlassSurface.idl`）：所有玻璃表面的控件，派生自 `ContentControl`（`Border` 不是可组合的运行时类）。`Kind` 区分面板、控件和弹出菜单，`Radius` 为负时是高度一半的胶囊，`TintOpacity` 叠加 `MuTextColor`，`OnGlass` 表示已经放在另一块玻璃上。内容放在 `ContentPresenter` 里，背景由控件模板绘制，不参与内容的布局。都是实色表面加细描边，见下一节“界面设计对应”。标题栏、音乐解锁和歌词两个工作区的面板、胶囊按钮和底栏都用它。
 - `Corners.h`：保留 `geometry`、`clip`、`stroke` 三个入口，通过 Direct2D 路径与 `IGeometrySource2DInterop` 向合成器提供连续圆角，不依赖 Win2D。每角三段贝塞尔，横纵短边独立压缩；半径恰好等于短边一半时保留压缩连续角，超过时夹成正圆端胶囊。纯 C++ 的 `ContinuousPath` 与 SwiftUI 核对点共用 `ui_math_tests`，另检查四角方向、边间连接、宽高互换、零半径及胶囊径向误差。
 - XAML 使用 `local:Corners.Radius="14"`，可挂在 `Border`、`Control`、`Grid` 或 `Shape`。自动替换原生圆角和单色等宽描边，描边中心线内缩半个线宽并按外轮廓裁剪；原生描边占用的空间补入 Padding，保持内容布局。支持 Shape 虚线；当前接入不涉及渐变或不等宽描边。状态存于元素私有附加属性，不以全局强引用表持有元素；同尺寸和半径复用裁剪，布局回调只比较缓存，画刷变色时刷新描边。`GlassSurface` 模板的 `Plate` 共用此属性，负半径明确使用圆端胶囊。

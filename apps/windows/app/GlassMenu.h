@@ -24,8 +24,8 @@ struct Entry {
 /// 将共享菜单挂到窗口根节点，只调用一次。
 void attach(xaml::FrameworkElement const& root);
 
-/// 创建来源按钮。每次打开时重新读取 entries；hides=false 时保留标题栏绘制的按钮。
-xaml::Controls::Button make_button(std::wstring title, std::function<std::vector<Entry>()> entries, bool hides = true);
+/// 创建来源按钮。每次打开时重新读取 entries；菜单打开期间按钮保持可见。
+xaml::Controls::Button make_button(std::wstring title, std::function<std::vector<Entry>()> entries);
 
 /// 当前值和上下箭头组成的胶囊选择器；on_glass 使用普通表面，避免玻璃叠加。
 /// minimum 限定最小宽度，changed 接收选择索引。
@@ -35,9 +35,8 @@ xaml::FrameworkElement make_picker(std::wstring title, std::vector<std::wstring>
 /// 模型更新选择器时同步显示值和无障碍名称，不触发 changed。
 void select(xaml::FrameworkElement const& picker, int index);
 
-/// 从已有按钮打开菜单；标题栏账号按钮使用 hides=false，从按钮后方展开。
-void show_entries(xaml::FrameworkElement const& button, std::wstring title, bool hides,
-                  std::function<std::vector<Entry>()> entries);
+/// 从已有按钮（如标题栏账号按钮）打开菜单。
+void show_entries(xaml::FrameworkElement const& button, std::wstring title, std::function<std::vector<Entry>()> entries);
 
 /// 静态预览打开菜单；未能匹配按钮或打开失败时抛出异常。
 void open_for_preview(xaml::FrameworkElement const& button);
